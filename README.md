@@ -1,2 +1,2 @@
 # aegir
-Experimental, statically-typed autodiff library in Rust.
+> Experimental, statically-typed autodiff library in Rust.
