@@ -1,0 +1,240 @@
+pub trait ScalarBuffer:
+    Buffer<Field = Self> + Copy +
+    num_traits::Num + num_traits::Signed +
+    std::fmt::Debug
+{}
+
+impl<T> ScalarBuffer for T
+where
+    T:
+        Buffer<Field = Self> + Copy +
+        num_traits::Num + num_traits::Signed +
+        std::fmt::Debug,
+{}
+
+pub trait Buffer: std::fmt::Debug {
+    type Field: ScalarBuffer;
+    type Owned: OwnedBuffer<Field = Self::Field>;
+
+    fn to_owned(&self) -> Self::Owned;
+
+    fn into_owned(self) -> Self::Owned;
+
+    fn to_zeroes(&self) -> Self::Owned {
+        self.to_owned().map(|_| num_traits::identities::zero())
+    }
+
+    fn into_zeroes(self) -> Self::Owned where Self: Sized {
+        self.map(|_| num_traits::identities::zero())
+    }
+
+    fn to_ones(&self) -> Self::Owned {
+        self.to_owned().map(|_| num_traits::identities::one())
+    }
+
+    fn into_ones(self) -> Self::Owned where Self: Sized {
+        self.map(|_| num_traits::identities::one())
+    }
+
+    fn map<F: Fn(Self::Field) -> Self::Field>(self, f: F) -> Self::Owned;
+
+    fn merge<F: Fn(Self::Field, &Self::Field) -> Self::Field>(self, other: &Self, f: F) -> Self::Owned;
+
+    fn fold<F: Fn(Self::Field, &Self::Field) -> Self::Field>(&self, init: Self::Field, f: F) -> Self::Field;
+}
+
+pub trait OwnedBuffer: Buffer<Owned = Self> + Clone {}
+
+impl<B: Buffer<Owned = B> + Clone> OwnedBuffer for B {}
+
+pub type FieldOf<B> = <B as Buffer>::Field;
+pub type OwnedOf<B> = <B as Buffer>::Owned;
+
+impl Buffer for f64 {
+    type Field = f64;
+    type Owned = f64;
+
+    fn to_owned(&self) -> f64 { *self }
+
+    fn into_owned(self) -> f64 { self }
+
+    fn map<F: Fn(f64) -> Self::Field>(self, f: F) -> Self { f(self) }
+
+    fn merge<F: Fn(f64, &f64) -> f64>(self, other: &f64, f: F) -> Self {
+        f(self, other)
+    }
+
+    fn fold<F: Fn(f64, &f64) -> f64>(&self, init: f64, f: F) -> Self::Field {
+        f(init, self)
+    }
+}
+
+impl<F: ScalarBuffer<Field = F>> Buffer for Vec<F> {
+    type Field = F;
+    type Owned = Self;
+
+    fn to_owned(&self) -> Vec<F> { self.clone() }
+
+    fn into_owned(self) -> Vec<F> { self }
+
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> Self {
+        self.into_iter().map(f).collect()
+    }
+
+    fn merge<Func: Fn(F, &F) -> F>(self, other: &Vec<F>, f: Func) -> Self {
+        self.into_iter().zip(other.iter()).map(|(x, y)| f(x, y)).collect()
+    }
+
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> Self::Field {
+        self.into_iter().fold(init, f)
+    }
+}
+
+impl<F: ScalarBuffer<Field = F>> Buffer for &Vec<F> {
+    type Field = F;
+    type Owned = Vec<F>;
+
+    fn to_owned(&self) -> Vec<F> { self.to_vec() }
+
+    fn into_owned(self) -> Vec<F> { self.to_vec() }
+
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> Vec<F> {
+        self.into_iter().map(|x| f(*x)).collect()
+    }
+
+    fn merge<Func: Fn(F, &F) -> F>(self, other: &&Vec<F>, f: Func) -> Vec<F> {
+        self.into_iter().zip(other.iter()).map(|(x, y)| f(*x, y)).collect()
+    }
+
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> Self::Field {
+        self.into_iter().fold(init, f)
+    }
+}
+
+impl<F, S> Buffer for ndarray::ArrayBase<S, ndarray::Ix1>
+where
+    F: ScalarBuffer<Field = F>,
+    S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
+{
+    type Field = F;
+    type Owned = ndarray::Array1<F>;
+
+    fn to_owned(&self) -> ndarray::Array1<F> { self.to_owned() }
+
+    fn into_owned(self) -> ndarray::Array1<F> { self.into_owned() }
+
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array1<F> {
+        self.into_owned().mapv(f)
+    }
+
+    fn merge<Func: Fn(F, &F) -> F>(self, other: &Self, f: Func) -> ndarray::Array1<F> {
+        let mut buf = self.into_owned();
+
+        buf.iter_mut().zip(other.iter()).for_each(|(xx, yy)| {
+            *xx = f(*xx, yy)
+        });
+
+        buf
+    }
+
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
+        self.fold(init, f)
+    }
+}
+
+impl<F, S> Buffer for &ndarray::ArrayBase<S, ndarray::Ix1>
+where
+    F: ScalarBuffer<Field = F>,
+    S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
+{
+    type Field = F;
+    type Owned = ndarray::Array1<F>;
+
+    fn to_owned(&self) -> ndarray::Array1<F> { (*self).to_owned() }
+
+    fn into_owned(self) -> ndarray::Array1<F> { ndarray::ArrayBase::into_owned(self.clone()) }
+
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array1<F> {
+        self.into_owned().mapv(f)
+    }
+
+    fn merge<Func: Fn(F, &F) -> F>(self, other: &Self, f: Func) -> ndarray::Array1<F> {
+        let mut buf = self.into_owned();
+
+        buf.iter_mut().zip(other.iter()).for_each(|(xx, yy)| {
+            *xx = f(*xx, yy)
+        });
+
+        buf
+    }
+
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
+        ndarray::ArrayBase::fold(self, init, f)
+    }
+}
+
+impl<F, S> Buffer for ndarray::ArrayBase<S, ndarray::Ix2>
+where
+    F: ScalarBuffer<Field = F>,
+    S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
+{
+    type Field = F;
+    type Owned = ndarray::Array2<F>;
+
+    fn to_owned(&self) -> ndarray::Array2<F> { self.to_owned() }
+
+    fn into_owned(self) -> ndarray::Array2<F> { self.into_owned() }
+
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array2<F> {
+        self.into_owned().mapv(f)
+    }
+
+    fn merge<Func: Fn(F, &F) -> F>(self, other: &Self, f: Func) -> ndarray::Array2<F> {
+        let mut buf = self.into_owned();
+
+        buf.gencolumns_mut().into_iter().zip(other.gencolumns()).for_each(|(mut x, y)| {
+            x.iter_mut().zip(y.iter()).for_each(|(xx, yy)| {
+                *xx = f(*xx, yy)
+            })
+        });
+
+        buf
+    }
+
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
+        self.fold(init, f)
+    }
+}
+
+impl<F, S> Buffer for &ndarray::ArrayBase<S, ndarray::Ix2>
+where
+    F: ScalarBuffer<Field = F>,
+    S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
+{
+    type Field = F;
+    type Owned = ndarray::Array2<F>;
+
+    fn to_owned(&self) -> ndarray::Array2<F> { (*self).to_owned() }
+
+    fn into_owned(self) -> ndarray::Array2<F> { ndarray::ArrayBase::into_owned(self.clone()) }
+
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array2<F> {
+        self.into_owned().mapv(f)
+    }
+
+    fn merge<Func: Fn(F, &F) -> F>(self, other: &Self, f: Func) -> ndarray::Array2<F> {
+        let mut buf = self.into_owned();
+
+        buf.gencolumns_mut().into_iter().zip(other.gencolumns()).for_each(|(mut x, y)| {
+            x.iter_mut().zip(y.iter()).for_each(|(xx, yy)| {
+                *xx = f(*xx, yy)
+            })
+        });
+
+        buf
+    }
+
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
+        ndarray::ArrayBase::fold(self, init, f)
+    }
+}

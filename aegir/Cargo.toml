@@ -1,0 +1,18 @@
+[package]
+name = "aegir"
+description = "Strongly-typed, reverse-mode autodiff library in Rust"
+
+version = "0.1.0"
+authors = ["Tom Spooner <spooner10000@gmail.com>"]
+
+edition = "2018"
+
+[dependencies]
+paste = "1.0"
+either = "1.6"
+
+ndarray = "0.14"
+num-traits = "0.2"
+
+[dev_dependencies]
+rand = "0.8"

@@ -1,14 +1,4 @@
-[package]
-name = "aegir"
-description = "Experimental, statically-typed autodiff library in Rust"
-
-version = "0.1.0"
-authors = ["Tom Spooner <spooner10000@gmail.com>"]
-
-edition = "2018"
-
-[dependencies]
-futures = "0.3"
-
-ndarray = "0.13"
-num-traits = "0.2"
+[workspace]
+members = [
+    "aegir",
+]
