@@ -5,7 +5,19 @@ description = "Strongly-typed, reverse-mode autodiff library in Rust"
 version = "0.1.0"
 authors = ["Tom Spooner <spooner10000@gmail.com>"]
 
+license = "MIT"
+readme = "README.md"
+
+keywords = ["autodiff", "autograd", "compute", "dag", "math"]
+
+repository = "https://github.com/tspooner/aegir"
+documentation = "https://docs.rs/aegir"
+
 edition = "2018"
+
+[badges]
+travis-ci = { repository = "tspooner/aegir", branch = "master" }
+coveralls = { repository = "tspooner/aegir", branch = "master", service = "github" }
 
 [dependencies]
 paste = "1.0"
