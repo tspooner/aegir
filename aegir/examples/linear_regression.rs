@@ -25,7 +25,7 @@ fn main() {
     let y = Y.to_var();
     let w = W.to_var();
 
-    let sse = y.add(w.dot(x)).pow(2.0).reduce();
+    let sse = y.sub(w.dot(x)).pow(2.0).reduce();
 
     for _ in 0..10000 {
         let x_ = Array1::from(vec![rand::random::<f64>()]);
