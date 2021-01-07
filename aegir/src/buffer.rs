@@ -36,11 +36,14 @@ pub trait Buffer: std::fmt::Debug {
         self.map(|_| num_traits::identities::one())
     }
 
-    fn map<F: Fn(Self::Field) -> Self::Field>(self, f: F) -> Self::Owned;
+    fn map<F>(self, f: F) -> Self::Owned
+    where F: Fn(Self::Field) -> Self::Field;
 
-    fn merge<F: Fn(Self::Field, &Self::Field) -> Self::Field>(self, other: &Self, f: F) -> Self::Owned;
+    fn merge<F>(self, other: &Self, f: F) -> Self::Owned
+    where F: Fn(Self::Field, &Self::Field) -> Self::Field;
 
-    fn fold<F: Fn(Self::Field, &Self::Field) -> Self::Field>(&self, init: Self::Field, f: F) -> Self::Field;
+    fn fold<F>(&self, init: Self::Field, f: F) -> Self::Field
+    where F: Fn(Self::Field, &Self::Field) -> Self::Field;
 }
 
 pub trait OwnedBuffer: Buffer<Owned = Self> + Clone {}

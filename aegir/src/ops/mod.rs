@@ -29,6 +29,12 @@ macro_rules! impl_real {
             }
         }
 
+        // impl<T, N: Contains<T>> Function<T> for $name<N> {
+            // fn contains(&self) -> bool {
+                // self.0.evaluate(state).map(|buffer| buffer.map($eval))
+            // }
+        // }
+
         impl<T, S, N> Differentiable<T, S> for $name<N>
         where
             T: Identifier,

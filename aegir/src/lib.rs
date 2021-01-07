@@ -23,25 +23,14 @@ pub trait Identifier: Eq + Copy + std::fmt::Debug + std::fmt::Display {
     fn to_var(self) -> sources::Variable<Self> { sources::Variable(self) }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct GetError<ID>(ID);
-
-impl<ID: std::fmt::Display> std::fmt::Display for GetError<ID> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Failed to get {} from data source.", self.0)
-    }
-}
-
-impl<ID: std::fmt::Debug + std::fmt::Display> std::error::Error for GetError<ID> {}
-
 pub trait Get<ID: Identifier> {
     type Output;
 
-    fn get(&self, id: ID) -> Result<&Self::Output, GetError<ID>>;
+    fn get(&self, id: ID) -> Option<&Self::Output>;
 }
 
 pub trait GetMut<ID: Identifier>: Get<ID> {
-    fn get_mut(&mut self, id: ID) -> &mut Self::Output;
+    fn get_mut(&mut self, id: ID) -> Option<&mut Self::Output>;
 }
 
 pub trait Map<ID: Identifier, B: buffer::Buffer>: Get<ID> {
@@ -55,8 +44,6 @@ pub trait Map<ID: Identifier, B: buffer::Buffer>: Get<ID> {
 }
 
 pub trait Node {
-    // fn contains<T: Identifier>(&self, target: T) -> bool;
-
     fn add<N: Node>(self, other: N) -> ops::scalar::Add<Self, N> where Self: Sized {
         ops::scalar::Add(self, other)
     }
@@ -82,6 +69,10 @@ pub trait Node {
     }
 
     fn reduce(self) -> ops::reduce::Reduce<Self> where Self: Sized { ops::reduce::Reduce(self) }
+}
+
+pub trait Contains<T>: Node {
+    fn contains(&self, target: T) -> bool;
 }
 
 pub trait Function<S>: Node {

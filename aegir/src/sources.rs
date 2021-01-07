@@ -4,6 +4,17 @@ use crate::{
 };
 
 #[derive(Copy, Clone, Debug)]
+pub struct VariableError<ID>(ID);
+
+impl<ID: std::fmt::Debug> std::fmt::Display for VariableError<ID> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Failed to get {:?} from data source.", self.0)
+    }
+}
+
+impl<ID: std::fmt::Debug> std::error::Error for VariableError<ID> {}
+
+#[derive(Copy, Clone, Debug)]
 pub struct Variable<I>(pub I);
 
 impl<I> Node for Variable<I> {}
@@ -13,13 +24,13 @@ where
     S::Output: Buffer,
 {
     type Codomain = OwnedOf<S::Output>;
-    type Error = crate::GetError<String>;
+    type Error = VariableError<I>;
 
     fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
         state
             .get(self.0)
             .map(|v| v.to_owned())
-            .map_err(|e| crate::GetError(e.to_string()))
+            .ok_or_else(|| VariableError(self.0))
     }
 }
 
@@ -39,12 +50,12 @@ where
             state
                 .get(self.0)
                 .map(|a| a.to_ones())
-                .map_err(|e| crate::GetError(e.to_string()))
+                .ok_or_else(|| VariableError(self.0))
         } else {
             state
                 .get(self.0)
                 .map(|a| a.to_zeroes())
-                .map_err(|e| crate::GetError(e.to_string()))
+                .ok_or_else(|| VariableError(self.0))
         }
     }
 }
@@ -66,7 +77,7 @@ impl<B> Node for Constant<B> {}
 
 impl<B: OwnedBuffer, S> Function<S> for Constant<B> {
     type Codomain = OwnedOf<B>;
-    type Error = crate::GetError<String>;
+    type Error = VariableError<()>;
 
     fn evaluate(&self, _: &S) -> Result<Self::Codomain, Self::Error> {
         Ok(self.0.clone())
