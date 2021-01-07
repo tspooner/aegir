@@ -20,11 +20,15 @@ travis-ci = { repository = "tspooner/aegir", branch = "master" }
 coveralls = { repository = "tspooner/aegir", branch = "master", service = "github" }
 
 [dependencies]
+aegir_derive = { path = "../aegir_derive" }
+
 paste = "1.0"
 either = "1.6"
 
 ndarray = "0.14"
 num-traits = "0.2"
+
+special-fun = "0.2"
 
 [dev_dependencies]
 rand = "0.8"

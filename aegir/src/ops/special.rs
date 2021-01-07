@@ -1,63 +1,108 @@
 use crate::{
     Function, Differentiable, Node, Identifier,
-    buffer::{Buffer, OwnedOf},
+    buffer::Buffer,
 };
-use num_traits::{one, zero, real::Real};
+use num_traits::{float::FloatConst, real::Real};
+use special_fun::FloatSpecial;
 use std::fmt;
 
-fn sigmoid<F: Real>(x: F) -> F {
-    if x >= zero() {
-        let l: F = one();
+macro_rules! impl_special {
+    (@unary $name:ident, $eval:expr, $grad:expr) => {
+        new_op!($name<N>);
 
-        l / (l + (-x).exp())
-    } else {
-        let l: F = one();
-        let z = x.exp();
+        impl<S, N: Function<S>> Function<S> for $name<N>
+        where
+            crate::buffer::FieldOf<N::Codomain>: special_fun::FloatSpecial,
+        {
+            type Codomain = crate::buffer::OwnedOf<N::Codomain>;
+            type Error = N::Error;
 
-        return z / (l + z)
+            fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
+                self.0.evaluate(state).map(|buffer| buffer.map($eval))
+            }
+        }
+
+        impl<T, S, N> Differentiable<T, S> for $name<N>
+        where
+            T: Identifier,
+            N: Differentiable<T, S>,
+
+            N::Jacobian: Buffer<Field = crate::buffer::FieldOf<N::Codomain>>,
+
+            crate::buffer::FieldOf<N::Codomain>: special_fun::FloatSpecial,
+        {
+            type Jacobian = crate::buffer::OwnedOf<N::Jacobian>;
+
+            fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
+                self.0.grad(target, state).map(|buffer| buffer.map($grad))
+            }
+        }
+    };
+    (@unary $name:ident[$str:tt], $eval:expr, $grad:expr) => {
+        impl_special!(@unary $name, $eval, $grad);
+
+        impl<X: fmt::Display> fmt::Display for $name<X> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{}({})", $str, self.0)
+            }
+        }
     }
 }
 
-fn logistic<F: Real>(x: F) -> F {
-    let l: F = one();
+impl_special!(@unary Gamma["\u{0393}"], |x| x.gamma(), |x| x.gamma() * x.digamma());
+impl_special!(@unary LogGamma["ln \u{0393}"], |x| x.loggamma(), |x| x.digamma());
 
-    l / (l + (-x).exp())
+impl_special!(@unary Factorial, |x| x.factorial(), |_| todo!());
+
+impl<X: fmt::Display> fmt::Display for Factorial<X> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}!", self.0)
+    }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct Sigmoid<N>(pub N);
+new_op!(Erf<N>);
 
-impl<N> Node for Sigmoid<N> {}
+impl<N> Erf<N> {
+    pub fn complementary(self) -> crate::ops::scalar::Neg<Self> {
+        crate::ops::scalar::Neg(self)
+    }
+}
 
-impl<N: Function<S>, S> Function<S> for Sigmoid<N>
+impl<S, N: Function<S>> Function<S> for Erf<N>
 where
-    <N::Codomain as Buffer>::Field: num_traits::real::Real,
+    crate::buffer::FieldOf<N::Codomain>: special_fun::FloatSpecial,
 {
-    type Codomain = OwnedOf<N::Codomain>;
+    type Codomain = crate::buffer::OwnedOf<N::Codomain>;
     type Error = N::Error;
 
     fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        self.0.evaluate(state).map(|buffer| buffer.map(sigmoid))
+        self.0.evaluate(state).map(|buffer| buffer.map(|x| x.erf()))
     }
 }
 
-impl<N, ID, S> Differentiable<ID, S> for Sigmoid<N>
+impl<T, S, N> Differentiable<T, S> for Erf<N>
 where
-    N: Differentiable<ID, S>,
-    <N::Codomain as Buffer>::Field: Real,
-    <N::Jacobian as Buffer>::Field: Real,
+    T: Identifier,
+    N: Differentiable<T, S>,
 
-    ID: Identifier,
+    N::Jacobian: Buffer<Field = crate::buffer::FieldOf<N::Codomain>>,
+
+    crate::buffer::FieldOf<N::Codomain>:
+        special_fun::FloatSpecial + num_traits::real::Real + num_traits::float::FloatConst,
 {
-    type Jacobian = OwnedOf<N::Jacobian>;
+    type Jacobian = crate::buffer::OwnedOf<N::Jacobian>;
 
-    fn grad(&self, target: ID, state: &S) -> Result<Self::Jacobian, Self::Error> {
-        self.0.grad(target, state).map(|buffer| buffer.map(logistic))
+    fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
+        self.0.grad(target, state).map(|buffer| buffer.map(|x| {
+            let two = num_traits::one::<crate::buffer::FieldOf<N::Codomain>>() + num_traits::one();
+
+            (-x.powi(2)).exp() * two / <crate::buffer::FieldOf<N::Codomain>>::PI().sqrt()
+        }))
     }
 }
 
-impl<N: fmt::Display> fmt::Display for Sigmoid<N> {
+impl<X: fmt::Display> fmt::Display for Erf<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\u{03C3}{}", self.0)
+        write!(f, "erf({})", self.0)
     }
 }

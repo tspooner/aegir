@@ -1,32 +1,26 @@
 #[allow(unused_imports)]
-// #[macro_use]
-// extern crate aegir_derive;
-// #[doc(hidden)]
-// pub use self::aegir_derive::*;
+#[macro_use]
+extern crate aegir_derive;
+#[doc(hidden)]
+pub use self::aegir_derive::*;
 
-pub trait Identifier: Eq + Copy + std::fmt::Debug + std::fmt::Display {}
+#[allow(unused_imports)]
+use paste::paste;
 
 #[macro_export]
-macro_rules! id {
-    ($name:ident::$symbol:expr) => {
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-        pub struct $name;
-
-        impl $crate::Identifier for $name {}
-
-        impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, stringify!($symbol))
+macro_rules! state {
+    ($name:ident { $($entity_name:ident: $entity_type:ident),+ }) => {
+        paste! {
+            #[derive(State)]
+            pub struct $name<$([<__ $entity_type>]),+> {
+                $(#[id($entity_type)] pub $entity_name: [<__ $entity_type>]),+
             }
         }
-    };
-    ($name:ident) => { id!{$name::stringify!($name)} }
+    }
 }
 
-#[macro_export]
-macro_rules! ids {
-    ($($name:ident::$symbol:expr),*) => { $($crate::id!($name::$symbol);)* };
-    ($name:ident) => { $($crate::id!($name);)* }
+pub trait Identifier: Eq + Copy + std::fmt::Debug + std::fmt::Display {
+    fn to_var(self) -> sources::Variable<Self> { sources::Variable(self) }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -62,6 +56,32 @@ pub trait Map<ID: Identifier, B: buffer::Buffer>: Get<ID> {
 
 pub trait Node {
     // fn contains<T: Identifier>(&self, target: T) -> bool;
+
+    fn add<N: Node>(self, other: N) -> ops::scalar::Add<Self, N> where Self: Sized {
+        ops::scalar::Add(self, other)
+    }
+
+    fn sub<N: Node>(self, other: N) -> ops::scalar::Sub<Self, N> where Self: Sized {
+        ops::scalar::Sub(self, other)
+    }
+
+    fn mul<N: Node>(self, other: N) -> ops::scalar::Mul<Self, N> where Self: Sized {
+        ops::scalar::Mul(self, other)
+    }
+
+    fn dot<N: Node>(self, other: N) -> ops::linalg::InnerProduct<Self, N> where Self: Sized {
+        ops::linalg::InnerProduct::new(self, other)
+    }
+
+    fn abs(self) -> ops::scalar::Abs<Self> where Self: Sized { ops::scalar::Abs(self) }
+
+    fn neg(self) -> ops::scalar::Neg<Self> where Self: Sized { ops::scalar::Neg(self) }
+
+    fn pow<P>(self, power: P) -> ops::scalar::Power<Self, P> where Self: Sized {
+        ops::scalar::Power(self, power)
+    }
+
+    fn reduce(self) -> ops::reduce::Reduce<Self> where Self: Sized { ops::reduce::Reduce(self) }
 }
 
 pub trait Function<S>: Node {
@@ -92,8 +112,15 @@ pub trait Differentiable<T: Identifier, S>: Function<S> {
     }
 }
 
-pub type CodomainOf<F, S> = <F as Function<S>>::Codomain;
+pub trait Compile<T: Identifier>: Node {
+    type CompiledJacobian: Node;
+    type Error: std::error::Error;
+
+    fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error>;
+}
+
 pub type ErrorOf<F, S> = <F as Function<S>>::Error;
+pub type CodomainOf<F, S> = <F as Function<S>>::Codomain;
 pub type JacobianOf<F, T, S> = <F as Differentiable<T, S>>::Jacobian;
 
 pub mod buffer;

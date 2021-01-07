@@ -17,7 +17,7 @@ macro_rules! impl_real {
     (@unary $name:ident[$str:tt], $eval:expr, $grad:expr) => {
         new_op!($name<N>);
 
-        impl<N: Function<S>, S> Function<S> for $name<N>
+        impl<S, N: Function<S>> Function<S> for $name<N>
         where
             crate::buffer::FieldOf<N::Codomain>: num_traits::real::Real,
         {
@@ -116,7 +116,7 @@ macro_rules! impl_newtype {
     ($name:ident<$($tp:ident),+>($inner:ty)) => {
         new_op!($name<$($tp),+>($inner));
 
-        impl<S, $($tp),+> crate::Function<S> for InnerProduct<$($tp),+>
+        impl<$($tp),+, S> crate::Function<S> for InnerProduct<$($tp),+>
         where
             $inner: crate::Function<S>,
         {
@@ -128,7 +128,7 @@ macro_rules! impl_newtype {
             }
         }
 
-        impl<T, S, $($tp),+> crate::Differentiable<T, S> for InnerProduct<N1, N2>
+        impl<$($tp),+, T, S> crate::Differentiable<T, S> for InnerProduct<N1, N2>
         where
             T: crate::Identifier,
             $inner: crate::Differentiable<T, S>,
@@ -148,5 +148,6 @@ type MulOut<A, B> = <A as std::ops::Mul<B>>::Output;
 pub mod scalar;
 pub mod linalg;
 pub mod trig;
-pub mod reductions;
+pub mod reduce;
+pub mod sigmoid;
 pub mod special;

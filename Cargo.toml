@@ -1,4 +1,5 @@
 [workspace]
 members = [
     "aegir",
+    "aegir_derive",
 ]

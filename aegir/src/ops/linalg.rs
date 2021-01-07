@@ -1,7 +1,7 @@
 use crate::{
     Identifier, Function, Differentiable, Node,
     buffer::{Buffer, ScalarBuffer, FieldOf},
-    ops::{AddOut, reductions::Sum, scalar::Mul},
+    ops::{AddOut, reduce::Reduce, scalar::Mul},
 };
 use ndarray::{ArrayBase, Ix1, Ix2};
 
@@ -39,11 +39,11 @@ where
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Inner Products
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-impl_newtype!(InnerProduct<N1, N2>(Sum<Mul<N1, N2>>));
+impl_newtype!(InnerProduct<N1, N2>(Reduce<Mul<N1, N2>>));
 
 impl<N1, N2> InnerProduct<N1, N2> {
     pub fn new(n1: N1, n2: N2) -> Self {
-        InnerProduct(Sum(Mul(n1, n2)))
+        InnerProduct(Reduce(Mul(n1, n2)))
     }
 }
 
