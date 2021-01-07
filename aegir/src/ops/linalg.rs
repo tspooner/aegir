@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, Function, Differentiable, Node,
+    Identifier, State, Node, Function, Differentiable,
     buffer::{Buffer, ScalarBuffer, FieldOf},
     ops::{AddOut, reduce::Reduce, scalar::Mul},
 };
@@ -56,11 +56,11 @@ impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for InnerPr
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Outer Products
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-pub trait OuterProductTrait<T>: crate::buffer::Buffer
+pub trait OuterProductTrait<T>: Buffer
 where
-    T: crate::buffer::Buffer<Field = Self::Field>,
+    T: Buffer<Field = Self::Field>,
 {
-    type Output: crate::buffer::Buffer;
+    type Output: Buffer;
 
     fn outer_product<E1, E2>(&self, rhs: &T) -> Result<Self::Output, LinalgError<E1, E2>>;
 }
@@ -105,13 +105,14 @@ pub struct OuterProduct<N1, N2>(pub N1, pub N2);
 
 impl<N1, N2> Node for OuterProduct<N1, N2> {}
 
-impl<N1, N2, S> Function<S> for OuterProduct<N1, N2>
+impl<S, N1, N2> Function<S> for OuterProduct<N1, N2>
 where
+    S: State,
     N1: Function<S>,
     N2: Function<S>,
 
     N1::Codomain: OuterProductTrait<N2::Codomain>,
-    N2::Codomain: crate::buffer::Buffer<Field = FieldOf<N1::Codomain>>,
+    N2::Codomain: Buffer<Field = FieldOf<N1::Codomain>>,
 {
     type Codomain = <N1::Codomain as OuterProductTrait<N2::Codomain>>::Output;
     type Error = LinalgError<N1::Error, N2::Error>;
@@ -124,14 +125,15 @@ where
     }
 }
 
-impl<N1, N2, T, S> Differentiable<T, S> for OuterProduct<N1, N2>
+impl<S, T, N1, N2> Differentiable<S, T> for OuterProduct<N1, N2>
 where
+    S: State,
     T: Identifier,
-    N1: Differentiable<T, S>,
-    N2: Differentiable<T, S>,
+    N1: Differentiable<S, T>,
+    N2: Differentiable<S, T>,
 
     N1::Codomain: OuterProductTrait<N2::Codomain>,
-    N2::Codomain: crate::buffer::Buffer<Field = FieldOf<N1::Codomain>>,
+    N2::Codomain: Buffer<Field = FieldOf<N1::Codomain>>,
 
     N1::Jacobian: OuterProductTrait<N2::Codomain>,
     N1::Codomain: OuterProductTrait<N2::Jacobian>,
@@ -149,9 +151,9 @@ where
         <N1::Codomain as OuterProductTrait<N2::Jacobian>>::Output
     >;
 
-    fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
-        let dual_x = self.0.dual(target, state).map_err(|e| LinalgError::Inner1(e))?;
-        let dual_y = self.1.dual(target, state).map_err(|e| LinalgError::Inner2(e))?;
+    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+        let dual_x = self.0.dual(state, target).map_err(|e| LinalgError::Inner1(e))?;
+        let dual_y = self.1.dual(state, target).map_err(|e| LinalgError::Inner2(e))?;
 
         dual_x
             .adjoint
@@ -168,11 +170,11 @@ where
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Matrix Multiplication
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-pub trait MatMulTrait<T>: crate::buffer::Buffer
+pub trait MatMulTrait<T>: Buffer
 where
-    T: crate::buffer::Buffer<Field = Self::Field>,
+    T: Buffer<Field = Self::Field>,
 {
-    type Output: crate::buffer::Buffer;
+    type Output: Buffer;
 
     fn mat_mul<E1, E2>(&self, rhs: &T) -> Result<Self::Output, LinalgError<E1, E2>>;
 }
@@ -198,13 +200,14 @@ pub struct MatMul<N1, N2>(pub N1, pub N2);
 
 impl<N1, N2> Node for MatMul<N1, N2> {}
 
-impl<N1, N2, S> Function<S> for MatMul<N1, N2>
+impl<S, N1, N2> Function<S> for MatMul<N1, N2>
 where
+    S: State,
     N1: Function<S>,
     N2: Function<S>,
 
     N1::Codomain: MatMulTrait<N2::Codomain>,
-    N2::Codomain: crate::buffer::Buffer<Field = <N1::Codomain as crate::buffer::Buffer>::Field>,
+    N2::Codomain: Buffer<Field = <N1::Codomain as Buffer>::Field>,
 {
     type Codomain = <N1::Codomain as MatMulTrait<N2::Codomain>>::Output;
     type Error = LinalgError<N1::Error, N2::Error>;
@@ -217,14 +220,15 @@ where
     }
 }
 
-impl<N1, N2, T, S> Differentiable<T, S> for MatMul<N1, N2>
+impl<S, T, N1, N2> Differentiable<S, T> for MatMul<N1, N2>
 where
+    S: State,
     T: Identifier,
-    N1: Differentiable<T, S>,
-    N2: Differentiable<T, S>,
+    N1: Differentiable<S, T>,
+    N2: Differentiable<S, T>,
 
     N1::Codomain: MatMulTrait<N2::Codomain>,
-    N2::Codomain: crate::buffer::Buffer<Field = FieldOf<N1::Codomain>>,
+    N2::Codomain: Buffer<Field = FieldOf<N1::Codomain>>,
 
     N1::Jacobian: MatMulTrait<N2::Codomain>,
     N1::Codomain: MatMulTrait<N2::Jacobian>,
@@ -242,9 +246,9 @@ where
         <N1::Codomain as MatMulTrait<N2::Jacobian>>::Output
     >;
 
-    fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
-        let dual_x = self.0.dual(target, state).map_err(|e| LinalgError::Inner1(e))?;
-        let dual_y = self.1.dual(target, state).map_err(|e| LinalgError::Inner2(e))?;
+    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+        let dual_x = self.0.dual(state, target).map_err(|e| LinalgError::Inner1(e))?;
+        let dual_y = self.1.dual(state, target).map_err(|e| LinalgError::Inner2(e))?;
 
         dual_x
             .adjoint

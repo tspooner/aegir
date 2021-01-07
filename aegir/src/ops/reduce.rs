@@ -1,5 +1,5 @@
 use crate::{
-    Function, Differentiable, Node, Identifier,
+    Identifier, State, Node, Function, Differentiable,
     buffer::{Buffer, FieldOf},
 };
 use std::fmt;
@@ -11,6 +11,7 @@ impl<N> Node for Reduce<N> {}
 
 impl<S, N> Function<S> for Reduce<N>
 where
+    S: State,
     N: Function<S>,
 {
     type Codomain = FieldOf<N::Codomain>;
@@ -23,17 +24,18 @@ where
     }
 }
 
-impl<T, S, N> Differentiable<T, S> for Reduce<N>
+impl<S, T, N> Differentiable<S, T> for Reduce<N>
 where
+    S: State,
     T: Identifier,
-    N: Differentiable<T, S>,
+    N: Differentiable<S, T>,
 
     N::Jacobian: Buffer<Field = FieldOf<N::Codomain>>,
 {
     type Jacobian = N::Jacobian;
 
-    fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
-        self.0.grad(target, state)
+    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+        self.0.grad(state, target)
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::{
-    Function, Differentiable, Node, Identifier,
+    State, Identifier, Function, Differentiable,
     buffer::{Buffer, OwnedOf},
 };
 use num_traits::{one, zero, real::Real};
@@ -28,7 +28,9 @@ new_op!(Sigmoid<N>);
 
 impl<S, N> Function<S> for Sigmoid<N>
 where
+    S: State,
     N: Function<S>,
+
     <N::Codomain as Buffer>::Field: num_traits::real::Real,
 {
     type Codomain = OwnedOf<N::Codomain>;
@@ -39,17 +41,19 @@ where
     }
 }
 
-impl<T, S, N> Differentiable<T, S> for Sigmoid<N>
+impl<S, T, N> Differentiable<S, T> for Sigmoid<N>
 where
+    S: State,
     T: Identifier,
-    N: Differentiable<T, S>,
+    N: Differentiable<S, T>,
+
     <N::Codomain as Buffer>::Field: Real,
     <N::Jacobian as Buffer>::Field: Real,
 {
     type Jacobian = OwnedOf<N::Jacobian>;
 
-    fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
-        self.0.grad(target, state).map(|buffer| buffer.map(logistic))
+    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+        self.0.grad(state, target).map(|buffer| buffer.map(logistic))
     }
 }
 

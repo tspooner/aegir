@@ -1,5 +1,5 @@
 use crate::{
-    Function, Differentiable, Node, Identifier, Get,
+    Identifier, State, Get, Node, Function, Differentiable,
     buffer::{Buffer, OwnedBuffer, OwnedOf, FieldOf},
 };
 
@@ -19,8 +19,11 @@ pub struct Variable<I>(pub I);
 
 impl<I> Node for Variable<I> {}
 
-impl<I: Identifier, S: Get<I>> Function<S> for Variable<I>
+impl<S, I> Function<S> for Variable<I>
 where
+    S: Get<I>,
+    I: Identifier,
+
     S::Output: Buffer,
 {
     type Codomain = OwnedOf<S::Output>;
@@ -34,18 +37,18 @@ where
     }
 }
 
-impl<I, T, S> Differentiable<T, S> for Variable<I>
+impl<S, T, I> Differentiable<S, T> for Variable<I>
 where
-    I: Identifier + std::cmp::PartialEq<T>,
+    S: Get<T> + Get<I>,
     T: Identifier,
-    S: Get<I> + Get<T>,
+    I: Identifier + std::cmp::PartialEq<T>,
 
     <S as Get<T>>::Output: Buffer,
     <S as Get<I>>::Output: Buffer<Field = FieldOf<<S as Get<T>>::Output>>,
 {
     type Jacobian = OwnedOf<<S as Get<I>>::Output>;
 
-    fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
+    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
         if self.0 == target {
             state
                 .get(self.0)
@@ -75,7 +78,11 @@ pub struct Constant<B>(pub B);
 
 impl<B> Node for Constant<B> {}
 
-impl<B: OwnedBuffer, S> Function<S> for Constant<B> {
+impl<S, B> Function<S> for Constant<B>
+where
+    S: State,
+    B: OwnedBuffer,
+{
     type Codomain = OwnedOf<B>;
     type Error = VariableError<()>;
 
@@ -84,14 +91,15 @@ impl<B: OwnedBuffer, S> Function<S> for Constant<B> {
     }
 }
 
-impl<B, T, S> Differentiable<T, S> for Constant<B>
+impl<S, T, B> Differentiable<S, T> for Constant<B>
 where
-    B: OwnedBuffer + Get<T>,
+    S: State,
     T: Identifier,
+    B: OwnedBuffer + Get<T>,
 {
     type Jacobian = B;
 
-    fn grad(&self, _: T, _: &S) -> Result<Self::Jacobian, Self::Error> {
+    fn grad(&self, _: &S, _: T) -> Result<Self::Jacobian, Self::Error> {
         Ok(self.0.to_zeroes())
     }
 }

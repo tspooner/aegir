@@ -7,6 +7,18 @@ pub use self::aegir_derive::*;
 #[allow(unused_imports)]
 use paste::paste;
 
+pub trait Identifier: Eq + Copy + std::fmt::Debug + std::fmt::Display {
+    fn to_var(self) -> sources::Variable<Self> { sources::Variable(self) }
+}
+
+pub trait State {}
+
+pub trait Get<T: Identifier>: State {
+    type Output;
+
+    fn get(&self, target: T) -> Option<&Self::Output>;
+}
+
 #[macro_export]
 macro_rules! state {
     ($name:ident { $($entity_name:ident: $entity_type:ident),+ }) => {
@@ -17,30 +29,6 @@ macro_rules! state {
             }
         }
     }
-}
-
-pub trait Identifier: Eq + Copy + std::fmt::Debug + std::fmt::Display {
-    fn to_var(self) -> sources::Variable<Self> { sources::Variable(self) }
-}
-
-pub trait Get<ID: Identifier> {
-    type Output;
-
-    fn get(&self, id: ID) -> Option<&Self::Output>;
-}
-
-pub trait GetMut<ID: Identifier>: Get<ID> {
-    fn get_mut(&mut self, id: ID) -> Option<&mut Self::Output>;
-}
-
-pub trait Map<ID: Identifier, B: buffer::Buffer>: Get<ID> {
-    type Output: Get<ID, Output = B>;
-
-    fn map(
-        self,
-        id: ID,
-        func: impl Fn(<Self as Get<ID>>::Output) -> B
-    ) -> <Self as Map<ID, B>>::Output;
 }
 
 pub trait Node {
@@ -71,29 +59,27 @@ pub trait Node {
     fn reduce(self) -> ops::reduce::Reduce<Self> where Self: Sized { ops::reduce::Reduce(self) }
 }
 
-pub trait Contains<T>: Node {
-    fn contains(&self, target: T) -> bool;
-}
+    // fn contains(&self, target: T) -> bool;
 
-pub trait Function<S>: Node {
+pub trait Function<S: State>: Node {
     type Codomain: buffer::Buffer;
     type Error: std::error::Error;
 
     fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error>;
 }
 
-pub trait Differentiable<T: Identifier, S>: Function<S> {
+pub trait Differentiable<S: State, T: Identifier>: Function<S> {
     type Jacobian: buffer::Buffer<
         Field = buffer::FieldOf<<Self as Function<S>>::Codomain>
     >;
 
-    fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error>;
+    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error>;
 
-    fn dual(&self, target: T, state: &S) -> Result<
+    fn dual(&self, state: &S, target: T) -> Result<
         dual::Dual<Self::Codomain, Self::Jacobian>, Self::Error
     > {
         self.evaluate(state).and_then(|value| {
-            self.grad(target, state).map(|adjoint| {
+            self.grad(state, target).map(|adjoint| {
                 dual::Dual {
                     value,
                     adjoint,
@@ -112,7 +98,7 @@ pub trait Compile<T: Identifier>: Node {
 
 pub type ErrorOf<F, S> = <F as Function<S>>::Error;
 pub type CodomainOf<F, S> = <F as Function<S>>::Codomain;
-pub type JacobianOf<F, T, S> = <F as Differentiable<T, S>>::Jacobian;
+pub type JacobianOf<F, S, T> = <F as Differentiable<S, T>>::Jacobian;
 
 pub mod buffer;
 pub mod dual;
@@ -122,19 +108,26 @@ pub mod ops;
 
 // pub mod module;
 
-pub fn evaluate<S, F: Function<S>>(
+pub fn evaluate<S, F>(
     f: F,
     state: &S,
 ) -> Result<F::Codomain, F::Error>
+where
+    S: State,
+    F: Function<S>,
 {
     f.evaluate(state)
 }
 
-pub fn derivative<T: Identifier, S, F: Differentiable<T, S>>(
+pub fn derivative<S, T, F>(
     f: F,
     target: T,
     state: &S,
 ) -> Result<F::Jacobian, F::Error>
+where
+    S: State,
+    T: Identifier,
+    F: Differentiable<S, T>,
 {
-    f.grad(target, state)
+    f.grad(state, target)
 }

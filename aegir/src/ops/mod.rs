@@ -3,13 +3,13 @@ macro_rules! new_op {
         #[derive(Copy, Clone, Debug)]
         pub struct $name<$($tp),+>($(pub $tp),+);
 
-        impl<$($tp),+> Node for $name<$($tp),+> {}
+        impl<$($tp),+> crate::Node for $name<$($tp),+> {}
     };
     ($name:ident<$($tp:ident),+>($inner:ty)) => {
         #[derive(Copy, Clone, Debug)]
         pub struct $name<$($tp),+>(pub $inner);
 
-        impl<$($tp),+> Node for $name<$($tp),+> {}
+        impl<$($tp),+> crate::Node for $name<$($tp),+> {}
     };
 }
 
@@ -17,7 +17,7 @@ macro_rules! impl_real {
     (@unary $name:ident[$str:tt], $eval:expr, $grad:expr) => {
         new_op!($name<N>);
 
-        impl<S, N: Function<S>> Function<S> for $name<N>
+        impl<S: crate::State, N: crate::Function<S>> crate::Function<S> for $name<N>
         where
             crate::buffer::FieldOf<N::Codomain>: num_traits::real::Real,
         {
@@ -25,7 +25,9 @@ macro_rules! impl_real {
             type Error = N::Error;
 
             fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-                self.0.evaluate(state).map(|buffer| buffer.map($eval))
+                self.0.evaluate(state).map(|buffer| {
+                    crate::buffer::Buffer::map(buffer, $eval)
+                })
             }
         }
 
@@ -35,24 +37,27 @@ macro_rules! impl_real {
             // }
         // }
 
-        impl<T, S, N> Differentiable<T, S> for $name<N>
+        impl<S, T, N> crate::Differentiable<S, T> for $name<N>
         where
-            T: Identifier,
-            N: Differentiable<T, S>,
+            S: crate::State,
+            T: crate::Identifier,
+            N: crate::Differentiable<S, T>,
 
-            N::Jacobian: Buffer<Field = crate::buffer::FieldOf<N::Codomain>>,
+            N::Jacobian: crate::buffer::Buffer<Field = crate::buffer::FieldOf<N::Codomain>>,
 
             crate::buffer::FieldOf<N::Codomain>: num_traits::real::Real,
         {
             type Jacobian = crate::buffer::OwnedOf<N::Jacobian>;
 
-            fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
-                self.0.grad(target, state).map(|buffer| buffer.map($grad))
+            fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+                self.0.grad(state, target).map(|buffer| {
+                    crate::buffer::Buffer::map(buffer, $grad)
+                })
             }
         }
 
-        impl<X: fmt::Display> fmt::Display for $name<X> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        impl<X: std::fmt::Display> std::fmt::Display for $name<X> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "{}({})", $str, self.0)
             }
         }
@@ -63,10 +68,11 @@ macro_rules! impl_trait {
     (@binary $name:ident[$str:tt], $($path:ident)::+, $eval:expr, $grad:expr) => {
         new_op!($name<N1, N2>);
 
-        impl<N1, N2, S> Function<S> for $name<N1, N2>
+        impl<S, N1, N2> Function<S> for $name<N1, N2>
         where
-            N1: Function<S>,
-            N2: Function<S>,
+            S: crate::State,
+            N1: crate::Function<S>,
+            N2: crate::Function<S>,
 
             N1::Codomain: $($path)::+<N2::Codomain>,
             <N1::Codomain as $($path)::+<N2::Codomain>>::Output: Buffer,
@@ -84,11 +90,12 @@ macro_rules! impl_trait {
             }
         }
 
-        impl<N1, N2, T, S> Differentiable<T, S> for $name<N1, N2>
+        impl<S, T, N1, N2> Differentiable<S, T> for $name<N1, N2>
         where
-            T: Identifier,
-            N1: Differentiable<T, S>,
-            N2: Differentiable<T, S>,
+            S: crate::State,
+            T: crate::Identifier,
+            N1: crate::Differentiable<S, T>,
+            N2: crate::Differentiable<S, T>,
 
             N1::Codomain: $($path)::+<N2::Codomain>,
             <N1::Codomain as $($path)::+<N2::Codomain>>::Output: Buffer,
@@ -100,18 +107,18 @@ macro_rules! impl_trait {
         {
             type Jacobian = <N1::Jacobian as $($path)::+<N2::Jacobian>>::Output;
 
-            fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
-                self.0.grad(target, state).map_err(either::Either::Left).and_then(|x| {
+            fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+                self.0.grad(state, target).map_err(either::Either::Left).and_then(|x| {
                     self.1
-                        .grad(target, state)
+                        .grad(state, target)
                         .map(|y| $grad(x, y))
                         .map_err(either::Either::Right)
                 })
             }
         }
 
-        impl<N1: fmt::Display, N2: fmt::Display> fmt::Display for $name<N1, N2> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for $name<N1, N2> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "{} {} {}", self.0, $str, self.1)
             }
         }
@@ -122,8 +129,9 @@ macro_rules! impl_newtype {
     ($name:ident<$($tp:ident),+>($inner:ty)) => {
         new_op!($name<$($tp),+>($inner));
 
-        impl<$($tp),+, S> crate::Function<S> for InnerProduct<$($tp),+>
+        impl<S, $($tp),+> crate::Function<S> for InnerProduct<$($tp),+>
         where
+            S: crate::State,
             $inner: crate::Function<S>,
         {
             type Codomain = crate::CodomainOf<$inner, S>;
@@ -134,15 +142,16 @@ macro_rules! impl_newtype {
             }
         }
 
-        impl<$($tp),+, T, S> crate::Differentiable<T, S> for InnerProduct<N1, N2>
+        impl<S, T, $($tp),+> crate::Differentiable<S, T> for InnerProduct<N1, N2>
         where
+            S: crate::State,
             T: crate::Identifier,
-            $inner: crate::Differentiable<T, S>,
+            $inner: crate::Differentiable<S, T>,
         {
-            type Jacobian = crate::JacobianOf<$inner, T, S>;
+            type Jacobian = crate::JacobianOf<$inner, S, T>;
 
-            fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
-                self.0.grad(target, state)
+            fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+                self.0.grad(state, target)
             }
         }
     }

@@ -1,6 +1,6 @@
 use crate::{
-    Function, Differentiable, Node, Identifier,
-    buffer::Buffer,
+    Identifier, State, Function, Differentiable,
+    buffer::{Buffer, FieldOf, OwnedOf},
 };
 use num_traits::{float::FloatConst, real::Real};
 use special_fun::FloatSpecial;
@@ -10,11 +10,14 @@ macro_rules! impl_special {
     (@unary $name:ident, $eval:expr, $grad:expr) => {
         new_op!($name<N>);
 
-        impl<S, N: Function<S>> Function<S> for $name<N>
+        impl<S, N> Function<S> for $name<N>
         where
-            crate::buffer::FieldOf<N::Codomain>: special_fun::FloatSpecial,
+            S: State,
+            N: Function<S>,
+
+            FieldOf<N::Codomain>: special_fun::FloatSpecial,
         {
-            type Codomain = crate::buffer::OwnedOf<N::Codomain>;
+            type Codomain = OwnedOf<N::Codomain>;
             type Error = N::Error;
 
             fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
@@ -22,19 +25,20 @@ macro_rules! impl_special {
             }
         }
 
-        impl<T, S, N> Differentiable<T, S> for $name<N>
+        impl<S, T, N> Differentiable<S, T> for $name<N>
         where
+            S: State,
             T: Identifier,
-            N: Differentiable<T, S>,
+            N: Differentiable<S, T>,
 
-            N::Jacobian: Buffer<Field = crate::buffer::FieldOf<N::Codomain>>,
+            N::Jacobian: Buffer<Field = FieldOf<N::Codomain>>,
 
-            crate::buffer::FieldOf<N::Codomain>: special_fun::FloatSpecial,
+            FieldOf<N::Codomain>: special_fun::FloatSpecial,
         {
-            type Jacobian = crate::buffer::OwnedOf<N::Jacobian>;
+            type Jacobian = OwnedOf<N::Jacobian>;
 
-            fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
-                self.0.grad(target, state).map(|buffer| buffer.map($grad))
+            fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+                self.0.grad(state, target).map(|buffer| buffer.map($grad))
             }
         }
     };
@@ -68,8 +72,11 @@ impl<N> Erf<N> {
     }
 }
 
-impl<S, N: Function<S>> Function<S> for Erf<N>
+impl<S, N> Function<S> for Erf<N>
 where
+    S: State,
+    N: Function<S>,
+
     crate::buffer::FieldOf<N::Codomain>: special_fun::FloatSpecial,
 {
     type Codomain = crate::buffer::OwnedOf<N::Codomain>;
@@ -80,10 +87,11 @@ where
     }
 }
 
-impl<T, S, N> Differentiable<T, S> for Erf<N>
+impl<S, T, N> Differentiable<S, T> for Erf<N>
 where
+    S: State,
     T: Identifier,
-    N: Differentiable<T, S>,
+    N: Differentiable<S, T>,
 
     N::Jacobian: Buffer<Field = crate::buffer::FieldOf<N::Codomain>>,
 
@@ -92,8 +100,8 @@ where
 {
     type Jacobian = crate::buffer::OwnedOf<N::Jacobian>;
 
-    fn grad(&self, target: T, state: &S) -> Result<Self::Jacobian, Self::Error> {
-        self.0.grad(target, state).map(|buffer| buffer.map(|x| {
+    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+        self.0.grad(state, target).map(|buffer| buffer.map(|x| {
             let two = num_traits::one::<crate::buffer::FieldOf<N::Codomain>>() + num_traits::one();
 
             (-x.powi(2)).exp() * two / <crate::buffer::FieldOf<N::Codomain>>::PI().sqrt()

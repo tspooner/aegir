@@ -30,7 +30,7 @@ fn main() {
     for _ in 0..10000 {
         let x_ = Array1::from(vec![rand::random::<f64>()]);
         let y_ = x_.clone() * 2.0;
-        let g = sse.grad(W, get_state!(x_, y_, weights)).unwrap();
+        let g = sse.grad(get_state!(x_, y_, weights), W).unwrap();
 
         weights.iter_mut().zip(g.iter()).for_each(|(w, dw)| { *w -= 0.01 * dw });
     }

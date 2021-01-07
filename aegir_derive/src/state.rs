@@ -34,7 +34,9 @@ fn state_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStrea
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
-    let mut code = TokenStream::new();
+    let mut code = quote! {
+        impl #impl_generics ::aegir::State for #name #ty_generics #where_clause {}
+    };
 
     for f in &ds.fields {
         let ty = &f.ty;
@@ -53,8 +55,8 @@ fn state_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStrea
             impl #impl_generics ::aegir::Get<#field_id> for #name #ty_generics #where_clause {
                 type Output = #ty;
 
-                fn get(&self, _: #field_id) -> ::std::result::Result<&#ty, ::aegir::GetError<#field_id>> {
-                    Ok(&self.#field_name)
+                fn get(&self, _: #field_id) -> Option<&#ty> {
+                    Some(&self.#field_name)
                 }
             }
         }).to_tokens(&mut code);

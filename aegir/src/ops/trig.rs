@@ -1,9 +1,5 @@
-use crate::{
-    Function, Differentiable, Node, Identifier,
-    buffer::Buffer,
-};
 use num_traits::real::Real;
-use std::{fmt, ops::Neg};
+use std::ops::Neg;
 
 impl_real!(@unary Cos["cos"], |x| { x.cos() }, |x| { -x.sin() });
 impl_real!(@unary Cosh["cosh"], |x| { x.cosh() }, |x| { x.sinh() });
