@@ -1,5 +1,5 @@
 use crate::{
-    State, Identifier, Function, Differentiable,
+    Identifier, State, Contains, Function, Differentiable,
     buffer::{Buffer, OwnedOf},
 };
 use num_traits::{one, zero, real::Real};
@@ -25,6 +25,14 @@ fn logistic<F: Real>(x: F) -> F {
 }
 
 new_op!(Sigmoid<N>);
+
+impl<T, N> Contains<T> for Sigmoid<N>
+where
+    T: Identifier,
+    N: Contains<T>,
+{
+    fn contains(&self, target: T) -> bool { self.0.contains(target) }
+}
 
 impl<S, N> Function<S> for Sigmoid<N>
 where

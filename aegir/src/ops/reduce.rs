@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, State, Node, Function, Differentiable,
+    Identifier, State, Node, Contains, Function, Differentiable,
     buffer::{Buffer, FieldOf},
 };
 use std::fmt;
@@ -8,6 +8,14 @@ use std::fmt;
 pub struct Reduce<N>(pub N);
 
 impl<N> Node for Reduce<N> {}
+
+impl<T, N> Contains<T> for Reduce<N>
+where
+    T: Identifier,
+    N: Contains<T>,
+{
+    fn contains(&self, target: T) -> bool { self.0.contains(target) }
+}
 
 impl<S, N> Function<S> for Reduce<N>
 where

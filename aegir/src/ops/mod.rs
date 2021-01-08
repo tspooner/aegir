@@ -17,8 +17,19 @@ macro_rules! impl_real {
     (@unary $name:ident[$str:tt], $eval:expr, $grad:expr) => {
         new_op!($name<N>);
 
-        impl<S: crate::State, N: crate::Function<S>> crate::Function<S> for $name<N>
+        impl<T, N> crate::Contains<T> for $name<N>
         where
+            T: crate::Identifier,
+            N: crate::Contains<T>,
+        {
+            fn contains(&self, target: T) -> bool { self.0.contains(target) }
+        }
+
+        impl<S, N> crate::Function<S> for $name<N>
+        where
+            S: crate::State,
+            N: crate::Function<S>,
+
             crate::buffer::FieldOf<N::Codomain>: num_traits::real::Real,
         {
             type Codomain = crate::buffer::OwnedOf<N::Codomain>;
@@ -30,12 +41,6 @@ macro_rules! impl_real {
                 })
             }
         }
-
-        // impl<T, N: Contains<T>> Function<T> for $name<N> {
-            // fn contains(&self) -> bool {
-                // self.0.evaluate(state).map(|buffer| buffer.map($eval))
-            // }
-        // }
 
         impl<S, T, N> crate::Differentiable<S, T> for $name<N>
         where
@@ -67,6 +72,17 @@ macro_rules! impl_real {
 macro_rules! impl_trait {
     (@binary $name:ident[$str:tt], $($path:ident)::+, $eval:expr, $grad:expr) => {
         new_op!($name<N1, N2>);
+
+        impl<T, N1, N2> crate::Contains<T> for $name<N1, N2>
+        where
+            T: crate::Identifier,
+            N1: crate::Contains<T>,
+            N2: crate::Contains<T>,
+        {
+            fn contains(&self, target: T) -> bool {
+                self.0.contains(target) || self.1.contains(target)
+            }
+        }
 
         impl<S, N1, N2> Function<S> for $name<N1, N2>
         where
@@ -129,7 +145,15 @@ macro_rules! impl_newtype {
     ($name:ident<$($tp:ident),+>($inner:ty)) => {
         new_op!($name<$($tp),+>($inner));
 
-        impl<S, $($tp),+> crate::Function<S> for InnerProduct<$($tp),+>
+        impl<T, $($tp),+> crate::Contains<T> for $name<$($tp),+>
+        where
+            T: crate::Identifier,
+            $inner: crate::Contains<T>,
+        {
+            fn contains(&self, target: T) -> bool { self.0.contains(target) }
+        }
+
+        impl<S, $($tp),+> crate::Function<S> for $name<$($tp),+>
         where
             S: crate::State,
             $inner: crate::Function<S>,
@@ -142,7 +166,7 @@ macro_rules! impl_newtype {
             }
         }
 
-        impl<S, T, $($tp),+> crate::Differentiable<S, T> for InnerProduct<N1, N2>
+        impl<S, T, $($tp),+> crate::Differentiable<S, T> for $name<$($tp),+>
         where
             S: crate::State,
             T: crate::Identifier,

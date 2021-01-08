@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, State, Node, Function, Differentiable,
+    Identifier, State, Node, Contains, Function, Differentiable,
     buffer::{Buffer, ScalarBuffer, FieldOf},
     ops::{AddOut, reduce::Reduce, scalar::Mul},
 };
@@ -105,6 +105,17 @@ pub struct OuterProduct<N1, N2>(pub N1, pub N2);
 
 impl<N1, N2> Node for OuterProduct<N1, N2> {}
 
+impl<T, N1, N2> Contains<T> for OuterProduct<N1, N2>
+where
+    T: Identifier,
+    N1: Contains<T>,
+    N2: Contains<T>,
+{
+    fn contains(&self, target: T) -> bool {
+        self.0.contains(target) || self.1.contains(target)
+    }
+}
+
 impl<S, N1, N2> Function<S> for OuterProduct<N1, N2>
 where
     S: State,
@@ -199,6 +210,17 @@ where
 pub struct MatMul<N1, N2>(pub N1, pub N2);
 
 impl<N1, N2> Node for MatMul<N1, N2> {}
+
+impl<T, N1, N2> Contains<T> for MatMul<N1, N2>
+where
+    T: Identifier,
+    N1: Contains<T>,
+    N2: Contains<T>,
+{
+    fn contains(&self, target: T) -> bool {
+        self.0.contains(target) || self.1.contains(target)
+    }
+}
 
 impl<S, N1, N2> Function<S> for MatMul<N1, N2>
 where

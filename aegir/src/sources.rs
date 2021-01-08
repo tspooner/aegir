@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, State, Get, Node, Function, Differentiable,
+    Identifier, State, Get, Node, Contains, Function, Differentiable,
     buffer::{Buffer, OwnedBuffer, OwnedOf, FieldOf},
 };
 
@@ -18,6 +18,14 @@ impl<ID: std::fmt::Debug> std::error::Error for VariableError<ID> {}
 pub struct Variable<I>(pub I);
 
 impl<I> Node for Variable<I> {}
+
+impl<T, I> Contains<T> for Variable<I>
+where
+    T: Identifier,
+    I: Identifier + std::cmp::PartialEq<T>,
+{
+    fn contains(&self, target: T) -> bool { self.0 == target }
+}
 
 impl<S, I> Function<S> for Variable<I>
 where
@@ -49,7 +57,7 @@ where
     type Jacobian = OwnedOf<<S as Get<I>>::Output>;
 
     fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-        if self.0 == target {
+        if self.contains(target) {
             state
                 .get(self.0)
                 .map(|a| a.to_ones())
@@ -77,6 +85,13 @@ impl<I> From<I> for Variable<I> {
 pub struct Constant<B>(pub B);
 
 impl<B> Node for Constant<B> {}
+
+impl<T, B> Contains<T> for Constant<B>
+where
+    T: Identifier,
+{
+    fn contains(&self, _: T) -> bool { false }
+}
 
 impl<S, B> Function<S> for Constant<B>
 where

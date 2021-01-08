@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, State, Function, Differentiable,
+    Identifier, State, Contains, Function, Differentiable,
     buffer::{Buffer, FieldOf, OwnedOf},
 };
 use num_traits::{float::FloatConst, real::Real};
@@ -9,6 +9,14 @@ use std::fmt;
 macro_rules! impl_special {
     (@unary $name:ident, $eval:expr, $grad:expr) => {
         new_op!($name<N>);
+
+        impl<T, N> Contains<T> for $name<N>
+        where
+            T: Identifier,
+            N: Contains<T>,
+        {
+            fn contains(&self, target: T) -> bool { self.0.contains(target) }
+        }
 
         impl<S, N> Function<S> for $name<N>
         where
@@ -70,6 +78,14 @@ impl<N> Erf<N> {
     pub fn complementary(self) -> crate::ops::scalar::Neg<Self> {
         crate::ops::scalar::Neg(self)
     }
+}
+
+impl<T, N> Contains<T> for Erf<N>
+where
+    T: Identifier,
+    N: Contains<T>,
+{
+    fn contains(&self, target: T) -> bool { self.0.contains(target) }
 }
 
 impl<S, N> Function<S> for Erf<N>

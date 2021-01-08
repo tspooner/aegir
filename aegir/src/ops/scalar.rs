@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, State, Node, Function, Differentiable,
+    Identifier, State, Node, Contains, Function, Differentiable,
     buffer::{Buffer, OwnedOf, FieldOf},
     ops::{AddOut, MulOut},
 };
@@ -15,6 +15,16 @@ impl_trait!(@binary Sub["-"], ops::Sub, |x, y| { x - y }, |dx, dy| { dx - dy });
 pub struct Abs<N>(pub N);
 
 impl<N> Node for Abs<N> {}
+
+impl<T, N> Contains<T> for Abs<N>
+where
+    T: Identifier,
+    N: Contains<T>,
+{
+    fn contains(&self, target: T) -> bool {
+        self.0.contains(target)
+    }
+}
 
 impl<S: State, N: Function<S>> Function<S> for Abs<N>
 where
@@ -55,6 +65,17 @@ impl<X: fmt::Display> fmt::Display for Abs<X> {
 pub struct Mul<N1, N2>(pub N1, pub N2);
 
 impl<N1, N2> Node for Mul<N1, N2> {}
+
+impl<T, N1, N2> Contains<T> for Mul<N1, N2>
+where
+    T: Identifier,
+    N1: Contains<T>,
+    N2: Contains<T>,
+{
+    fn contains(&self, target: T) -> bool {
+        self.0.contains(target) || self.1.contains(target)
+    }
+}
 
 impl<S, N1, N2> Function<S> for Mul<N1, N2>
 where
@@ -136,6 +157,16 @@ impl<N1: fmt::Display, N2: Node + fmt::Display> fmt::Display for Mul<N1, N2> {
 pub struct Power<N, P>(pub N, pub P);
 
 impl<N, P> Node for Power<N, P> {}
+
+impl<T, N, P> Contains<T> for Power<N, P>
+where
+    T: Identifier,
+    N: Contains<T>,
+{
+    fn contains(&self, target: T) -> bool {
+        self.0.contains(target)
+    }
+}
 
 impl<S, N, P> Function<S> for Power<N, P>
 where

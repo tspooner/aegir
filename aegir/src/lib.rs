@@ -59,7 +59,9 @@ pub trait Node {
     fn reduce(self) -> ops::reduce::Reduce<Self> where Self: Sized { ops::reduce::Reduce(self) }
 }
 
-    // fn contains(&self, target: T) -> bool;
+pub trait Contains<T: Identifier>: Node {
+    fn contains(&self, target: T) -> bool;
+}
 
 pub trait Function<S: State>: Node {
     type Codomain: buffer::Buffer;
@@ -68,7 +70,7 @@ pub trait Function<S: State>: Node {
     fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error>;
 }
 
-pub trait Differentiable<S: State, T: Identifier>: Function<S> {
+pub trait Differentiable<S: State, T: Identifier>: Function<S> + Contains<T> {
     type Jacobian: buffer::Buffer<
         Field = buffer::FieldOf<<Self as Function<S>>::Codomain>
     >;
