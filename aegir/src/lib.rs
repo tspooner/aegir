@@ -32,6 +32,10 @@ macro_rules! state {
 }
 
 pub trait Node {
+    fn named<I: Identifier>(self, id: I) -> NamedNode<Self, I> where Self: Sized {
+        NamedNode(self, id)
+    }
+
     fn add<N: Node>(self, other: N) -> ops::scalar::Add<Self, N> where Self: Sized {
         ops::scalar::Add(self, other)
     }
@@ -107,6 +111,9 @@ pub mod dual;
 
 pub mod sources;
 pub mod ops;
+
+mod named;
+pub use self::named::NamedNode;
 
 // pub mod module;
 
