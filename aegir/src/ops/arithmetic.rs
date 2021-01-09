@@ -277,11 +277,11 @@ where
     T: Identifier,
     N: Compile<T>,
 {
-    type CompiledJacobian = GradOf<T>;
+    type CompiledJacobian = Twice<N::CompiledJacobian>;
     type Error = N::Error;
 
     fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error> {
-        Ok(GradOf(GradValue::Two, target))
+        self.0.compile_grad(target).map(Twice)
     }
 }
 

@@ -99,18 +99,13 @@ impl<I> From<I> for Variable<I> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum GradValue { Zero, One, Two }
+pub enum GradValue { Zero, One }
 
 impl GradValue {
     pub(self) fn convert<B: Buffer>(&self, buffer: &B) -> B::Owned {
         match self {
             GradValue::Zero => buffer.to_zeroes(),
             GradValue::One => buffer.to_ones(),
-            GradValue::Two => {
-                let two = num_traits::one::<FieldOf<B>>() + num_traits::one();
-
-                buffer.to_filled(two)
-            },
         }
     }
 }
@@ -183,7 +178,6 @@ impl<I: std::fmt::Display> std::fmt::Display for GradOf<I> {
         match self.0 {
             GradValue::Zero => write!(f, "0"),
             GradValue::One => write!(f, "\u{2202}{}", self.1),
-            GradValue::Two => write!(f, "2 \u{2202}{}", self.1),
         }
     }
 }
