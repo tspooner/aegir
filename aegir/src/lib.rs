@@ -117,6 +117,10 @@ pub trait Compile<T: Identifier>: Node {
     fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error>;
 }
 
+pub trait Prune: Node where Self: Sized {
+    fn prune(self) -> Option<Self>;
+}
+
 pub type ErrorOf<F, S> = <F as Function<S>>::Error;
 pub type CodomainOf<F, S> = <F as Function<S>>::Codomain;
 pub type JacobianOf<F, S, T> = <F as Differentiable<S, T>>::Jacobian;
