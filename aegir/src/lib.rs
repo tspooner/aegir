@@ -7,6 +7,17 @@ pub use self::aegir_derive::*;
 #[allow(unused_imports)]
 use paste::paste;
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum NoError {}
+
+impl std::fmt::Display for NoError {
+    fn fmt(&self, _: &mut std::fmt::Formatter) -> std::fmt::Result { match *self {} }
+}
+
+impl std::error::Error for NoError {
+    fn description(&self) -> &str { match *self {} }
+}
+
 pub trait Identifier: Eq + Copy + std::fmt::Debug + std::fmt::Display {
     fn to_var(self) -> sources::Variable<Self> { sources::Variable(self) }
 }
@@ -36,28 +47,32 @@ pub trait Node {
         NamedNode(self, id)
     }
 
-    fn add<N: Node>(self, other: N) -> ops::scalar::Add<Self, N> where Self: Sized {
-        ops::scalar::Add(self, other)
+    fn add<N: Node>(self, other: N) -> ops::arithmetic::Add<Self, N> where Self: Sized {
+        ops::arithmetic::Add(self, other)
     }
 
-    fn sub<N: Node>(self, other: N) -> ops::scalar::Sub<Self, N> where Self: Sized {
-        ops::scalar::Sub(self, other)
+    fn sub<N: Node>(self, other: N) -> ops::arithmetic::Sub<Self, N> where Self: Sized {
+        ops::arithmetic::Sub(self, other)
     }
 
-    fn mul<N: Node>(self, other: N) -> ops::scalar::Mul<Self, N> where Self: Sized {
-        ops::scalar::Mul(self, other)
+    fn mul<N: Node>(self, other: N) -> ops::arithmetic::Mul<Self, N> where Self: Sized {
+        ops::arithmetic::Mul(self, other)
     }
 
     fn dot<N: Node>(self, other: N) -> ops::linalg::InnerProduct<Self, N> where Self: Sized {
         ops::linalg::InnerProduct::new(self, other)
     }
 
-    fn abs(self) -> ops::scalar::Abs<Self> where Self: Sized { ops::scalar::Abs(self) }
+    fn abs(self) -> ops::arithmetic::Abs<Self> where Self: Sized { ops::arithmetic::Abs(self) }
 
-    fn neg(self) -> ops::scalar::Neg<Self> where Self: Sized { ops::scalar::Neg(self) }
+    fn neg(self) -> ops::arithmetic::Neg<Self> where Self: Sized { ops::arithmetic::Neg(self) }
 
-    fn pow<P>(self, power: P) -> ops::scalar::Power<Self, P> where Self: Sized {
-        ops::scalar::Power(self, power)
+    fn pow<P>(self, power: P) -> ops::arithmetic::Power<Self, P> where Self: Sized {
+        ops::arithmetic::Power(self, power)
+    }
+
+    fn squared(self) -> ops::arithmetic::Squared<Self> where Self: Sized {
+        ops::arithmetic::Squared(self)
     }
 
     fn reduce(self) -> ops::reduce::Reduce<Self> where Self: Sized { ops::reduce::Reduce(self) }
@@ -106,6 +121,9 @@ pub type ErrorOf<F, S> = <F as Function<S>>::Error;
 pub type CodomainOf<F, S> = <F as Function<S>>::Codomain;
 pub type JacobianOf<F, S, T> = <F as Differentiable<S, T>>::Jacobian;
 
+#[macro_use]
+mod macros;
+
 pub mod buffer;
 pub mod dual;
 
@@ -114,8 +132,6 @@ pub mod ops;
 
 mod named;
 pub use self::named::NamedNode;
-
-// pub mod module;
 
 pub fn evaluate<S, F>(
     f: F,

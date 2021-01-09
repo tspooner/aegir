@@ -1,10 +1,10 @@
-pub trait ScalarBuffer:
+pub trait Field:
     Buffer<Field = Self> + Copy +
     num_traits::Num + num_traits::Signed +
     std::fmt::Debug
 {}
 
-impl<T> ScalarBuffer for T
+impl<T> Field for T
 where
     T:
         Buffer<Field = Self> + Copy +
@@ -13,7 +13,7 @@ where
 {}
 
 pub trait Buffer: std::fmt::Debug {
-    type Field: ScalarBuffer;
+    type Field: Field;
     type Owned: OwnedBuffer<Field = Self::Field>;
 
     fn to_owned(&self) -> Self::Owned;
@@ -21,19 +21,27 @@ pub trait Buffer: std::fmt::Debug {
     fn into_owned(self) -> Self::Owned;
 
     fn to_zeroes(&self) -> Self::Owned {
-        self.to_owned().map(|_| num_traits::identities::zero())
+        self.to_filled(num_traits::identities::zero())
     }
 
     fn into_zeroes(self) -> Self::Owned where Self: Sized {
-        self.map(|_| num_traits::identities::zero())
+        self.into_filled(num_traits::identities::zero())
     }
 
     fn to_ones(&self) -> Self::Owned {
-        self.to_owned().map(|_| num_traits::identities::one())
+        self.to_filled(num_traits::identities::one())
     }
 
     fn into_ones(self) -> Self::Owned where Self: Sized {
-        self.map(|_| num_traits::identities::one())
+        self.into_filled(num_traits::identities::one())
+    }
+
+    fn to_filled(&self, value: Self::Field) -> Self::Owned {
+        self.to_owned().map(|_| value)
+    }
+
+    fn into_filled(self, value: Self::Field) -> Self::Owned where Self: Sized {
+        self.map(|_| value)
     }
 
     fn map<F>(self, f: F) -> Self::Owned
@@ -61,18 +69,29 @@ impl Buffer for f64 {
 
     fn into_owned(self) -> f64 { self }
 
-    fn map<F: Fn(f64) -> Self::Field>(self, f: F) -> Self { f(self) }
+    fn map<F: Fn(f64) -> Self::Field>(self, f: F) -> f64 { f(self) }
 
-    fn merge<F: Fn(f64, &f64) -> f64>(self, other: &f64, f: F) -> Self {
-        f(self, other)
-    }
+    fn merge<F: Fn(f64, &f64) -> f64>(self, other: &f64, f: F) -> f64 { f(self, other) }
 
-    fn fold<F: Fn(f64, &f64) -> f64>(&self, init: f64, f: F) -> Self::Field {
-        f(init, self)
-    }
+    fn fold<F: Fn(f64, &f64) -> f64>(&self, init: f64, f: F) -> f64 { f(init, self) }
 }
 
-impl<F: ScalarBuffer<Field = F>> Buffer for Vec<F> {
+impl Buffer for &f64 {
+    type Field = f64;
+    type Owned = f64;
+
+    fn to_owned(&self) -> f64 { **self }
+
+    fn into_owned(self) -> f64 { *self }
+
+    fn map<F: Fn(f64) -> Self::Field>(self, f: F) -> f64 { f(*self) }
+
+    fn merge<F: Fn(f64, &f64) -> f64>(self, other: &&f64, f: F) -> f64 { f(*self, *other) }
+
+    fn fold<F: Fn(f64, &f64) -> f64>(&self, init: f64, f: F) -> f64 { f(init, self) }
+}
+
+impl<F: Field> Buffer for Vec<F> {
     type Field = F;
     type Owned = Self;
 
@@ -93,7 +112,7 @@ impl<F: ScalarBuffer<Field = F>> Buffer for Vec<F> {
     }
 }
 
-impl<F: ScalarBuffer<Field = F>> Buffer for &Vec<F> {
+impl<F: Field> Buffer for &Vec<F> {
     type Field = F;
     type Owned = Vec<F>;
 
@@ -116,7 +135,7 @@ impl<F: ScalarBuffer<Field = F>> Buffer for &Vec<F> {
 
 impl<F, S> Buffer for ndarray::ArrayBase<S, ndarray::Ix1>
 where
-    F: ScalarBuffer<Field = F>,
+    F: Field,
     S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
 {
     type Field = F;
@@ -147,7 +166,7 @@ where
 
 impl<F, S> Buffer for &ndarray::ArrayBase<S, ndarray::Ix1>
 where
-    F: ScalarBuffer<Field = F>,
+    F: Field,
     S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
 {
     type Field = F;
@@ -178,7 +197,7 @@ where
 
 impl<F, S> Buffer for ndarray::ArrayBase<S, ndarray::Ix2>
 where
-    F: ScalarBuffer<Field = F>,
+    F: Field,
     S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
 {
     type Field = F;
@@ -211,7 +230,7 @@ where
 
 impl<F, S> Buffer for &ndarray::ArrayBase<S, ndarray::Ix2>
 where
-    F: ScalarBuffer<Field = F>,
+    F: Field,
     S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
 {
     type Field = F;

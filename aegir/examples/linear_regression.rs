@@ -2,7 +2,7 @@
 extern crate aegir;
 extern crate rand;
 
-use aegir::{Node, Identifier, Differentiable};
+use aegir::{Node, Identifier, Function, Differentiable, Compile};
 use ndarray::Array1;
 
 ids!(X::x, Y::y, W::w);
@@ -19,17 +19,20 @@ macro_rules! get_state {
 }
 
 fn main() {
-    let mut weights = Array1::from(vec![0.0; 1]);
+    let mut weights = Array1::from(vec![0.0; 2]);
 
     let x = X.to_var();
     let y = Y.to_var();
     let w = W.to_var();
 
-    let sse = y.sub(w.dot(x)).pow(2.0).reduce();
+    let sse = w.dot(x).sub(y).squared();
+
+    println!("{}", sse);
+    println!("{}", sse.compile_grad(W).unwrap());
 
     for _ in 0..10000 {
-        let x_ = Array1::from(vec![rand::random::<f64>()]);
-        let y_ = x_.clone() * 2.0;
+        let x_ = Array1::from(vec![rand::random::<f64>(), rand::random::<f64>()]);
+        let y_ = x_[0] * 2.0 - x_[1] * 4.0;
         let g = sse.grad(get_state!(x_, y_, weights), W).unwrap();
 
         weights.iter_mut().zip(g.iter()).for_each(|(w, dw)| { *w -= 0.01 * dw });

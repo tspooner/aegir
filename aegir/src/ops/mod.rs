@@ -1,20 +1,5 @@
-macro_rules! new_op {
-    ($name:ident<$($tp:ident),+>) => {
-        #[derive(Copy, Clone, Debug)]
-        pub struct $name<$($tp),+>($(pub $tp),+);
-
-        impl<$($tp),+> crate::Node for $name<$($tp),+> {}
-    };
-    ($name:ident<$($tp:ident),+>($inner:ty)) => {
-        #[derive(Copy, Clone, Debug)]
-        pub struct $name<$($tp),+>(pub $inner);
-
-        impl<$($tp),+> crate::Node for $name<$($tp),+> {}
-    };
-}
-
-macro_rules! impl_real {
-    (@unary $name:ident[$str:tt], $eval:expr, $grad:expr) => {
+macro_rules! impl_unary {
+    ($name:ident[$str:tt]: $field_type:path, $eval:expr, $grad:expr) => {
         new_op!($name<N>);
 
         impl<T, N> crate::Contains<T> for $name<N>
@@ -30,7 +15,7 @@ macro_rules! impl_real {
             S: crate::State,
             N: crate::Function<S>,
 
-            crate::buffer::FieldOf<N::Codomain>: num_traits::real::Real,
+            crate::buffer::FieldOf<N::Codomain>: $field_type,
         {
             type Codomain = crate::buffer::OwnedOf<N::Codomain>;
             type Error = N::Error;
@@ -50,7 +35,7 @@ macro_rules! impl_real {
 
             N::Jacobian: crate::buffer::Buffer<Field = crate::buffer::FieldOf<N::Codomain>>,
 
-            crate::buffer::FieldOf<N::Codomain>: num_traits::real::Real,
+            crate::buffer::FieldOf<N::Codomain>: $field_type,
         {
             type Jacobian = crate::buffer::OwnedOf<N::Jacobian>;
 
@@ -63,7 +48,7 @@ macro_rules! impl_real {
 
         impl<X: std::fmt::Display> std::fmt::Display for $name<X> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{}({})", $str, self.0)
+                write!(f, $str, self.0)
             }
         }
     }
@@ -141,50 +126,10 @@ macro_rules! impl_trait {
     }
 }
 
-macro_rules! impl_newtype {
-    ($name:ident<$($tp:ident),+>($inner:ty)) => {
-        new_op!($name<$($tp),+>($inner));
-
-        impl<T, $($tp),+> crate::Contains<T> for $name<$($tp),+>
-        where
-            T: crate::Identifier,
-            $inner: crate::Contains<T>,
-        {
-            fn contains(&self, target: T) -> bool { self.0.contains(target) }
-        }
-
-        impl<S, $($tp),+> crate::Function<S> for $name<$($tp),+>
-        where
-            S: crate::State,
-            $inner: crate::Function<S>,
-        {
-            type Codomain = crate::CodomainOf<$inner, S>;
-            type Error = crate::ErrorOf<$inner, S>;
-
-            fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-                self.0.evaluate(state)
-            }
-        }
-
-        impl<S, T, $($tp),+> crate::Differentiable<S, T> for $name<$($tp),+>
-        where
-            S: crate::State,
-            T: crate::Identifier,
-            $inner: crate::Differentiable<S, T>,
-        {
-            type Jacobian = crate::JacobianOf<$inner, S, T>;
-
-            fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-                self.0.grad(state, target)
-            }
-        }
-    }
-}
-
 type AddOut<A, B> = <A as std::ops::Add<B>>::Output;
 type MulOut<A, B> = <A as std::ops::Mul<B>>::Output;
 
-pub mod scalar;
+pub mod arithmetic;
 pub mod linalg;
 pub mod trig;
 pub mod reduce;

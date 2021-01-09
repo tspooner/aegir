@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, State, Node, Contains, Function, Differentiable,
+    Identifier, State, Node, Contains, Function, Differentiable, Compile,
     buffer::{Buffer, FieldOf},
 };
 use std::fmt;
@@ -47,8 +47,21 @@ where
     }
 }
 
+impl<T, N> Compile<T> for Reduce<N>
+where
+    T: Identifier,
+    N: Compile<T>,
+{
+    type CompiledJacobian = N::CompiledJacobian;
+    type Error = N::Error;
+
+    fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error> {
+        self.0.compile_grad(target)
+    }
+}
+
 impl<N: fmt::Display> fmt::Display for Reduce<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\u{03A3}_i {}_i", self.0)
+        write!(f, "\u{03A3}_i ({})_i", self.0)
     }
 }

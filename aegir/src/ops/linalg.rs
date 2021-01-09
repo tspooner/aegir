@@ -1,7 +1,7 @@
 use crate::{
-    Identifier, State, Node, Contains, Function, Differentiable,
-    buffer::{Buffer, ScalarBuffer, FieldOf},
-    ops::{AddOut, reduce::Reduce, scalar::Mul},
+    Identifier, State, Node, Contains, Function, Differentiable, Compile,
+    buffer::{Buffer, Field, FieldOf},
+    ops::{AddOut, reduce::Reduce, arithmetic::Mul},
 };
 use ndarray::{ArrayBase, Ix1, Ix2};
 
@@ -47,6 +47,20 @@ impl<N1, N2> InnerProduct<N1, N2> {
     }
 }
 
+impl<T, N1, N2> Compile<T> for InnerProduct<N1, N2>
+where
+    T: Identifier,
+
+    Reduce<Mul<N1, N2>>: Compile<T>,
+{
+    type CompiledJacobian = <Reduce<Mul<N1, N2>> as Compile<T>>::CompiledJacobian;
+    type Error = <Reduce<Mul<N1, N2>> as Compile<T>>::Error;
+
+    fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error> {
+        self.0.compile_grad(target)
+    }
+}
+
 impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for InnerProduct<N1, N2> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "\u{27E8}{}, {}\u{27E9}", self.0.0.0, self.0.0.1)
@@ -67,7 +81,7 @@ where
 
 impl<F, S> OuterProductTrait<ArrayBase<S, Ix1>> for ArrayBase<S, Ix1>
 where
-    F: ScalarBuffer + 'static,
+    F: Field + 'static,
     S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
 {
     type Output = ndarray::Array2<F>;
@@ -89,7 +103,7 @@ where
 
 impl<F> OuterProductTrait<Vec<F>> for Vec<F>
 where
-    F: ScalarBuffer + 'static,
+    F: Field + 'static,
 {
     type Output = ndarray::Array2<F>;
 
@@ -192,7 +206,7 @@ where
 
 impl<F, S> MatMulTrait<ArrayBase<S, Ix2>> for ArrayBase<S, Ix2>
 where
-    F: ScalarBuffer + 'static,
+    F: Field + 'static,
     S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
 {
     type Output = ndarray::Array2<F>;

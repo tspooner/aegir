@@ -75,8 +75,8 @@ impl<X: fmt::Display> fmt::Display for Factorial<X> {
 new_op!(Erf<N>);
 
 impl<N> Erf<N> {
-    pub fn complementary(self) -> crate::ops::scalar::Neg<Self> {
-        crate::ops::scalar::Neg(self)
+    pub fn complementary(self) -> crate::ops::arithmetic::Neg<Self> {
+        crate::ops::arithmetic::Neg(self)
     }
 }
 
