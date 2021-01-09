@@ -1,7 +1,7 @@
 use crate::{
-    Identifier, State, Node, Contains, Function, Differentiable, Compile, CodomainOf,
+    Identifier, State, Node, Contains, Function, Differentiable, Compile,
     buffer::{Buffer, Field, OwnedOf, FieldOf},
-    sources::{GradOf, GradValue, Constant},
+    sources::Constant,
     ops::{AddOut, MulOut},
 };
 use num_traits::{real::Real, Pow};
@@ -51,7 +51,7 @@ where
 
 impl<S: State, N: Function<S>> Function<S> for Sign<N>
 where
-    <N::Codomain as Buffer>::Field: num_traits::real::Real,
+    FieldOf<N::Codomain>: num_traits::real::Real,
 {
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
@@ -65,17 +65,20 @@ impl<S, T, N> Differentiable<S, T> for Sign<N>
 where
     S: State,
     T: Identifier,
-    N: Differentiable<S, T, Jacobian = <N as Function<S>>::Codomain>,
+    N: Differentiable<S, T>,
 
-    <N::Codomain as Buffer>::Field: num_traits::float::Float,
+    FieldOf<N::Codomain>: num_traits::Float,
+    OwnedOf<N::Codomain>: std::ops::Mul<OwnedOf<N::Jacobian>>,
+
+    MulOut<OwnedOf<N::Codomain>, OwnedOf<N::Jacobian>>: Buffer<
+        Field = FieldOf<N::Codomain>,
+    >,
 {
-    type Jacobian = OwnedOf<N::Jacobian>;
+    type Jacobian = MulOut<OwnedOf<N::Codomain>, OwnedOf<N::Jacobian>>;
 
     fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-        let two = num_traits::one::<FieldOf<N::Codomain>>() + num_traits::one();
-
         self.0.dual(state, target).map(|d| {
-            d.value.merge(&d.adjoint, |v, &dv| two * dirac(v) * dv)
+            d.value.map(dirac) * d.adjoint.map(|g| g)
         })
     }
 }
@@ -97,7 +100,7 @@ where
 
 impl<S: State, N: Function<S>> Function<S> for Abs<N>
 where
-    <N::Codomain as Buffer>::Field: num_traits::real::Real,
+    FieldOf<N::Codomain>: num_traits::real::Real,
 {
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
@@ -111,15 +114,20 @@ impl<S, T, N> Differentiable<S, T> for Abs<N>
 where
     S: State,
     T: Identifier,
-    N: Differentiable<S, T, Jacobian = <N as Function<S>>::Codomain>,
+    N: Differentiable<S, T>,
 
-    <N::Codomain as Buffer>::Field: num_traits::real::Real,
+    FieldOf<N::Codomain>: num_traits::real::Real,
+    OwnedOf<N::Codomain>: std::ops::Mul<N::Jacobian>,
+
+    MulOut<OwnedOf<N::Codomain>, N::Jacobian>: Buffer<
+        Field = FieldOf<N::Codomain>,
+    >,
 {
-    type Jacobian = OwnedOf<N::Jacobian>;
+    type Jacobian = MulOut<OwnedOf<N::Codomain>, N::Jacobian>;
 
     fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
         self.0.dual(state, target).map(|d| {
-            d.value.merge(&d.adjoint, |v, &dv| v.signum() * dv)
+            d.value.map(|v| v.signum()) * d.adjoint
         })
     }
 }
@@ -155,9 +163,9 @@ impl<S, N, P> Function<S> for Power<N, P>
 where
     S: State,
     N: Function<S>,
-    P: Clone,
+    P: Field,
 
-    <N::Codomain as Buffer>::Field: num_traits::Pow<P, Output = <N::Codomain as Buffer>::Field>,
+    FieldOf<N::Codomain>: num_traits::Pow<P, Output = FieldOf<N::Codomain>>
 {
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
@@ -171,21 +179,24 @@ impl<S, T, N, P> Differentiable<S, T> for Power<N, P>
 where
     S: State,
     T: Identifier,
-    N: Differentiable<S, T, Jacobian = <N as Function<S>>::Codomain>,
-    P: Clone + num_traits::One + std::ops::Sub<P, Output = P>,
+    N: Differentiable<S, T>,
+    P: Field + num_traits::One + std::ops::Sub<P, Output = P>,
 
-    <N::Codomain as Buffer>::Field:
-        num_traits::Pow<P, Output = <N::Codomain as Buffer>::Field>
-        + std::ops::Mul<Output = <N::Codomain as Buffer>::Field>
-        + std::ops::Mul<P, Output = <N::Codomain as Buffer>::Field>,
+    FieldOf<N::Codomain>: num_traits::Pow<P, Output = FieldOf<N::Codomain>>,
+    FieldOf<N::Jacobian>: std::ops::Mul<P, Output = FieldOf<N::Jacobian>>,
+    OwnedOf<N::Codomain>: std::ops::Mul<OwnedOf<N::Jacobian>>,
+
+    MulOut<OwnedOf<N::Codomain>, OwnedOf<N::Jacobian>>: Buffer<
+        Field = FieldOf<N::Codomain>,
+    >,
 {
-    type Jacobian = OwnedOf<N::Jacobian>;
+    type Jacobian = MulOut<OwnedOf<N::Codomain>, OwnedOf<N::Jacobian>>;
 
     fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+        let np = self.1 - num_traits::one();
+
         self.0.dual(state, target).map(|d| {
-            d.value.merge(&d.adjoint, |v, &g| {
-                v.pow(self.1.clone() - num_traits::one()) * self.1.clone() * g
-            })
+            d.value.map(|v| v.pow(np)) * d.adjoint.map(|g| g * self.1)
         })
     }
 }

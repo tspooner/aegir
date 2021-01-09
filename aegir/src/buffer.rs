@@ -47,9 +47,6 @@ pub trait Buffer: std::fmt::Debug {
     fn map<F>(self, f: F) -> Self::Owned
     where F: Fn(Self::Field) -> Self::Field;
 
-    fn merge<F>(self, other: &Self, f: F) -> Self::Owned
-    where F: Fn(Self::Field, &Self::Field) -> Self::Field;
-
     fn fold<F>(&self, init: Self::Field, f: F) -> Self::Field
     where F: Fn(Self::Field, &Self::Field) -> Self::Field;
 }
@@ -71,8 +68,6 @@ impl Buffer for f64 {
 
     fn map<F: Fn(f64) -> Self::Field>(self, f: F) -> f64 { f(self) }
 
-    fn merge<F: Fn(f64, &f64) -> f64>(self, other: &f64, f: F) -> f64 { f(self, other) }
-
     fn fold<F: Fn(f64, &f64) -> f64>(&self, init: f64, f: F) -> f64 { f(init, self) }
 }
 
@@ -85,8 +80,6 @@ impl Buffer for &f64 {
     fn into_owned(self) -> f64 { *self }
 
     fn map<F: Fn(f64) -> Self::Field>(self, f: F) -> f64 { f(*self) }
-
-    fn merge<F: Fn(f64, &f64) -> f64>(self, other: &&f64, f: F) -> f64 { f(*self, *other) }
 
     fn fold<F: Fn(f64, &f64) -> f64>(&self, init: f64, f: F) -> f64 { f(init, self) }
 }
@@ -101,10 +94,6 @@ impl<F: Field> Buffer for Vec<F> {
 
     fn map<Func: Fn(F) -> F>(self, f: Func) -> Self {
         self.into_iter().map(f).collect()
-    }
-
-    fn merge<Func: Fn(F, &F) -> F>(self, other: &Vec<F>, f: Func) -> Self {
-        self.into_iter().zip(other.iter()).map(|(x, y)| f(x, y)).collect()
     }
 
     fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> Self::Field {
@@ -122,10 +111,6 @@ impl<F: Field> Buffer for &Vec<F> {
 
     fn map<Func: Fn(F) -> F>(self, f: Func) -> Vec<F> {
         self.into_iter().map(|x| f(*x)).collect()
-    }
-
-    fn merge<Func: Fn(F, &F) -> F>(self, other: &&Vec<F>, f: Func) -> Vec<F> {
-        self.into_iter().zip(other.iter()).map(|(x, y)| f(*x, y)).collect()
     }
 
     fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> Self::Field {
@@ -149,16 +134,6 @@ where
         self.into_owned().mapv(f)
     }
 
-    fn merge<Func: Fn(F, &F) -> F>(self, other: &Self, f: Func) -> ndarray::Array1<F> {
-        let mut buf = self.into_owned();
-
-        buf.iter_mut().zip(other.iter()).for_each(|(xx, yy)| {
-            *xx = f(*xx, yy)
-        });
-
-        buf
-    }
-
     fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
         self.fold(init, f)
     }
@@ -178,16 +153,6 @@ where
 
     fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array1<F> {
         self.into_owned().mapv(f)
-    }
-
-    fn merge<Func: Fn(F, &F) -> F>(self, other: &Self, f: Func) -> ndarray::Array1<F> {
-        let mut buf = self.into_owned();
-
-        buf.iter_mut().zip(other.iter()).for_each(|(xx, yy)| {
-            *xx = f(*xx, yy)
-        });
-
-        buf
     }
 
     fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
@@ -211,18 +176,6 @@ where
         self.into_owned().mapv(f)
     }
 
-    fn merge<Func: Fn(F, &F) -> F>(self, other: &Self, f: Func) -> ndarray::Array2<F> {
-        let mut buf = self.into_owned();
-
-        buf.gencolumns_mut().into_iter().zip(other.gencolumns()).for_each(|(mut x, y)| {
-            x.iter_mut().zip(y.iter()).for_each(|(xx, yy)| {
-                *xx = f(*xx, yy)
-            })
-        });
-
-        buf
-    }
-
     fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
         self.fold(init, f)
     }
@@ -242,18 +195,6 @@ where
 
     fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array2<F> {
         self.into_owned().mapv(f)
-    }
-
-    fn merge<Func: Fn(F, &F) -> F>(self, other: &Self, f: Func) -> ndarray::Array2<F> {
-        let mut buf = self.into_owned();
-
-        buf.gencolumns_mut().into_iter().zip(other.gencolumns()).for_each(|(mut x, y)| {
-            x.iter_mut().zip(y.iter()).for_each(|(xx, yy)| {
-                *xx = f(*xx, yy)
-            })
-        });
-
-        buf
     }
 
     fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
