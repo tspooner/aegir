@@ -79,14 +79,14 @@ where
     T: Identifier,
     I: Identifier + std::cmp::PartialEq<T>,
 {
-    type CompiledJacobian = GradOf<I>;
+    type CompiledJacobian = GradReplace<I>;
     type Error = crate::NoError;
 
     fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error> {
         if self.contains(target) {
-            Ok(GradOf(GradValue::One, self.0))
+            Ok(GradReplace(GradValue::One, self.0))
         } else {
-            Ok(GradOf(GradValue::Zero, self.0))
+            Ok(GradReplace(GradValue::Zero, self.0))
         }
     }
 }
@@ -118,11 +118,11 @@ impl GradValue {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct GradOf<I>(pub GradValue, pub I);
+pub struct GradReplace<I>(pub GradValue, pub I);
 
-impl<I> Node for GradOf<I> {}
+impl<I> Node for GradReplace<I> {}
 
-impl<T, I> Contains<T> for GradOf<I>
+impl<T, I> Contains<T> for GradReplace<I>
 where
     T: Identifier,
     I: Identifier + std::cmp::PartialEq<T>,
@@ -130,7 +130,7 @@ where
     fn contains(&self, target: T) -> bool { self.1 == target }
 }
 
-impl<D, I> Function<D> for GradOf<I>
+impl<D, I> Function<D> for GradReplace<I>
 where
     D: Get<I>,
     I: Identifier,
@@ -150,7 +150,7 @@ where
     }
 }
 
-impl<D, T, F, I> Differentiable<D, T> for GradOf<I>
+impl<D, T, F, I> Differentiable<D, T> for GradReplace<I>
 where
     D: Get<I>,
     T: Identifier,
@@ -169,7 +169,7 @@ where
     }
 }
 
-impl<T, I> Compile<T> for GradOf<I>
+impl<T, I> Compile<T> for GradReplace<I>
 where
     T: Identifier,
     I: Identifier + std::cmp::PartialEq<T>,
@@ -178,11 +178,11 @@ where
     type Error = crate::NoError;
 
     fn compile_grad(&self, _: T) -> Result<Self::CompiledJacobian, Self::Error> {
-        Ok(GradOf(GradValue::Zero, self.1))
+        Ok(GradReplace(GradValue::Zero, self.1))
     }
 }
 
-impl<I> Prune for GradOf<I>
+impl<I> Prune for GradReplace<I>
 where
     I: Identifier,
 {
@@ -194,7 +194,7 @@ where
     }
 }
 
-impl<I: std::fmt::Display> std::fmt::Display for GradOf<I> {
+impl<I: std::fmt::Display> std::fmt::Display for GradReplace<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
             GradValue::Zero => write!(f, "0"),
@@ -261,5 +261,58 @@ where
 impl<B: std::fmt::Display> std::fmt::Display for Constant<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use aegir::{Identifier, Function, buffer::Buffer};
+    use super::*;
+
+    ids!(X::x);
+
+    #[derive(Database)]
+    struct DB<T> {
+        #[id(X)] pub x: T,
+    }
+
+    #[test]
+    fn test_variable() {
+        let var = X.to_var();
+
+        assert_eq!(var.evaluate(&DB { x: 1.0, }).unwrap(), 1.0);
+        assert_eq!(var.evaluate(&DB { x: [-10.0, 5.0], }).unwrap(), [-10.0, 5.0]);
+        assert_eq!(var.evaluate(&DB { x: (-1.0, 50.0), }).unwrap(), (-1.0, 50.0));
+        assert_eq!(var.evaluate(&DB { x: vec![1.0, 2.0], }).unwrap(), vec![1.0, 2.0]);
+    }
+
+    #[test]
+    fn test_constant() {
+        let c = 2.0f64.into_constant();
+
+        assert_eq!(c.evaluate(&DB { x: 1.0, }).unwrap(), 2.0);
+        assert_eq!(c.evaluate(&DB { x: [-10.0, 5.0], }).unwrap(), 2.0);
+        assert_eq!(c.evaluate(&DB { x: (-1.0, 50.0), }).unwrap(), 2.0);
+        assert_eq!(c.evaluate(&DB { x: vec![1.0, 2.0], }).unwrap(), 2.0);
+    }
+
+    #[test]
+    fn test_gradvalue_zero() {
+        let g = GradReplace(GradValue::Zero, X);
+
+        assert_eq!(g.evaluate(&DB { x: 1.0, }).unwrap(), 0.0);
+        assert_eq!(g.evaluate(&DB { x: [-10.0, 5.0], }).unwrap(), [0.0; 2]);
+        assert_eq!(g.evaluate(&DB { x: (-1.0, 50.0), }).unwrap(), (0.0, 0.0));
+        assert_eq!(g.evaluate(&DB { x: vec![1.0, 2.0], }).unwrap(), vec![0.0; 2]);
+    }
+
+    #[test]
+    fn test_gradvalue_one() {
+        let g = GradReplace(GradValue::One, X);
+
+        assert_eq!(g.evaluate(&DB { x: 1.0, }).unwrap(), 1.0);
+        assert_eq!(g.evaluate(&DB { x: [-10.0, 5.0], }).unwrap(), [1.0; 2]);
+        assert_eq!(g.evaluate(&DB { x: (-1.0, 50.0), }).unwrap(), (1.0, 1.0));
+        assert_eq!(g.evaluate(&DB { x: vec![1.0, 2.0], }).unwrap(), vec![1.0; 2]);
     }
 }

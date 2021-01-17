@@ -24,12 +24,52 @@ pub trait Identifier: Eq + Copy + std::fmt::Debug + std::fmt::Display {
     fn to_var(self) -> sources::Variable<Self> { sources::Variable(self) }
 }
 
+// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+// pub struct Indexed<T, Idx>(T, Idx);
+
+// impl<T: Identifier, Idx> Indexed<T, Idx> {
+    // pub fn new(target: T, idx: Idx) -> Self { Indexed(target, idx) }
+// }
+
+// impl<T, Idx> std::fmt::Display for Indexed<T, Idx>
+// where
+    // T: Identifier,
+    // Idx: std::fmt::Display,
+// {
+    // fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // write!(f, "{}[{}]", self.0, self.1)
+    // }
+// }
+
+// impl<T, Idx> Identifier for Indexed<T, Idx>
+// where
+    // T: Identifier,
+    // Idx: Copy + Clone + Eq + std::fmt::Debug + std::fmt::Display,
+// {}
+
 pub trait Database {}
 
 pub trait Get<T: Identifier>: Database {
     type Output;
 
     fn get(&self, target: T) -> Option<&Self::Output>;
+}
+
+#[derive(Copy, Clone)]
+pub struct SimpleDatabase<T, B>(T, B);
+
+impl<T: Identifier, B: buffer::Buffer> SimpleDatabase<T, B> {
+    pub fn new(target: T, buffer: B) -> Self { SimpleDatabase(target, buffer) }
+}
+
+impl<T, B> Database for SimpleDatabase<T, B> {}
+
+impl<T: Identifier, B: buffer::Buffer> Get<T> for SimpleDatabase<T, B> {
+    type Output = B;
+
+    fn get(&self, target: T) -> Option<&B> {
+        if target == self.0 { Some(&self.1) } else { None }
+    }
 }
 
 #[macro_export]
@@ -95,34 +135,70 @@ pub trait Function<D: Database>: Node {
     type Codomain: buffer::Buffer;
     type Error: std::error::Error;
 
+    /// Evaluate the function and return the corresponding value in the
+    /// [Codomain](Function::Codomain).
+    ///
+    /// # Examples
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::{Identifier, SimpleDatabase, Function};
+    /// # ids!(X);
+    /// let db = SimpleDatabase::new(X, 1.0);
+    ///
+    /// assert_eq!(X.to_var().evaluate(&db).unwrap(), 1.0);
+    /// ```
     fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error>;
 }
 
+/// Trait for [`Identifier`]-differentiable [Function] types.
 pub trait Differentiable<D: Database, T: Identifier>: Function<D> + Contains<T> {
     type Jacobian: buffer::Buffer<
         Field = buffer::FieldOf<<Self as Function<D>>::Codomain>
     >;
 
+    /// Compute the [Jacobian](Differentiable::Jacobian) associated with `target`.
+    ///
+    /// # Examples
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::{Node, Identifier, SimpleDatabase, Function, Differentiable, buffer::Buffer};
+    /// # ids!(X);
+    /// let c = 2.0.into_constant();
+    /// let db = SimpleDatabase::new(X, 10.0);
+    ///
+    /// assert_eq!(X.to_var().mul(c).grad(&db, X).unwrap(), 2.0);
+    /// ```
     fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error>;
 
+    /// Evaluate the function and compute the [Jacobian](Differentiable::Jacobian) associated with
+    /// `target` in a single pass.
     fn dual(&self, db: &D, target: T) -> Result<
         dual::Dual<Self::Codomain, Self::Jacobian>, Self::Error
     > {
         self.evaluate(db).and_then(|value| {
-            self.grad(db, target).map(|adjoint| {
-                dual::Dual {
-                    value,
-                    adjoint,
-                }
-            })
+            self.grad(db, target).map(|adjoint| dual::Dual { value, adjoint, })
         })
     }
 }
 
+/// Trait for [Differentiable] types that can be expressed statically within `aegir`.
 pub trait Compile<T: Identifier>: Node {
     type CompiledJacobian: Node;
     type Error: std::error::Error;
 
+    /// Compile the [Jacobian](Differentiable::Jacobian) associated with `target`.
+    ///
+    /// # Examples
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::{Node, Identifier, SimpleDatabase, Compile, Function, buffer::Buffer};
+    /// # ids!(X);
+    /// let c = 2.0f64.into_constant();
+    /// let db = SimpleDatabase::new(X, 10.0);
+    /// let grad = X.to_var().mul(c).compile_grad(X).unwrap();
+    ///
+    /// assert_eq!(grad.evaluate(&db).unwrap(), 2.0);
+    /// ```
     fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error>;
 }
 

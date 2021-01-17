@@ -1,5 +1,6 @@
 use crate::{
-    Identifier, Database, Node, Contains, Function, Differentiable, Compile,
+    Identifier, Database, Node, Contains,
+    Function, Differentiable, Compile,
     buffer::{Buffer, FieldOf},
 };
 use std::fmt;
