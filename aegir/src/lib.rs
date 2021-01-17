@@ -89,40 +89,40 @@ pub trait Node {
         NamedNode(self, id)
     }
 
-    fn add<N: Node>(self, other: N) -> maths::arithmetic::Add<Self, N> where Self: Sized {
-        maths::arithmetic::Add(self, other)
+    fn add<N: Node>(self, other: N) -> maths::Add<Self, N> where Self: Sized {
+        maths::Add(self, other)
     }
 
-    fn sub<N: Node>(self, other: N) -> maths::arithmetic::Sub<Self, N> where Self: Sized {
-        maths::arithmetic::Sub(self, other)
+    fn sub<N: Node>(self, other: N) -> maths::Sub<Self, N> where Self: Sized {
+        maths::Sub(self, other)
     }
 
-    fn mul<N: Node>(self, other: N) -> maths::arithmetic::Mul<Self, N> where Self: Sized {
-        maths::arithmetic::Mul(self, other)
+    fn mul<N: Node>(self, other: N) -> maths::Mul<Self, N> where Self: Sized {
+        maths::Mul(self, other)
     }
 
-    fn dot<N: Node>(self, other: N) -> maths::linalg::InnerProduct<Self, N> where Self: Sized {
-        maths::linalg::InnerProduct::new(self, other)
+    fn dot<N: Node>(self, other: N) -> maths::InnerProduct<Self, N> where Self: Sized {
+        maths::InnerProduct::new(self, other)
     }
 
-    fn abs(self) -> maths::arithmetic::Abs<Self> where Self: Sized {
-        maths::arithmetic::Abs(self)
+    fn abs(self) -> maths::Abs<Self> where Self: Sized {
+        maths::Abs(self)
     }
 
-    fn neg(self) -> maths::arithmetic::Neg<Self> where Self: Sized {
-        maths::arithmetic::Neg(self)
+    fn neg(self) -> maths::Neg<Self> where Self: Sized {
+        maths::Neg(self)
     }
 
-    fn pow<P>(self, power: P) -> maths::arithmetic::Power<Self, P> where Self: Sized {
-        maths::arithmetic::Power(self, power)
+    fn pow<P>(self, power: P) -> maths::Power<Self, P> where Self: Sized {
+        maths::Power(self, power)
     }
 
-    fn squared(self) -> maths::arithmetic::Squared<Self> where Self: Sized {
-        maths::arithmetic::Squared(self)
+    fn squared(self) -> maths::Square<Self> where Self: Sized {
+        maths::Square(self)
     }
 
-    fn reduce(self) -> maths::reduce::Reduce<Self> where Self: Sized {
-        maths::reduce::Reduce(self)
+    fn reduce(self) -> maths::Reduce<Self> where Self: Sized {
+        maths::Reduce(self)
     }
 }
 
@@ -168,7 +168,9 @@ pub trait Differentiable<D: Database, T: Identifier>: Function<D> + Contains<T> 
     ///
     /// assert_eq!(X.to_var().mul(c).grad(&db, X).unwrap(), 2.0);
     /// ```
-    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error>;
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+        self.dual(db, target).map(|dual| dual.adjoint)
+    }
 
     /// Evaluate the function and compute the [Jacobian](Differentiable::Jacobian) associated with
     /// `target` in a single pass.
@@ -209,6 +211,10 @@ pub trait Prune: Node where Self: Sized {
 pub type ErrorOf<F, D> = <F as Function<D>>::Error;
 pub type CodomainOf<F, D> = <F as Function<D>>::Codomain;
 pub type JacobianOf<F, D, T> = <F as Differentiable<D, T>>::Jacobian;
+pub type DualOf<F, D, T> = dual::Dual<
+    <F as Function<D>>::Codomain,
+    <F as Differentiable<D, T>>::Jacobian
+>;
 
 extern crate self as aegir;
 

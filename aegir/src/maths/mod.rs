@@ -112,9 +112,34 @@ macro_rules! impl_trait {
 type AddOut<A, B> = <A as std::ops::Add<B>>::Output;
 type MulOut<A, B> = <A as std::ops::Mul<B>>::Output;
 
-pub mod arithmetic;
-pub mod linalg;
-pub mod trig;
-pub mod reduce;
-pub mod sigmoid;
-pub mod special;
+mod arithmetic;
+pub use self::arithmetic::{
+    Neg, Dirac, Sign, Abs,
+    Add, Sub, Double,
+    Mul, Power, Square,
+};
+
+mod linalg;
+pub use self::linalg::{
+    InnerProduct,
+    OuterProduct, OuterProductTrait,
+    MatMul, MatMulTrait,
+};
+
+mod trig;
+pub use self::trig::{
+    Cos, Cosh, ArcCos, ArcCosh,
+    Sin, Sinh, ArcSin, ArcSinh,
+    Tan, Tanh, ArcTan, ArcTanh,
+};
+
+mod reduce;
+pub use self::reduce::Reduce;
+
+mod sigmoid;
+pub use self::sigmoid::Sigmoid;
+
+mod special;
+pub use self::special::{
+    Gamma, LogGamma, Factorial, Erf,
+};

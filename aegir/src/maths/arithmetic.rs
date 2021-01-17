@@ -229,11 +229,11 @@ impl<X: fmt::Display, P: fmt::Display> fmt::Display for Power<X, P> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Twice<N>(pub N);
+pub struct Double<N>(pub N);
 
-impl<N> Node for Twice<N> {}
+impl<N> Node for Double<N> {}
 
-impl<T, N> Contains<T> for Twice<N>
+impl<T, N> Contains<T> for Double<N>
 where
     T: Identifier,
     N: Contains<T>,
@@ -243,7 +243,7 @@ where
     }
 }
 
-impl<D, N> Function<D> for Twice<N>
+impl<D, N> Function<D> for Double<N>
 where
     D: Database,
     N: Function<D>,
@@ -263,7 +263,7 @@ where
     }
 }
 
-impl<D, T, N> Differentiable<D, T> for Twice<N>
+impl<D, T, N> Differentiable<D, T> for Double<N>
 where
     D: Database,
     T: Identifier,
@@ -283,31 +283,31 @@ where
     }
 }
 
-impl<T, N> Compile<T> for Twice<N>
+impl<T, N> Compile<T> for Double<N>
 where
     T: Identifier,
     N: Compile<T>,
 {
-    type CompiledJacobian = Twice<N::CompiledJacobian>;
+    type CompiledJacobian = Double<N::CompiledJacobian>;
     type Error = N::Error;
 
     fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error> {
-        self.0.compile_grad(target).map(Twice)
+        self.0.compile_grad(target).map(Double)
     }
 }
 
-impl<X: fmt::Display> fmt::Display for Twice<X> {
+impl<X: fmt::Display> fmt::Display for Double<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "2({})", self.0)
     }
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Squared<N>(pub N);
+pub struct Square<N>(pub N);
 
-impl<N> Node for Squared<N> {}
+impl<N> Node for Square<N> {}
 
-impl<T, N> Contains<T> for Squared<N>
+impl<T, N> Contains<T> for Square<N>
 where
     T: Identifier,
     N: Contains<T>,
@@ -317,7 +317,7 @@ where
     }
 }
 
-impl<D, N> Function<D> for Squared<N>
+impl<D, N> Function<D> for Square<N>
 where
     D: Database,
     N: Function<D>,
@@ -337,7 +337,7 @@ where
     }
 }
 
-impl<D, T, N> Differentiable<D, T> for Squared<N>
+impl<D, T, N> Differentiable<D, T> for Square<N>
 where
     D: Database,
     T: Identifier,
@@ -366,22 +366,22 @@ where
     }
 }
 
-impl<T, N> Compile<T> for Squared<N>
+impl<T, N> Compile<T> for Square<N>
 where
     T: Identifier,
     N: Compile<T> + Clone,
 {
-    type CompiledJacobian = Mul<Twice<N>, N::CompiledJacobian>;
+    type CompiledJacobian = Mul<Double<N>, N::CompiledJacobian>;
     type Error = N::Error;
 
     fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error> {
         let g = self.0.compile_grad(target)?;
 
-        Ok(Twice(self.0.clone()).mul(g))
+        Ok(Double(self.0.clone()).mul(g))
     }
 }
 
-impl<X: fmt::Display> fmt::Display for Squared<X> {
+impl<X: fmt::Display> fmt::Display for Square<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "({})^2", self.0)
     }

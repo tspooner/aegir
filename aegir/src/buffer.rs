@@ -51,7 +51,7 @@ pub trait Buffer: std::fmt::Debug {
         self.map(|_| value)
     }
 
-    /// Perform an elementwise transformation of the buffer.
+    /// Perform an element-wise transformation of the buffer.
     ///
     /// # Examples
     /// ```

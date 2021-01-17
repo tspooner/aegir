@@ -1,6 +1,8 @@
 use crate::{
-    Identifier, Database, Contains, Function, Differentiable,
-    buffer::{Buffer, OwnedOf},
+    Identifier, Database, Contains, Function, Differentiable, DualOf,
+    buffer::{Buffer, OwnedOf, FieldOf},
+    dual::Dual,
+    maths::MulOut,
 };
 use num_traits::{one, zero, real::Real};
 use std::fmt;
@@ -18,12 +20,28 @@ fn sigmoid<F: Real>(x: F) -> F {
     }
 }
 
-fn logistic<F: Real>(x: F) -> F {
-    let l: F = one();
-
-    l / (l + (-x).exp())
-}
-
+/// Computes the element-wise sigmoid of a [Buffer].
+///
+/// # Examples
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # #[macro_use] extern crate ndarray;
+/// # use aegir::{SimpleDatabase, Identifier, Differentiable, maths::Sigmoid};
+/// ids!(X::x);
+///
+/// let db = SimpleDatabase::new(X, array![1.0, 2.0, 3.0]);
+/// let func = Sigmoid(X.to_var());
+///
+/// let dual = func.dual(&db, X).unwrap();
+///
+/// assert!((dual.value[0] - 0.73106).abs() < 1e-5);
+/// assert!((dual.value[1] - 0.88080).abs() < 1e-5);
+/// assert!((dual.value[2] - 0.95258).abs() < 1e-5);
+///
+/// assert!((dual.adjoint[0] - 0.19661).abs() < 1e-5);
+/// assert!((dual.adjoint[1] - 0.10499).abs() < 1e-5);
+/// assert!((dual.adjoint[2] - 0.04518).abs() < 1e-5);
+/// ```
 #[derive(Clone, Copy, Debug, Node, Contains)]
 pub struct Sigmoid<N>(#[op] pub N);
 
@@ -32,7 +50,7 @@ where
     D: Database,
     N: Function<D>,
 
-    <N::Codomain as Buffer>::Field: num_traits::real::Real,
+    FieldOf<N::Codomain>: Real,
 {
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
@@ -48,13 +66,28 @@ where
     T: Identifier,
     N: Differentiable<D, T>,
 
-    <N::Codomain as Buffer>::Field: Real,
-    <N::Jacobian as Buffer>::Field: Real,
-{
-    type Jacobian = OwnedOf<N::Jacobian>;
+    FieldOf<N::Codomain>: Real,
+    FieldOf<N::Jacobian>: Real,
 
-    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
-        self.0.grad(db, target).map(|buffer| buffer.map(logistic))
+    N::Jacobian: std::ops::Mul<OwnedOf<N::Codomain>>,
+
+    MulOut<N::Jacobian, OwnedOf<N::Codomain>>: Buffer<
+        Field = FieldOf<N::Codomain>,
+    >,
+{
+    type Jacobian = MulOut<N::Jacobian, OwnedOf<N::Codomain>>;
+
+    fn dual(&self, db: &D, target: T) -> Result<DualOf<Self, D, T>, Self::Error> {
+        let o: FieldOf<N::Codomain> = one();
+
+        self.0.dual(db, target).map(|dual| Dual {
+            value: dual.value.to_owned().map(sigmoid),
+            adjoint: dual.adjoint * dual.value.map(|x| {
+                let s = sigmoid(x);
+
+                s * (o - s)
+            })
+        })
     }
 }
 
