@@ -1,53 +1,31 @@
-macro_rules! new_op {
-    ($name:ident<$($tp:ident),+>) => {
-        #[derive(Copy, Clone, Debug)]
-        pub struct $name<$($tp),+>($(pub $tp),+);
-
-        impl<$($tp),+> crate::Node for $name<$($tp),+> {}
-    };
-    ($name:ident<$($tp:ident),+>($inner:ty)) => {
-        #[derive(Copy, Clone, Debug)]
-        pub struct $name<$($tp),+>(pub $inner);
-
-        impl<$($tp),+> crate::Node for $name<$($tp),+> {}
-    };
-}
-
 macro_rules! impl_newtype {
     ($name:ident<$($tp:ident),+>($inner:ty)) => {
-        new_op!($name<$($tp),+>($inner));
+        #[derive(Copy, Clone, Debug, Node, Contains)]
+        pub struct $name<$($tp),+>(#[op] pub $inner);
 
-        impl<T, $($tp),+> crate::Contains<T> for $name<$($tp),+>
+        impl<D, $($tp),+> crate::Function<D> for $name<$($tp),+>
         where
-            T: crate::Identifier,
-            $inner: crate::Contains<T>,
+            D: crate::Database,
+            $inner: crate::Function<D>,
         {
-            fn contains(&self, target: T) -> bool { self.0.contains(target) }
-        }
+            type Codomain = crate::CodomainOf<$inner, D>;
+            type Error = crate::ErrorOf<$inner, D>;
 
-        impl<S, $($tp),+> crate::Function<S> for $name<$($tp),+>
-        where
-            S: crate::State,
-            $inner: crate::Function<S>,
-        {
-            type Codomain = crate::CodomainOf<$inner, S>;
-            type Error = crate::ErrorOf<$inner, S>;
-
-            fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-                self.0.evaluate(state)
+            fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+                self.0.evaluate(db)
             }
         }
 
-        impl<S, T, $($tp),+> crate::Differentiable<S, T> for $name<$($tp),+>
+        impl<D, T, $($tp),+> crate::Differentiable<D, T> for $name<$($tp),+>
         where
-            S: crate::State,
+            D: crate::Database,
             T: crate::Identifier,
-            $inner: crate::Differentiable<S, T>,
+            $inner: crate::Differentiable<D, T>,
         {
-            type Jacobian = crate::JacobianOf<$inner, S, T>;
+            type Jacobian = crate::JacobianOf<$inner, D, T>;
 
-            fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-                self.0.grad(state, target)
+            fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+                self.0.grad(db, target)
             }
         }
     }

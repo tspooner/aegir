@@ -18,23 +18,25 @@ impl std::error::Error for NoError {
     fn description(&self) -> &str { match *self {} }
 }
 
+/// Trait for type-level identifiers.
 pub trait Identifier: Eq + Copy + std::fmt::Debug + std::fmt::Display {
+    /// Convert the identifier into a [Variable](sources::Variable).
     fn to_var(self) -> sources::Variable<Self> { sources::Variable(self) }
 }
 
-pub trait State {}
+pub trait Database {}
 
-pub trait Get<T: Identifier>: State {
+pub trait Get<T: Identifier>: Database {
     type Output;
 
     fn get(&self, target: T) -> Option<&Self::Output>;
 }
 
 #[macro_export]
-macro_rules! state {
+macro_rules! db {
     ($name:ident { $($entity_name:ident: $entity_type:ident),+ }) => {
         paste! {
-            #[derive(State)]
+            #[derive(Database)]
             pub struct $name<$([<__ $entity_type>]),+> {
                 $(#[id($entity_type)] pub $entity_name: [<__ $entity_type>]),+
             }
@@ -47,60 +49,67 @@ pub trait Node {
         NamedNode(self, id)
     }
 
-    fn add<N: Node>(self, other: N) -> ops::arithmetic::Add<Self, N> where Self: Sized {
-        ops::arithmetic::Add(self, other)
+    fn add<N: Node>(self, other: N) -> maths::arithmetic::Add<Self, N> where Self: Sized {
+        maths::arithmetic::Add(self, other)
     }
 
-    fn sub<N: Node>(self, other: N) -> ops::arithmetic::Sub<Self, N> where Self: Sized {
-        ops::arithmetic::Sub(self, other)
+    fn sub<N: Node>(self, other: N) -> maths::arithmetic::Sub<Self, N> where Self: Sized {
+        maths::arithmetic::Sub(self, other)
     }
 
-    fn mul<N: Node>(self, other: N) -> ops::arithmetic::Mul<Self, N> where Self: Sized {
-        ops::arithmetic::Mul(self, other)
+    fn mul<N: Node>(self, other: N) -> maths::arithmetic::Mul<Self, N> where Self: Sized {
+        maths::arithmetic::Mul(self, other)
     }
 
-    fn dot<N: Node>(self, other: N) -> ops::linalg::InnerProduct<Self, N> where Self: Sized {
-        ops::linalg::InnerProduct::new(self, other)
+    fn dot<N: Node>(self, other: N) -> maths::linalg::InnerProduct<Self, N> where Self: Sized {
+        maths::linalg::InnerProduct::new(self, other)
     }
 
-    fn abs(self) -> ops::arithmetic::Abs<Self> where Self: Sized { ops::arithmetic::Abs(self) }
-
-    fn neg(self) -> ops::arithmetic::Neg<Self> where Self: Sized { ops::arithmetic::Neg(self) }
-
-    fn pow<P>(self, power: P) -> ops::arithmetic::Power<Self, P> where Self: Sized {
-        ops::arithmetic::Power(self, power)
+    fn abs(self) -> maths::arithmetic::Abs<Self> where Self: Sized {
+        maths::arithmetic::Abs(self)
     }
 
-    fn squared(self) -> ops::arithmetic::Squared<Self> where Self: Sized {
-        ops::arithmetic::Squared(self)
+    fn neg(self) -> maths::arithmetic::Neg<Self> where Self: Sized {
+        maths::arithmetic::Neg(self)
     }
 
-    fn reduce(self) -> ops::reduce::Reduce<Self> where Self: Sized { ops::reduce::Reduce(self) }
+    fn pow<P>(self, power: P) -> maths::arithmetic::Power<Self, P> where Self: Sized {
+        maths::arithmetic::Power(self, power)
+    }
+
+    fn squared(self) -> maths::arithmetic::Squared<Self> where Self: Sized {
+        maths::arithmetic::Squared(self)
+    }
+
+    fn reduce(self) -> maths::reduce::Reduce<Self> where Self: Sized {
+        maths::reduce::Reduce(self)
+    }
 }
 
 pub trait Contains<T: Identifier>: Node {
     fn contains(&self, target: T) -> bool;
 }
 
-pub trait Function<S: State>: Node {
+/// Trait for types that can be evaluated against a database.
+pub trait Function<D: Database>: Node {
     type Codomain: buffer::Buffer;
     type Error: std::error::Error;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error>;
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error>;
 }
 
-pub trait Differentiable<S: State, T: Identifier>: Function<S> + Contains<T> {
+pub trait Differentiable<D: Database, T: Identifier>: Function<D> + Contains<T> {
     type Jacobian: buffer::Buffer<
-        Field = buffer::FieldOf<<Self as Function<S>>::Codomain>
+        Field = buffer::FieldOf<<Self as Function<D>>::Codomain>
     >;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error>;
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error>;
 
-    fn dual(&self, state: &S, target: T) -> Result<
+    fn dual(&self, db: &D, target: T) -> Result<
         dual::Dual<Self::Codomain, Self::Jacobian>, Self::Error
     > {
-        self.evaluate(state).and_then(|value| {
-            self.grad(state, target).map(|adjoint| {
+        self.evaluate(db).and_then(|value| {
+            self.grad(db, target).map(|adjoint| {
                 dual::Dual {
                     value,
                     adjoint,
@@ -121,9 +130,11 @@ pub trait Prune: Node where Self: Sized {
     fn prune(self) -> Option<Self>;
 }
 
-pub type ErrorOf<F, S> = <F as Function<S>>::Error;
-pub type CodomainOf<F, S> = <F as Function<S>>::Codomain;
-pub type JacobianOf<F, S, T> = <F as Differentiable<S, T>>::Jacobian;
+pub type ErrorOf<F, D> = <F as Function<D>>::Error;
+pub type CodomainOf<F, D> = <F as Function<D>>::Codomain;
+pub type JacobianOf<F, D, T> = <F as Differentiable<D, T>>::Jacobian;
+
+extern crate self as aegir;
 
 #[macro_use]
 mod macros;
@@ -132,31 +143,31 @@ pub mod buffer;
 pub mod dual;
 
 pub mod sources;
-pub mod ops;
+pub mod maths;
 
 mod named;
 pub use self::named::NamedNode;
 
-pub fn evaluate<S, F>(
+pub fn evaluate<D, F>(
     f: F,
-    state: &S,
+    db: &D,
 ) -> Result<F::Codomain, F::Error>
 where
-    S: State,
-    F: Function<S>,
+    F: Function<D>,
+    D: Database,
 {
-    f.evaluate(state)
+    f.evaluate(db)
 }
 
-pub fn derivative<S, T, F>(
+pub fn differentiate<D, T, F>(
     f: F,
+    db: &D,
     target: T,
-    state: &S,
 ) -> Result<F::Jacobian, F::Error>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    F: Differentiable<S, T>,
+    F: Differentiable<D, T>,
 {
-    f.grad(state, target)
+    f.grad(db, target)
 }

@@ -1,182 +1,211 @@
-// use crate::buffer::Buffer;
-// use num_traits::{Zero, One};
-// use std::ops;
+use crate::buffer::{Buffer, OwnedBuffer, OwnedOf, FieldOf};
+use num_traits::{Zero, One};
+use std::ops;
 
 #[derive(Clone, Copy, Debug)]
-pub struct Dual<V, A> {
+pub struct Dual<V, A = V> {
     pub value: V,
     pub adjoint: A,
 }
 
-// impl<V: Buffer, A: Buffer> Dual<V, A> {
-    // pub fn constant(value: V) -> Dual<V, A>
-    // where A::Elem: Zero,
-    // {
-        // Dual {
-            // value,
-            // adjoint: A::zeros(),
-        // }
-    // }
+impl<B: OwnedBuffer> Dual<B> {
+    pub fn variable(value: B) -> Dual<B>
+    where
+        B::Field: One,
+    {
+        let adjoint = value.to_ones();
+        let value = value.into_owned();
 
-    // pub fn variable(value: V) -> Dual<V, A>
-    // where A::Elem: One,
-    // {
-        // Dual {
-            // value,
-            // adjoint: A::ones(),
-        // }
-    // }
-// }
+        Dual { value, adjoint, }
+    }
 
-impl<V, A> Dual<V, A> {
+    pub fn constant(value: B) -> Dual<B>
+    where
+        B::Field: Zero,
+    {
+        let adjoint = value.to_zeroes();
+        let value = value.into_owned();
+
+        Dual { value, adjoint, }
+    }
+}
+
+impl<B: Buffer> Dual<B> {
     #[inline]
-    pub fn map<V_, E_>(self, f: impl Fn(V, A) -> (V_, E_)) -> Dual<V_, E_> {
+    fn map<B_>(self, f: impl Fn(B, B) -> (B_, B_)) -> Dual<B_> {
         f(self.value, self.adjoint).into()
     }
 
-    // #[inline]
-    // pub fn map_elem(self, f: impl Fn(V::Elem) -> V::Elem, g: impl Fn(A::Elem) -> A::Elem) -> Dual<V, A> {
-        // self.map_val_elem(f).map_eps_elem(g)
-    // }
+    #[inline]
+    fn map_ref<B_>(&self, f: impl Fn(&B, &B) -> (B_, B_)) -> Dual<B_> {
+        f(&self.value, &self.adjoint).into()
+    }
 
-    // #[inline]
-    // pub fn map_val<V_: Buffer>(self, f: impl Fn(V) -> V_) -> Dual<V_, A> {
-        // Dual {
-            // value: f(self.value),
-            // adjoint: self.adjoint,
-        // }
-    // }
+    pub fn to_owned(&self) -> Dual<B::Owned> {
+        Dual {
+            value: self.value.to_owned(),
+            adjoint: self.adjoint.to_owned(),
+        }
+    }
 
-    // #[inline]
-    // pub fn map_val_elem(self, f: impl Fn(V::Elem) -> V::Elem) -> Dual<V, A> {
-        // Dual {
-            // value: self.value.map_into(f),
-            // adjoint: self.adjoint,
-        // }
-    // }
-
-    // #[inline]
-    // pub fn map_eps<E_: Buffer>(self, f: impl Fn(A) -> E_) -> Dual<V, E_> {
-        // Dual {
-            // value: self.value,
-            // adjoint: f(self.adjoint),
-        // }
-    // }
-
-    // #[inline]
-    // pub fn map_eps_elem(self, f: impl Fn(A::Elem) -> A::Elem) -> Dual<V, A> {
-        // Dual {
-            // value: self.value,
-            // adjoint: self.adjoint.map_into(f),
-        // }
-    // }
+    pub fn into_owned(self) -> Dual<B::Owned> {
+        Dual {
+            value: self.value.into_owned(),
+            adjoint: self.adjoint.into_owned(),
+        }
+    }
 }
 
-// impl<V: Buffer, A: Buffer> Dual<V, A> {
-    // pub fn conj(self) -> Self {
-        // self.map_eps_elem(|x| -x)
-    // }
-// }
+impl<B: Buffer> Dual<B>
+where
+    FieldOf<B>: std::ops::Neg<Output = FieldOf<B>>,
+{
+    pub fn conj(self) -> Dual<B, B::Owned> {
+        Dual {
+            value: self.value,
+            adjoint: self.adjoint.map(|a| -a),
+        }
+    }
+}
 
-// impl<V: Buffer, A: Buffer> Dual<V, A> {
-    // pub fn sin(self) -> Self {
-        // self.map_elem(|x| x.sin(), |x| x.cos())
-    // }
+impl<B> ops::Neg for Dual<B>
+where
+    B: Buffer + std::ops::Neg,
+{
+    type Output = Dual<B::Output>;
 
-    // pub fn cos(self) -> Self {
-        // self.map_elem(|x| x.cos(), |x| -x.sin())
-    // }
+    fn neg(self) -> Dual<B::Output> {
+        self.map(|v, a| (-v, -a))
+    }
+}
 
-    // pub fn tan(self) -> Self {
-        // self.map_elem(|x| x.tan(), |x| {
-            // let sec_x = x.cos().recip();
+impl<B> ops::Neg for &Dual<B>
+where
+    B: Buffer,
+    B::Owned: std::ops::Neg,
+{
+    type Output = Dual<<OwnedOf<B> as std::ops::Neg>::Output>;
 
-            // sec_x * sec_x
-        // })
-    // }
+    fn neg(self) -> Self::Output {
+        self.map_ref(|v, a| (-v.to_owned(), -a.to_owned()))
+    }
+}
 
-    // pub fn sec(self) -> Self {
-        // self.map_elem(|x| x.cos().recip(), |x| x.tan() / x.cos())
-    // }
+impl<B> ops::Add<B> for Dual<B>
+where
+    B: Buffer + std::ops::Add<B>,
+{
+    type Output = Dual<B::Output, B>;
 
-    // pub fn csc(self) -> Self {
-        // self.map_elem(|x| x.sin().recip(), |x| -x.sin().recip() / x.tan())
-    // }
+    fn add(self, rhs: B) -> Dual<B::Output, B> {
+        Dual {
+            value: self.value + rhs,
+            adjoint: self.adjoint,
+        }
+    }
+}
 
-    // pub fn cot(self) -> Self {
-        // self.map_elem(|x| x.tan().recip(), |x| {
-            // let csc_x = -x.sin().recip();
+impl<'a, B> ops::Add<&'a B> for Dual<B>
+where
+    B: Buffer + std::ops::Add<&'a B>,
+{
+    type Output = Dual<B::Output, B>;
 
-            // csc_x * csc_x
-        // })
-    // }
-// }
+    fn add(self, rhs: &'a B) -> Dual<B::Output, B> {
+        Dual {
+            value: self.value + rhs,
+            adjoint: self.adjoint,
+        }
+    }
+}
 
-// impl<V: Buffer, A: Buffer> ops::Neg for Dual<V, A>
-// {
-    // type Output = Dual<V, A>;
+impl<B> ops::Add<Dual<B>> for Dual<B>
+where
+    B: Buffer + std::ops::Add<B>,
+{
+    type Output = Dual<B::Output>;
 
-    // fn neg(self) -> Dual<V, A> {
-        // self.map_val_elem(|x| -x).map_eps_elem(|x| -x)
-    // }
-// }
+    fn add(self, rhs: Dual<B>) -> Dual<B::Output> {
+        Dual {
+            value: self.value + rhs.value,
+            adjoint: self.adjoint + rhs.adjoint,
+        }
+    }
+}
 
-// impl<V: Buffer, A: Buffer> ops::Neg for &Dual<V, A>
-// {
-    // type Output = Dual<V, A>;
+impl<'a, B> ops::Add<&'a Dual<B>> for Dual<B>
+where
+    B: Buffer + std::ops::Add<&'a B>,
+{
+    type Output = Dual<B::Output>;
 
-    // fn neg(self) -> Dual<V, A> {
-        // self.clone().map_val_elem(|x| -x).map_eps_elem(|x| -x)
-    // }
-// }
+    fn add(self, rhs: &'a Dual<B>) -> Dual<B::Output> {
+        Dual {
+            value: self.value + &rhs.value,
+            adjoint: self.adjoint + &rhs.adjoint,
+        }
+    }
+}
 
-// impl<V: Buffer, A: Buffer> ops::Add<Dual<V, A>> for Dual<V, A>
-// {
-    // type Output = Dual<V, A>;
+impl<B> ops::Sub<B> for Dual<B>
+where
+    B: Buffer + std::ops::Sub<B>,
+{
+    type Output = Dual<B::Output, B>;
 
-    // fn add(self, rhs: Dual<V, A>) -> Dual<V, A> {
-        // self
-            // .map_val(|v| v.merge_into(&rhs.value, |x, y| x + y))
-            // .map_eps(|e| e.merge_into(&rhs.adjoint, |x, y| x + y))
-    // }
-// }
+    fn sub(self, rhs: B) -> Dual<B::Output, B> {
+        Dual {
+            value: self.value - rhs,
+            adjoint: self.adjoint,
+        }
+    }
+}
 
-// impl<V: Buffer, A: Buffer> ops::Add<&Dual<V, A>> for Dual<V, A>
-// {
-    // type Output = Dual<V, A>;
+impl<'a, B> ops::Sub<&'a B> for Dual<B>
+where
+    B: Buffer + std::ops::Sub<&'a B>,
+{
+    type Output = Dual<B::Output, B>;
 
-    // fn add(self, rhs: &Dual<V, A>) -> Dual<V, A> {
-        // self
-            // .map_val(|v| v.merge_into(&rhs.value, |x, y| x + y))
-            // .map_eps(|e| e.merge_into(&rhs.adjoint, |x, y| x + y))
-    // }
-// }
+    fn sub(self, rhs: &'a B) -> Dual<B::Output, B> {
+        Dual {
+            value: self.value - rhs,
+            adjoint: self.adjoint,
+        }
+    }
+}
 
-// impl<V: Buffer, A: Buffer> ops::Sub<Dual<V, A>> for Dual<V, A>
-// {
-    // type Output = Dual<V, A>;
+impl<B> ops::Sub<Dual<B>> for Dual<B>
+where
+    B: Buffer + std::ops::Sub<B>,
+{
+    type Output = Dual<B::Output>;
 
-    // fn sub(self, rhs: Dual<V, A>) -> Dual<V, A> {
-        // self
-            // .map_val(|v| v.merge_into(&rhs.value, |x, y| x - y))
-            // .map_eps(|e| e.merge_into(&rhs.adjoint, |x, y| x - y))
-    // }
-// }
+    fn sub(self, rhs: Dual<B>) -> Dual<B::Output> {
+        Dual {
+            value: self.value - rhs.value,
+            adjoint: self.adjoint - rhs.adjoint,
+        }
+    }
+}
 
-// impl<V: Buffer, A: Buffer> ops::Sub<&Dual<V, A>> for Dual<V, A>
-// {
-    // type Output = Dual<V, A>;
+impl<'a, B> ops::Sub<&'a Dual<B>> for Dual<B>
+where
+    B: Buffer + std::ops::Sub<&'a B>,
+{
+    type Output = Dual<B::Output>;
 
-    // fn sub(self, rhs: &Dual<V, A>) -> Dual<V, A> {
-        // self
-            // .map_val(|v| v.merge_into(&rhs.value, |x, y| x - y))
-            // .map_eps(|e| e.merge_into(&rhs.adjoint, |x, y| x - y))
-    // }
-// }
+    fn sub(self, rhs: &'a Dual<B>) -> Dual<B::Output> {
+        Dual {
+            value: self.value - &rhs.value,
+            adjoint: self.adjoint - &rhs.adjoint,
+        }
+    }
+}
 
-impl<V, A> From<(V, A)> for Dual<V, A> {
+impl<B> From<(B, B)> for Dual<B> {
     #[inline]
-    fn from((value, adjoint): (V, A)) -> Dual<V, A> {
+    fn from((value, adjoint): (B, B)) -> Dual<B> {
         Dual { value, adjoint, }
     }
 }

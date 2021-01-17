@@ -1,37 +1,30 @@
 macro_rules! impl_unary {
     ($name:ident[$str:tt]: $field_type:path, $eval:expr, $grad:expr) => {
-        new_op!($name<N>);
+        #[derive(Clone, Copy, Debug, Node, Contains)]
+        pub struct $name<N>(#[op] pub N);
 
-        impl<T, N> crate::Contains<T> for $name<N>
+        impl<D, N> crate::Function<D> for $name<N>
         where
-            T: crate::Identifier,
-            N: crate::Contains<T>,
-        {
-            fn contains(&self, target: T) -> bool { self.0.contains(target) }
-        }
-
-        impl<S, N> crate::Function<S> for $name<N>
-        where
-            S: crate::State,
-            N: crate::Function<S>,
+            D: crate::Database,
+            N: crate::Function<D>,
 
             crate::buffer::FieldOf<N::Codomain>: $field_type,
         {
             type Codomain = crate::buffer::OwnedOf<N::Codomain>;
             type Error = N::Error;
 
-            fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-                self.0.evaluate(state).map(|buffer| {
+            fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+                self.0.evaluate(db).map(|buffer| {
                     crate::buffer::Buffer::map(buffer, $eval)
                 })
             }
         }
 
-        impl<S, T, N> crate::Differentiable<S, T> for $name<N>
+        impl<D, T, N> crate::Differentiable<D, T> for $name<N>
         where
-            S: crate::State,
+            D: crate::Database,
             T: crate::Identifier,
-            N: crate::Differentiable<S, T>,
+            N: crate::Differentiable<D, T>,
 
             N::Jacobian: crate::buffer::Buffer<Field = crate::buffer::FieldOf<N::Codomain>>,
 
@@ -39,8 +32,8 @@ macro_rules! impl_unary {
         {
             type Jacobian = crate::buffer::OwnedOf<N::Jacobian>;
 
-            fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-                self.0.grad(state, target).map(|buffer| {
+            fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+                self.0.grad(db, target).map(|buffer| {
                     crate::buffer::Buffer::map(buffer, $grad)
                 })
             }
@@ -56,24 +49,14 @@ macro_rules! impl_unary {
 
 macro_rules! impl_trait {
     (@binary $name:ident[$str:tt], $($path:ident)::+, $eval:expr, $grad:expr) => {
-        new_op!($name<N1, N2>);
+        #[derive(Clone, Copy, Debug, Node, Contains)]
+        pub struct $name<N1, N2>(#[op] pub N1, #[op] pub N2);
 
-        impl<T, N1, N2> crate::Contains<T> for $name<N1, N2>
+        impl<D, N1, N2> Function<D> for $name<N1, N2>
         where
-            T: crate::Identifier,
-            N1: crate::Contains<T>,
-            N2: crate::Contains<T>,
-        {
-            fn contains(&self, target: T) -> bool {
-                self.0.contains(target) || self.1.contains(target)
-            }
-        }
-
-        impl<S, N1, N2> Function<S> for $name<N1, N2>
-        where
-            S: crate::State,
-            N1: crate::Function<S>,
-            N2: crate::Function<S>,
+            D: crate::Database,
+            N1: crate::Function<D>,
+            N2: crate::Function<D>,
 
             N1::Codomain: $($path)::+<N2::Codomain>,
             <N1::Codomain as $($path)::+<N2::Codomain>>::Output: Buffer,
@@ -81,22 +64,22 @@ macro_rules! impl_trait {
             type Codomain = <N1::Codomain as $($path)::+<N2::Codomain>>::Output;
             type Error = either::Either<N1::Error, N2::Error>;
 
-            fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-                self.0.evaluate(state).map_err(either::Either::Left).and_then(|x| {
+            fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+                self.0.evaluate(db).map_err(either::Either::Left).and_then(|x| {
                     self.1
-                        .evaluate(state)
+                        .evaluate(db)
                         .map(|y| $eval(x, y))
                         .map_err(either::Either::Right)
                 })
             }
         }
 
-        impl<S, T, N1, N2> Differentiable<S, T> for $name<N1, N2>
+        impl<D, T, N1, N2> Differentiable<D, T> for $name<N1, N2>
         where
-            S: crate::State,
+            D: crate::Database,
             T: crate::Identifier,
-            N1: crate::Differentiable<S, T>,
-            N2: crate::Differentiable<S, T>,
+            N1: crate::Differentiable<D, T>,
+            N2: crate::Differentiable<D, T>,
 
             N1::Codomain: $($path)::+<N2::Codomain>,
             <N1::Codomain as $($path)::+<N2::Codomain>>::Output: Buffer,
@@ -108,10 +91,10 @@ macro_rules! impl_trait {
         {
             type Jacobian = <N1::Jacobian as $($path)::+<N2::Jacobian>>::Output;
 
-            fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-                self.0.grad(state, target).map_err(either::Either::Left).and_then(|x| {
+            fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+                self.0.grad(db, target).map_err(either::Either::Left).and_then(|x| {
                     self.1
-                        .grad(state, target)
+                        .grad(db, target)
                         .map(|y| $grad(x, y))
                         .map_err(either::Either::Right)
                 })

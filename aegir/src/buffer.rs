@@ -1,38 +1,37 @@
-pub trait Field:
-    Buffer<Field = Self> + Copy +
-    num_traits::Num + num_traits::Signed +
-    std::fmt::Debug
-{}
+use num_traits::{NumOps, Zero, One};
+
+/// Trait for numeric types implementing basic scalar operations.
+pub trait Field: Copy + Buffer<Field = Self> + NumOps + std::fmt::Debug {}
 
 impl<T> Field for T
 where
-    T:
-        Buffer<Field = Self> + Copy +
-        num_traits::Num + num_traits::Signed +
-        std::fmt::Debug,
+    T: Copy + Buffer<Field = Self> + NumOps + std::fmt::Debug,
 {}
 
+/// Trait for types defining a vector space over a [Field](Field).
 pub trait Buffer: std::fmt::Debug {
     type Field: Field;
     type Owned: OwnedBuffer<Field = Self::Field>;
 
+    /// Creates an [Owned](Buffer::Owned) instance from a borrowed buffer, usually by cloning.
     fn to_owned(&self) -> Self::Owned;
 
+    /// Convert buffer directly into an [Owned](Buffer::Owned) instance, cloning when necessary.
     fn into_owned(self) -> Self::Owned;
 
-    fn to_zeroes(&self) -> Self::Owned {
+    fn to_zeroes(&self) -> Self::Owned where Self::Field: num_traits::Zero {
         self.to_filled(num_traits::identities::zero())
     }
 
-    fn into_zeroes(self) -> Self::Owned where Self: Sized {
+    fn into_zeroes(self) -> Self::Owned where Self: Sized, Self::Field: num_traits::Zero {
         self.into_filled(num_traits::identities::zero())
     }
 
-    fn to_ones(&self) -> Self::Owned {
+    fn to_ones(&self) -> Self::Owned where Self::Field: num_traits::One {
         self.to_filled(num_traits::identities::one())
     }
 
-    fn into_ones(self) -> Self::Owned where Self: Sized {
+    fn into_ones(self) -> Self::Owned where Self: Sized, Self::Field: num_traits::One {
         self.into_filled(num_traits::identities::one())
     }
 
@@ -44,18 +43,58 @@ pub trait Buffer: std::fmt::Debug {
         self.map(|_| value)
     }
 
+    /// Perform an elementwise transformation of the buffer.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffer::Buffer;
+    /// let buffer = vec![0.0, 1.0, 2.0, 3.0];
+    /// let new_buffer = buffer.map(|el| el * 2.0);
+    ///
+    /// assert_eq!(new_buffer[0], 0.0);
+    /// assert_eq!(new_buffer[1], 2.0);
+    /// assert_eq!(new_buffer[2], 4.0);
+    /// assert_eq!(new_buffer[3], 6.0);
+    /// ```
     fn map<F>(self, f: F) -> Self::Owned
     where F: Fn(Self::Field) -> Self::Field;
 
+    /// Perform a fold over the elements of the buffer.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffer::Buffer;
+    /// let buffer = vec![0.0, 1.0, 2.0, 3.0];
+    ///
+    /// assert_eq!(buffer.fold(0.0, |init, &el| init + 2.0 * el), 12.0);
+    /// ```
     fn fold<F>(&self, init: Self::Field, f: F) -> Self::Field
     where F: Fn(Self::Field, &Self::Field) -> Self::Field;
+
+    /// Sum over the elements of the buffer.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffer::Buffer;
+    /// let buffer = vec![0.0, 1.0, 2.0, 3.0];
+    ///
+    /// assert_eq!(buffer.sum(), 6.0);
+    /// assert_eq!(buffer.map(|el| 2.0 * el).sum(), 12.0);
+    /// ```
+    fn sum(&self) -> Self::Field where Self::Field: num_traits::Zero {
+        self.fold(num_traits::zero(), |init, &el| init + el)
+    }
 }
 
+/// Trait for owned [Buffer] types.
 pub trait OwnedBuffer: Buffer<Owned = Self> + Clone {}
 
 impl<B: Buffer<Owned = B> + Clone> OwnedBuffer for B {}
 
+/// Type shortcut for the [Field] associated with a [Buffer].
 pub type FieldOf<B> = <B as Buffer>::Field;
+
+/// Type shortcut for the [Owned](Buffer::Owned) variant of a [Buffer].
 pub type OwnedOf<B> = <B as Buffer>::Owned;
 
 impl Buffer for f64 {

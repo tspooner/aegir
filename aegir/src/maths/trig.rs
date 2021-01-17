@@ -1,44 +1,37 @@
 use crate::{
     buffer::Buffer,
-    ops::MulOut,
+    maths::MulOut,
 };
 use num_traits::real::Real;
 use std::ops::Neg;
 
 macro_rules! impl_trig {
     ($name:ident[$str:tt], $eval:expr, $grad:expr) => {
-        new_op!($name<N>);
+        #[derive(Clone, Copy, Debug, Node, Contains)]
+        pub struct $name<N>(#[op] pub N);
 
-        impl<T, N> crate::Contains<T> for $name<N>
+        impl<D, N> crate::Function<D> for $name<N>
         where
-            T: crate::Identifier,
-            N: crate::Contains<T>,
-        {
-            fn contains(&self, target: T) -> bool { self.0.contains(target) }
-        }
-
-        impl<S, N> crate::Function<S> for $name<N>
-        where
-            S: crate::State,
-            N: crate::Function<S>,
+            D: crate::Database,
+            N: crate::Function<D>,
 
             crate::buffer::FieldOf<N::Codomain>: num_traits::real::Real,
         {
             type Codomain = crate::buffer::OwnedOf<N::Codomain>;
             type Error = N::Error;
 
-            fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
+            fn evaluate(&self, state: &D) -> Result<Self::Codomain, Self::Error> {
                 self.0.evaluate(state).map(|buffer| {
                     crate::buffer::Buffer::map(buffer, $eval)
                 })
             }
         }
 
-        impl<S, T, N> crate::Differentiable<S, T> for $name<N>
+        impl<D, T, N> crate::Differentiable<D, T> for $name<N>
         where
-            S: crate::State,
+            D: crate::Database,
             T: crate::Identifier,
-            N: crate::Differentiable<S, T>,
+            N: crate::Differentiable<D, T>,
 
             crate::buffer::FieldOf<N::Codomain>: num_traits::real::Real,
 
@@ -50,7 +43,7 @@ macro_rules! impl_trig {
         {
             type Jacobian = MulOut<N::Jacobian, crate::buffer::OwnedOf<N::Codomain>>;
 
-            fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+            fn grad(&self, state: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
                 self.0.dual(state, target).map(|d| {
                     d.adjoint * d.value.map($grad)
                 })

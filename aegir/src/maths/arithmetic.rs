@@ -1,8 +1,8 @@
 use crate::{
-    Identifier, State, Node, Contains, Function, Differentiable, Compile,
+    Identifier, Database, Node, Contains, Function, Differentiable, Compile,
     buffer::{Buffer, Field, OwnedOf, FieldOf},
     sources::Constant,
-    ops::{AddOut, MulOut},
+    maths::{AddOut, MulOut},
 };
 use num_traits::{real::Real, Pow};
 use std::{fmt, ops};
@@ -49,23 +49,23 @@ where
     }
 }
 
-impl<S: State, N: Function<S>> Function<S> for Sign<N>
+impl<D: Database, N: Function<D>> Function<D> for Sign<N>
 where
     FieldOf<N::Codomain>: num_traits::real::Real,
 {
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        self.0.evaluate(state).map(|buffer| buffer.map(|x| x.signum()))
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.signum()))
     }
 }
 
-impl<S, T, N> Differentiable<S, T> for Sign<N>
+impl<D, T, N> Differentiable<D, T> for Sign<N>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    N: Differentiable<S, T>,
+    N: Differentiable<D, T>,
 
     FieldOf<N::Codomain>: num_traits::Float,
     OwnedOf<N::Codomain>: std::ops::Mul<OwnedOf<N::Jacobian>>,
@@ -76,8 +76,8 @@ where
 {
     type Jacobian = MulOut<OwnedOf<N::Codomain>, OwnedOf<N::Jacobian>>;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-        self.0.dual(state, target).map(|d| {
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+        self.0.dual(db, target).map(|d| {
             d.value.map(dirac) * d.adjoint.map(|g| g)
         })
     }
@@ -98,23 +98,23 @@ where
     }
 }
 
-impl<S: State, N: Function<S>> Function<S> for Abs<N>
+impl<D: Database, N: Function<D>> Function<D> for Abs<N>
 where
     FieldOf<N::Codomain>: num_traits::real::Real,
 {
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        self.0.evaluate(state).map(|buffer| buffer.map(|x| x.abs()))
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.abs()))
     }
 }
 
-impl<S, T, N> Differentiable<S, T> for Abs<N>
+impl<D, T, N> Differentiable<D, T> for Abs<N>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    N: Differentiable<S, T>,
+    N: Differentiable<D, T>,
 
     FieldOf<N::Codomain>: num_traits::real::Real,
     OwnedOf<N::Codomain>: std::ops::Mul<N::Jacobian>,
@@ -125,8 +125,8 @@ where
 {
     type Jacobian = MulOut<OwnedOf<N::Codomain>, N::Jacobian>;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-        self.0.dual(state, target).map(|d| {
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+        self.0.dual(db, target).map(|d| {
             d.value.map(|v| v.signum()) * d.adjoint
         })
     }
@@ -159,10 +159,10 @@ where
     }
 }
 
-impl<S, N, P> Function<S> for Power<N, P>
+impl<D, N, P> Function<D> for Power<N, P>
 where
-    S: State,
-    N: Function<S>,
+    D: Database,
+    N: Function<D>,
     P: Field,
 
     FieldOf<N::Codomain>: num_traits::Pow<P, Output = FieldOf<N::Codomain>>
@@ -170,16 +170,16 @@ where
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        self.0.evaluate(state).map(|buffer| buffer.map(|x| x.pow(self.1.clone())))
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.pow(self.1.clone())))
     }
 }
 
-impl<S, T, N, P> Differentiable<S, T> for Power<N, P>
+impl<D, T, N, P> Differentiable<D, T> for Power<N, P>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    N: Differentiable<S, T>,
+    N: Differentiable<D, T>,
     P: Field + num_traits::One + std::ops::Sub<P, Output = P>,
 
     FieldOf<N::Codomain>: num_traits::Pow<P, Output = FieldOf<N::Codomain>>,
@@ -192,10 +192,10 @@ where
 {
     type Jacobian = MulOut<OwnedOf<N::Codomain>, OwnedOf<N::Jacobian>>;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
         let np = self.1 - num_traits::one();
 
-        self.0.dual(state, target).map(|d| {
+        self.0.dual(db, target).map(|d| {
             d.value.map(|v| v.pow(np)) * d.adjoint.map(|g| g * self.1)
         })
     }
@@ -205,7 +205,7 @@ impl<T, N, P> Compile<T> for Power<N, P>
 where
     T: Identifier,
     N: Compile<T> + Clone,
-    P: Field,
+    P: Field + num_traits::One,
 {
     type CompiledJacobian = Mul<
         Mul<Constant<P>, Power<N, P>>,
@@ -243,12 +243,12 @@ where
     }
 }
 
-impl<S, N> Function<S> for Twice<N>
+impl<D, N> Function<D> for Twice<N>
 where
-    S: State,
-    N: Function<S>,
+    D: Database,
+    N: Function<D>,
 
-    FieldOf<N::Codomain>: std::ops::Mul<
+    FieldOf<N::Codomain>: num_traits::One + std::ops::Mul<
         FieldOf<N::Codomain>,
         Output = FieldOf<N::Codomain>
     >,
@@ -256,30 +256,30 @@ where
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
         let two = num_traits::one::<FieldOf<N::Codomain>>() + num_traits::one();
 
-        self.0.evaluate(state).map(|buffer| buffer.map(|x| two * x))
+        self.0.evaluate(db).map(|buffer| buffer.map(|x| two * x))
     }
 }
 
-impl<S, T, N> Differentiable<S, T> for Twice<N>
+impl<D, T, N> Differentiable<D, T> for Twice<N>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    N: Differentiable<S, T>,
+    N: Differentiable<D, T>,
 
-    FieldOf<N::Jacobian>: std::ops::Mul<
+    FieldOf<N::Jacobian>: num_traits::One + std::ops::Mul<
         FieldOf<N::Jacobian>,
         Output = FieldOf<N::Jacobian>
     >,
 {
     type Jacobian = OwnedOf<N::Jacobian>;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
         let two = num_traits::one::<FieldOf<N::Jacobian>>() + num_traits::one();
 
-        self.0.dual(state, target).map(|d| d.adjoint.map(|g| two * g))
+        self.0.dual(db, target).map(|d| d.adjoint.map(|g| two * g))
     }
 }
 
@@ -317,12 +317,12 @@ where
     }
 }
 
-impl<S, N> Function<S> for Squared<N>
+impl<D, N> Function<D> for Squared<N>
 where
-    S: State,
-    N: Function<S>,
+    D: Database,
+    N: Function<D>,
 
-    FieldOf<N::Codomain>: num_traits::Pow<
+    FieldOf<N::Codomain>: num_traits::One + num_traits::Pow<
         FieldOf<N::Codomain>,
         Output = FieldOf<N::Codomain>
     >,
@@ -330,20 +330,20 @@ where
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
         let two = num_traits::one::<FieldOf<N::Codomain>>() + num_traits::one();
 
-        self.0.evaluate(state).map(|buffer| buffer.map(|x| x.pow(two)))
+        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.pow(two)))
     }
 }
 
-impl<S, T, N> Differentiable<S, T> for Squared<N>
+impl<D, T, N> Differentiable<D, T> for Squared<N>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    N: Differentiable<S, T>,
+    N: Differentiable<D, T>,
 
-    FieldOf<N::Codomain>: num_traits::Pow<
+    FieldOf<N::Codomain>: num_traits::One + num_traits::Pow<
         FieldOf<N::Codomain>,
         Output = FieldOf<N::Codomain>
     > + std::ops::Mul<
@@ -357,10 +357,10 @@ where
 {
     type Jacobian = MulOut<N::Codomain, OwnedOf<N::Jacobian>>;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
         let two = num_traits::one::<FieldOf<N::Jacobian>>() + num_traits::one();
 
-        self.0.dual(state, target).map(|d| {
+        self.0.dual(db, target).map(|d| {
             d.value * d.adjoint.map(|g| two * g)
         })
     }
@@ -444,11 +444,11 @@ where
     }
 }
 
-impl<S, N1, N2> Function<S> for Mul<N1, N2>
+impl<D, N1, N2> Function<D> for Mul<N1, N2>
 where
-    S: State,
-    N1: Function<S>,
-    N2: Function<S>,
+    D: Database,
+    N1: Function<D>,
+    N2: Function<D>,
 
     N1::Codomain: ops::Mul<N2::Codomain>,
 
@@ -457,22 +457,22 @@ where
     type Codomain = MulOut<N1::Codomain, N2::Codomain>;
     type Error = either::Either<N1::Error, N2::Error>;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        self.0.evaluate(state).map_err(either::Either::Left).and_then(|x| {
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        self.0.evaluate(db).map_err(either::Either::Left).and_then(|x| {
             self.1
-                .evaluate(state)
+                .evaluate(db)
                 .map(|y| x * y)
                 .map_err(either::Either::Right)
         })
     }
 }
 
-impl<S, T, N1, N2> Differentiable<S, T> for Mul<N1, N2>
+impl<D, T, N1, N2> Differentiable<D, T> for Mul<N1, N2>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    N1: Differentiable<S, T>,
-    N2: Differentiable<S, T>,
+    N1: Differentiable<D, T>,
+    N2: Differentiable<D, T>,
 
     N1::Codomain: ops::Mul<N2::Codomain>,
     N2::Jacobian: ops::Mul<N1::Codomain>,
@@ -492,20 +492,20 @@ where
         MulOut<N1::Jacobian, N2::Codomain> as ops::Add<MulOut<N2::Jacobian, N1::Codomain>>
     >::Output;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-        let d1 = self.0.dual(state, target).map_err(either::Either::Left)?;
-        let d2 = self.1.dual(state, target).map_err(either::Either::Right)?;
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+        let d1 = self.0.dual(db, target).map_err(either::Either::Left)?;
+        let d2 = self.1.dual(db, target).map_err(either::Either::Right)?;
 
         Ok(d1.adjoint * d2.value + d2.adjoint * d1.value)
     }
 
-    fn dual(&self, state: &S, target: T) -> Result<
+    fn dual(&self, db: &D, target: T) -> Result<
         crate::dual::Dual<Self::Codomain, Self::Jacobian>,
         Self::Error
     >
     {
-        let d1 = self.0.dual(state, target).map_err(either::Either::Left)?;
-        let d2 = self.1.dual(state, target).map_err(either::Either::Right)?;
+        let d1 = self.0.dual(db, target).map_err(either::Either::Left)?;
+        let d2 = self.1.dual(db, target).map_err(either::Either::Right)?;
 
         Ok(crate::dual::Dual {
             value: &d1.value * &d2.value,

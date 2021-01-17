@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, State, Contains, Function, Differentiable,
+    Identifier, Database, Contains, Function, Differentiable,
     buffer::{Buffer, OwnedOf},
 };
 use num_traits::{one, zero, real::Real};
@@ -24,44 +24,37 @@ fn logistic<F: Real>(x: F) -> F {
     l / (l + (-x).exp())
 }
 
-new_op!(Sigmoid<N>);
+#[derive(Clone, Copy, Debug, Node, Contains)]
+pub struct Sigmoid<N>(#[op] pub N);
 
-impl<T, N> Contains<T> for Sigmoid<N>
+impl<D, N> Function<D> for Sigmoid<N>
 where
-    T: Identifier,
-    N: Contains<T>,
-{
-    fn contains(&self, target: T) -> bool { self.0.contains(target) }
-}
-
-impl<S, N> Function<S> for Sigmoid<N>
-where
-    S: State,
-    N: Function<S>,
+    D: Database,
+    N: Function<D>,
 
     <N::Codomain as Buffer>::Field: num_traits::real::Real,
 {
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        self.0.evaluate(state).map(|buffer| buffer.map(sigmoid))
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        self.0.evaluate(db).map(|buffer| buffer.map(sigmoid))
     }
 }
 
-impl<S, T, N> Differentiable<S, T> for Sigmoid<N>
+impl<D, T, N> Differentiable<D, T> for Sigmoid<N>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    N: Differentiable<S, T>,
+    N: Differentiable<D, T>,
 
     <N::Codomain as Buffer>::Field: Real,
     <N::Jacobian as Buffer>::Field: Real,
 {
     type Jacobian = OwnedOf<N::Jacobian>;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-        self.0.grad(state, target).map(|buffer| buffer.map(logistic))
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+        self.0.grad(db, target).map(|buffer| buffer.map(logistic))
     }
 }
 

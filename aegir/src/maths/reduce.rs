@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, State, Node, Contains, Function, Differentiable, Compile,
+    Identifier, Database, Node, Contains, Function, Differentiable, Compile,
     buffer::{Buffer, FieldOf},
 };
 use std::fmt;
@@ -17,33 +17,37 @@ where
     fn contains(&self, target: T) -> bool { self.0.contains(target) }
 }
 
-impl<S, N> Function<S> for Reduce<N>
+impl<D, N> Function<D> for Reduce<N>
 where
-    S: State,
-    N: Function<S>,
+    D: Database,
+    N: Function<D>,
+
+    FieldOf<N::Codomain>: num_traits::Zero,
 {
     type Codomain = FieldOf<N::Codomain>;
     type Error = N::Error;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        self.0.evaluate(state).map(|buffer| {
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        self.0.evaluate(db).map(|buffer| {
             buffer.fold(num_traits::zero(), |acc, &x| acc + x)
         })
     }
 }
 
-impl<S, T, N> Differentiable<S, T> for Reduce<N>
+impl<D, T, N> Differentiable<D, T> for Reduce<N>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    N: Differentiable<S, T>,
+    N: Differentiable<D, T>,
 
     N::Jacobian: Buffer<Field = FieldOf<N::Codomain>>,
+
+    FieldOf<N::Codomain>: num_traits::Zero,
 {
     type Jacobian = N::Jacobian;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-        self.0.grad(state, target)
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+        self.0.grad(db, target)
     }
 }
 

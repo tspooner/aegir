@@ -3,7 +3,7 @@ use quote::ToTokens;
 
 pub fn expand(ast: &syn::DeriveInput) -> TokenStream {
     match &ast.data {
-        syn::Data::Struct(ref ds) => state_struct_impl(ast, ds),
+        syn::Data::Struct(ref ds) => db_struct_impl(ast, ds),
         _ => unimplemented!(),
     }.into_token_stream()
 }
@@ -30,12 +30,12 @@ fn parse_id_attr(attr_meta: &syn::Attribute) -> Result<syn::Ident, String> {
     }
 }
 
-fn state_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStream {
+fn db_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStream {
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
     let mut code = quote! {
-        impl #impl_generics ::aegir::State for #name #ty_generics #where_clause {}
+        impl #impl_generics ::aegir::Database for #name #ty_generics #where_clause {}
     };
 
     for f in &ds.fields {

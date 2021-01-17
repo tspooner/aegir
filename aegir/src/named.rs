@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, State, Get, Node, Contains, Function, Differentiable,
+    Identifier, Database, Get, Node, Contains, Function, Differentiable,
     buffer::{Buffer, OwnedOf},
 };
 
@@ -18,18 +18,18 @@ where
     }
 }
 
-impl<S, N, I> Function<S> for NamedNode<N, I>
+impl<D, N, I> Function<D> for NamedNode<N, I>
 where
-    S: State + Get<I>,
-    N: Function<S, Codomain = OwnedOf<S::Output>>,
+    D: Database + Get<I>,
+    N: Function<D, Codomain = OwnedOf<D::Output>>,
     I: Identifier,
 
-    S::Output: Buffer,
+    D::Output: Buffer,
 {
     type Codomain = N::Codomain;
     type Error = N::Error;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
+    fn evaluate(&self, state: &D) -> Result<Self::Codomain, Self::Error> {
         if let Some(v) = state.get(self.1) {
             Ok(v.to_owned())
         } else {
@@ -38,18 +38,18 @@ where
     }
 }
 
-impl<S, T, N, I> Differentiable<S, T> for NamedNode<N, I>
+impl<D, T, N, I> Differentiable<D, T> for NamedNode<N, I>
 where
-    S: State + Get<I>,
+    D: Database + Get<I>,
     T: Identifier,
-    N: Differentiable<S, T, Codomain = OwnedOf<S::Output>>,
+    N: Differentiable<D, T, Codomain = OwnedOf<D::Output>>,
     I: Identifier + std::cmp::PartialEq<T>,
 
-    S::Output: Buffer,
+    D::Output: Buffer,
 {
     type Jacobian = N::Jacobian;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+    fn grad(&self, state: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
         self.0.grad(state, target)
     }
 }

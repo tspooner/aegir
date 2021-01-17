@@ -1,7 +1,7 @@
 use crate::{
-    Identifier, State, Node, Contains, Function, Differentiable, Compile,
+    Identifier, Database, Node, Contains, Function, Differentiable, Compile,
     buffer::{Buffer, Field, FieldOf},
-    ops::{AddOut, reduce::Reduce, arithmetic::Mul},
+    maths::{AddOut, reduce::Reduce, arithmetic::Mul},
 };
 use ndarray::{ArrayBase, Ix1, Ix2};
 
@@ -79,14 +79,14 @@ where
     fn outer_product<E1, E2>(&self, rhs: &T) -> Result<Self::Output, LinalgError<E1, E2>>;
 }
 
-impl<F, S> OuterProductTrait<ArrayBase<S, Ix1>> for ArrayBase<S, Ix1>
+impl<F, D> OuterProductTrait<ArrayBase<D, Ix1>> for ArrayBase<D, Ix1>
 where
-    F: Field + 'static,
-    S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
+    F: Field + num_traits::Zero + num_traits::One + 'static,
+    D: ndarray::Data<Elem = F> + ndarray::RawDataClone,
 {
     type Output = ndarray::Array2<F>;
 
-    fn outer_product<E1, E2>(&self, rhs: &ArrayBase<S, Ix1>) -> Result<
+    fn outer_product<E1, E2>(&self, rhs: &ArrayBase<D, Ix1>) -> Result<
         ndarray::Array2<F>,
         LinalgError<E1, E2>
     >
@@ -103,7 +103,7 @@ where
 
 impl<F> OuterProductTrait<Vec<F>> for Vec<F>
 where
-    F: Field + 'static,
+    F: Field + num_traits::Zero + num_traits::One + 'static,
 {
     type Output = ndarray::Array2<F>;
 
@@ -130,11 +130,11 @@ where
     }
 }
 
-impl<S, N1, N2> Function<S> for OuterProduct<N1, N2>
+impl<D, N1, N2> Function<D> for OuterProduct<N1, N2>
 where
-    S: State,
-    N1: Function<S>,
-    N2: Function<S>,
+    D: Database,
+    N1: Function<D>,
+    N2: Function<D>,
 
     N1::Codomain: OuterProductTrait<N2::Codomain>,
     N2::Codomain: Buffer<Field = FieldOf<N1::Codomain>>,
@@ -142,20 +142,20 @@ where
     type Codomain = <N1::Codomain as OuterProductTrait<N2::Codomain>>::Output;
     type Error = LinalgError<N1::Error, N2::Error>;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        let x = self.0.evaluate(state).map_err(|e| LinalgError::Inner1(e))?;
-        let y = self.1.evaluate(state).map_err(|e| LinalgError::Inner2(e))?;
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        let x = self.0.evaluate(db).map_err(|e| LinalgError::Inner1(e))?;
+        let y = self.1.evaluate(db).map_err(|e| LinalgError::Inner2(e))?;
 
         x.outer_product(&y)
     }
 }
 
-impl<S, T, N1, N2> Differentiable<S, T> for OuterProduct<N1, N2>
+impl<D, T, N1, N2> Differentiable<D, T> for OuterProduct<N1, N2>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    N1: Differentiable<S, T>,
-    N2: Differentiable<S, T>,
+    N1: Differentiable<D, T>,
+    N2: Differentiable<D, T>,
 
     N1::Codomain: OuterProductTrait<N2::Codomain>,
     N2::Codomain: Buffer<Field = FieldOf<N1::Codomain>>,
@@ -176,9 +176,9 @@ where
         <N1::Codomain as OuterProductTrait<N2::Jacobian>>::Output
     >;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-        let dual_x = self.0.dual(state, target).map_err(|e| LinalgError::Inner1(e))?;
-        let dual_y = self.1.dual(state, target).map_err(|e| LinalgError::Inner2(e))?;
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+        let dual_x = self.0.dual(db, target).map_err(|e| LinalgError::Inner1(e))?;
+        let dual_y = self.1.dual(db, target).map_err(|e| LinalgError::Inner2(e))?;
 
         dual_x
             .adjoint
@@ -204,14 +204,17 @@ where
     fn mat_mul<E1, E2>(&self, rhs: &T) -> Result<Self::Output, LinalgError<E1, E2>>;
 }
 
-impl<F, S> MatMulTrait<ArrayBase<S, Ix2>> for ArrayBase<S, Ix2>
+impl<F, D> MatMulTrait<ArrayBase<D, Ix2>> for ArrayBase<D, Ix2>
 where
-    F: Field + 'static,
-    S: ndarray::Data<Elem = F> + ndarray::RawDataClone,
+    F: Field + num_traits::Zero + num_traits::One + 'static,
+    D: ndarray::Data<Elem = F> + ndarray::RawDataClone,
 {
     type Output = ndarray::Array2<F>;
 
-    fn mat_mul<E1, E2>(&self, rhs: &ArrayBase<S, Ix2>) -> Result<ndarray::Array2<F>, LinalgError<E1, E2>>
+    fn mat_mul<E1, E2>(
+        &self,
+        rhs: &ArrayBase<D, Ix2>
+    ) -> Result<ndarray::Array2<F>, LinalgError<E1, E2>>
     {
         if self.ncols() == rhs.nrows() {
             Ok(self.dot(rhs))
@@ -236,11 +239,11 @@ where
     }
 }
 
-impl<S, N1, N2> Function<S> for MatMul<N1, N2>
+impl<D, N1, N2> Function<D> for MatMul<N1, N2>
 where
-    S: State,
-    N1: Function<S>,
-    N2: Function<S>,
+    D: Database,
+    N1: Function<D>,
+    N2: Function<D>,
 
     N1::Codomain: MatMulTrait<N2::Codomain>,
     N2::Codomain: Buffer<Field = <N1::Codomain as Buffer>::Field>,
@@ -248,20 +251,20 @@ where
     type Codomain = <N1::Codomain as MatMulTrait<N2::Codomain>>::Output;
     type Error = LinalgError<N1::Error, N2::Error>;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        let x = self.0.evaluate(state).map_err(|e| LinalgError::Inner1(e))?;
-        let y = self.1.evaluate(state).map_err(|e| LinalgError::Inner2(e))?;
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        let x = self.0.evaluate(db).map_err(|e| LinalgError::Inner1(e))?;
+        let y = self.1.evaluate(db).map_err(|e| LinalgError::Inner2(e))?;
 
         x.mat_mul(&y)
     }
 }
 
-impl<S, T, N1, N2> Differentiable<S, T> for MatMul<N1, N2>
+impl<D, T, N1, N2> Differentiable<D, T> for MatMul<N1, N2>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    N1: Differentiable<S, T>,
-    N2: Differentiable<S, T>,
+    N1: Differentiable<D, T>,
+    N2: Differentiable<D, T>,
 
     N1::Codomain: MatMulTrait<N2::Codomain>,
     N2::Codomain: Buffer<Field = FieldOf<N1::Codomain>>,
@@ -282,9 +285,9 @@ where
         <N1::Codomain as MatMulTrait<N2::Jacobian>>::Output
     >;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-        let dual_x = self.0.dual(state, target).map_err(|e| LinalgError::Inner1(e))?;
-        let dual_y = self.1.dual(state, target).map_err(|e| LinalgError::Inner2(e))?;
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+        let dual_x = self.0.dual(db, target).map_err(|e| LinalgError::Inner1(e))?;
+        let dual_y = self.1.dual(db, target).map_err(|e| LinalgError::Inner2(e))?;
 
         dual_x
             .adjoint

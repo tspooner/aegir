@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, State, Get, Node, Contains,
+    Identifier, Database, Get, Node, Contains,
     Function, Differentiable, Compile, Prune,
     buffer::{Buffer, Field, OwnedBuffer, OwnedOf, FieldOf},
 };
@@ -28,43 +28,45 @@ where
     fn contains(&self, target: T) -> bool { self.0 == target }
 }
 
-impl<S, I> Function<S> for Variable<I>
+impl<D, I> Function<D> for Variable<I>
 where
-    S: Get<I>,
+    D: Get<I>,
     I: Identifier,
 
-    S::Output: Buffer,
+    D::Output: Buffer,
 {
-    type Codomain = OwnedOf<S::Output>;
+    type Codomain = OwnedOf<D::Output>;
     type Error = VariableError<I>;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        state
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        db
             .get(self.0)
             .map(|v| v.to_owned())
             .ok_or_else(|| VariableError(self.0))
     }
 }
 
-impl<S, T, I> Differentiable<S, T> for Variable<I>
+impl<D, T, I> Differentiable<D, T> for Variable<I>
 where
-    S: Get<T> + Get<I>,
+    D: Get<T> + Get<I>,
     T: Identifier,
     I: Identifier + std::cmp::PartialEq<T>,
 
-    <S as Get<T>>::Output: Buffer,
-    <S as Get<I>>::Output: Buffer<Field = FieldOf<<S as Get<T>>::Output>>,
-{
-    type Jacobian = OwnedOf<<S as Get<I>>::Output>;
+    <D as Get<T>>::Output: Buffer,
+    <D as Get<I>>::Output: Buffer<Field = FieldOf<<D as Get<T>>::Output>>,
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
+    FieldOf<<D as Get<T>>::Output>: num_traits::One + num_traits::Zero,
+{
+    type Jacobian = OwnedOf<<D as Get<I>>::Output>;
+
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
         if self.contains(target) {
-            state
+            db
                 .get(self.0)
                 .map(|a| a.to_ones())
                 .ok_or_else(|| VariableError(self.0))
         } else {
-            state
+            db
                 .get(self.0)
                 .map(|a| a.to_zeroes())
                 .ok_or_else(|| VariableError(self.0))
@@ -103,7 +105,11 @@ impl<I> From<I> for Variable<I> {
 pub enum GradValue { Zero, One }
 
 impl GradValue {
-    pub(self) fn convert<B: Buffer>(&self, buffer: &B) -> B::Owned {
+    pub(self) fn convert<B>(&self, buffer: &B) -> B::Owned
+    where
+        B: Buffer,
+        FieldOf<B>: num_traits::Zero + num_traits::One,
+    {
         match self {
             GradValue::Zero => buffer.to_zeroes(),
             GradValue::One => buffer.to_ones(),
@@ -124,37 +130,39 @@ where
     fn contains(&self, target: T) -> bool { self.1 == target }
 }
 
-impl<S, I> Function<S> for GradOf<I>
+impl<D, I> Function<D> for GradOf<I>
 where
-    S: Get<I>,
+    D: Get<I>,
     I: Identifier,
 
-    S::Output: Buffer,
+    D::Output: Buffer,
+
+    FieldOf<D::Output>: num_traits::Zero + num_traits::One,
 {
-    type Codomain = OwnedOf<S::Output>;
+    type Codomain = OwnedOf<D::Output>;
     type Error = VariableError<I>;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        state
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        db
             .get(self.1)
             .map(|buffer| self.0.convert(buffer))
             .ok_or_else(|| VariableError(self.1))
     }
 }
 
-impl<S, T, F, I> Differentiable<S, T> for GradOf<I>
+impl<D, T, F, I> Differentiable<D, T> for GradOf<I>
 where
-    S: Get<I>,
+    D: Get<I>,
     T: Identifier,
-    F: Field,
+    F: Field + num_traits::Zero + num_traits::One,
     I: Identifier + std::cmp::PartialEq<T>,
 
-    S::Output: Buffer<Field = F>,
+    D::Output: Buffer<Field = F>,
 {
-    type Jacobian = OwnedOf<<S as Get<I>>::Output>;
+    type Jacobian = OwnedOf<<D as Get<I>>::Output>;
 
-    fn grad(&self, state: &S, _: T) -> Result<Self::Jacobian, Self::Error> {
-        state
+    fn grad(&self, db: &D, _: T) -> Result<Self::Jacobian, Self::Error> {
+        db
             .get(self.1)
             .map(|v| v.to_zeroes())
             .ok_or_else(|| VariableError(self.1))
@@ -207,28 +215,30 @@ where
     fn contains(&self, _: T) -> bool { false }
 }
 
-impl<S, B> Function<S> for Constant<B>
+impl<D, B> Function<D> for Constant<B>
 where
-    S: State,
+    D: Database,
     B: OwnedBuffer,
 {
     type Codomain = OwnedOf<B>;
     type Error = VariableError<()>;
 
-    fn evaluate(&self, _: &S) -> Result<Self::Codomain, Self::Error> {
+    fn evaluate(&self, _: &D) -> Result<Self::Codomain, Self::Error> {
         Ok(self.0.clone())
     }
 }
 
-impl<S, T, B> Differentiable<S, T> for Constant<B>
+impl<D, T, B> Differentiable<D, T> for Constant<B>
 where
-    S: State,
+    D: Database,
     T: Identifier,
     B: OwnedBuffer,
+
+    FieldOf<B>: num_traits::Zero,
 {
     type Jacobian = B;
 
-    fn grad(&self, _: &S, _: T) -> Result<Self::Jacobian, Self::Error> {
+    fn grad(&self, _: &D, _: T) -> Result<Self::Jacobian, Self::Error> {
         Ok(self.0.to_zeroes())
     }
 }
@@ -237,6 +247,8 @@ impl<T, B> Compile<T> for Constant<B>
 where
     T: Identifier,
     B: OwnedBuffer,
+
+    FieldOf<B>: num_traits::Zero,
 {
     type CompiledJacobian = Constant<B>;
     type Error = crate::NoError;

@@ -6,17 +6,33 @@ extern crate syn;
 
 use proc_macro::TokenStream;
 
-mod state;
 mod ids;
 
-#[proc_macro_derive(State, attributes(id))]
-pub fn derive_state(tokens: TokenStream) -> TokenStream {
-    let ast = syn::parse2(tokens.into()).unwrap();
-
-    state::expand(&ast).into()
-}
+mod db;
+mod ops;
 
 #[proc_macro]
 pub fn ids(tokens: TokenStream) -> TokenStream {
     ids::expand(tokens).into()
+}
+
+#[proc_macro_derive(Database, attributes(id))]
+pub fn derive_db(tokens: TokenStream) -> TokenStream {
+    let ast = syn::parse2(tokens.into()).unwrap();
+
+    db::expand(&ast).into()
+}
+
+#[proc_macro_derive(Node, attributes(op))]
+pub fn derive_node(tokens: TokenStream) -> TokenStream {
+    let ast = syn::parse2(tokens.into()).unwrap();
+
+    ops::expand_node(&ast).into()
+}
+
+#[proc_macro_derive(Contains, attributes(op))]
+pub fn derive_contains(tokens: TokenStream) -> TokenStream {
+    let ast = syn::parse2(tokens.into()).unwrap();
+
+    ops::expand_contains(&ast).into()
 }

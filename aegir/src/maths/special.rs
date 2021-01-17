@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, State, Contains, Function, Differentiable,
+    Identifier, Database, Contains, Function, Differentiable,
     buffer::{Buffer, FieldOf, OwnedOf},
 };
 use num_traits::{float::FloatConst, real::Real};
@@ -8,36 +8,29 @@ use std::fmt;
 
 macro_rules! impl_special {
     (@unary $name:ident, $eval:expr, $grad:expr) => {
-        new_op!($name<N>);
+        #[derive(Clone, Copy, Debug, Node, Contains)]
+        pub struct $name<N>(#[op] pub N);
 
-        impl<T, N> Contains<T> for $name<N>
+        impl<D, N> Function<D> for $name<N>
         where
-            T: Identifier,
-            N: Contains<T>,
-        {
-            fn contains(&self, target: T) -> bool { self.0.contains(target) }
-        }
-
-        impl<S, N> Function<S> for $name<N>
-        where
-            S: State,
-            N: Function<S>,
+            D: Database,
+            N: Function<D>,
 
             FieldOf<N::Codomain>: special_fun::FloatSpecial,
         {
             type Codomain = OwnedOf<N::Codomain>;
             type Error = N::Error;
 
-            fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-                self.0.evaluate(state).map(|buffer| buffer.map($eval))
+            fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+                self.0.evaluate(db).map(|buffer| buffer.map($eval))
             }
         }
 
-        impl<S, T, N> Differentiable<S, T> for $name<N>
+        impl<D, T, N> Differentiable<D, T> for $name<N>
         where
-            S: State,
+            D: Database,
             T: Identifier,
-            N: Differentiable<S, T>,
+            N: Differentiable<D, T>,
 
             N::Jacobian: Buffer<Field = FieldOf<N::Codomain>>,
 
@@ -45,8 +38,8 @@ macro_rules! impl_special {
         {
             type Jacobian = OwnedOf<N::Jacobian>;
 
-            fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-                self.0.grad(state, target).map(|buffer| buffer.map($grad))
+            fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+                self.0.grad(db, target).map(|buffer| buffer.map($grad))
             }
         }
     };
@@ -72,42 +65,35 @@ impl<X: fmt::Display> fmt::Display for Factorial<X> {
     }
 }
 
-new_op!(Erf<N>);
+#[derive(Clone, Copy, Debug, Node, Contains)]
+pub struct Erf<N>(#[op] pub N);
 
 impl<N> Erf<N> {
-    pub fn complementary(self) -> crate::ops::arithmetic::Neg<Self> {
-        crate::ops::arithmetic::Neg(self)
+    pub fn complementary(self) -> crate::maths::arithmetic::Neg<Self> {
+        crate::maths::arithmetic::Neg(self)
     }
 }
 
-impl<T, N> Contains<T> for Erf<N>
+impl<D, N> Function<D> for Erf<N>
 where
-    T: Identifier,
-    N: Contains<T>,
-{
-    fn contains(&self, target: T) -> bool { self.0.contains(target) }
-}
-
-impl<S, N> Function<S> for Erf<N>
-where
-    S: State,
-    N: Function<S>,
+    D: Database,
+    N: Function<D>,
 
     crate::buffer::FieldOf<N::Codomain>: special_fun::FloatSpecial,
 {
     type Codomain = crate::buffer::OwnedOf<N::Codomain>;
     type Error = N::Error;
 
-    fn evaluate(&self, state: &S) -> Result<Self::Codomain, Self::Error> {
-        self.0.evaluate(state).map(|buffer| buffer.map(|x| x.erf()))
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.erf()))
     }
 }
 
-impl<S, T, N> Differentiable<S, T> for Erf<N>
+impl<D, T, N> Differentiable<D, T> for Erf<N>
 where
-    S: State,
+    D: Database,
     T: Identifier,
-    N: Differentiable<S, T>,
+    N: Differentiable<D, T>,
 
     N::Jacobian: Buffer<Field = crate::buffer::FieldOf<N::Codomain>>,
 
@@ -116,8 +102,8 @@ where
 {
     type Jacobian = crate::buffer::OwnedOf<N::Jacobian>;
 
-    fn grad(&self, state: &S, target: T) -> Result<Self::Jacobian, Self::Error> {
-        self.0.grad(state, target).map(|buffer| buffer.map(|x| {
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+        self.0.grad(db, target).map(|buffer| buffer.map(|x| {
             let two = num_traits::one::<crate::buffer::FieldOf<N::Codomain>>() + num_traits::one();
 
             (-x.powi(2)).exp() * two / <crate::buffer::FieldOf<N::Codomain>>::PI().sqrt()
