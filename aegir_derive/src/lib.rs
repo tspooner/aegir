@@ -12,9 +12,7 @@ mod db;
 mod ops;
 
 #[proc_macro]
-pub fn ids(tokens: TokenStream) -> TokenStream {
-    ids::expand(tokens).into()
-}
+pub fn ids(tokens: TokenStream) -> TokenStream { ids::expand(tokens).into() }
 
 #[proc_macro_derive(Database, attributes(id))]
 pub fn derive_db(tokens: TokenStream) -> TokenStream {

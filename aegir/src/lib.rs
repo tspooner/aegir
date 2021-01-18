@@ -28,23 +28,23 @@ pub trait Identifier: Eq + Copy + std::fmt::Debug + std::fmt::Display {
 // pub struct Indexed<T, Idx>(T, Idx);
 
 // impl<T: Identifier, Idx> Indexed<T, Idx> {
-    // pub fn new(target: T, idx: Idx) -> Self { Indexed(target, idx) }
+// pub fn new(target: T, idx: Idx) -> Self { Indexed(target, idx) }
 // }
 
 // impl<T, Idx> std::fmt::Display for Indexed<T, Idx>
 // where
-    // T: Identifier,
-    // Idx: std::fmt::Display,
+// T: Identifier,
+// Idx: std::fmt::Display,
 // {
-    // fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // write!(f, "{}[{}]", self.0, self.1)
-    // }
+// fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+// write!(f, "{}[{}]", self.0, self.1)
+// }
 // }
 
 // impl<T, Idx> Identifier for Indexed<T, Idx>
 // where
-    // T: Identifier,
-    // Idx: Copy + Clone + Eq + std::fmt::Debug + std::fmt::Display,
+// T: Identifier,
+// Idx: Copy + Clone + Eq + std::fmt::Debug + std::fmt::Display,
 // {}
 
 /// Trait for types that store data.
@@ -70,7 +70,11 @@ impl<T: Identifier, B: buffer::Buffer> Get<T> for SimpleDatabase<T, B> {
     type Output = B;
 
     fn get(&self, target: T) -> Option<&B> {
-        if target == self.0 { Some(&self.1) } else { None }
+        if target == self.0 {
+            Some(&self.1)
+        } else {
+            None
+        }
     }
 }
 
@@ -88,43 +92,73 @@ macro_rules! db {
 
 /// Trait for computation nodes.
 pub trait Node {
-    fn named<I: Identifier>(self, id: I) -> NamedNode<Self, I> where Self: Sized {
+    fn named<I: Identifier>(self, id: I) -> NamedNode<Self, I>
+    where
+        Self: Sized,
+    {
         NamedNode(self, id)
     }
 
-    fn add<N: Node>(self, other: N) -> maths::Add<Self, N> where Self: Sized {
+    fn add<N: Node>(self, other: N) -> maths::Add<Self, N>
+    where
+        Self: Sized,
+    {
         maths::Add(self, other)
     }
 
-    fn sub<N: Node>(self, other: N) -> maths::Sub<Self, N> where Self: Sized {
+    fn sub<N: Node>(self, other: N) -> maths::Sub<Self, N>
+    where
+        Self: Sized,
+    {
         maths::Sub(self, other)
     }
 
-    fn mul<N: Node>(self, other: N) -> maths::Mul<Self, N> where Self: Sized {
+    fn mul<N: Node>(self, other: N) -> maths::Mul<Self, N>
+    where
+        Self: Sized,
+    {
         maths::Mul(self, other)
     }
 
-    fn dot<N: Node>(self, other: N) -> maths::InnerProduct<Self, N> where Self: Sized {
+    fn dot<N: Node>(self, other: N) -> maths::InnerProduct<Self, N>
+    where
+        Self: Sized,
+    {
         maths::InnerProduct::new(self, other)
     }
 
-    fn abs(self) -> maths::Abs<Self> where Self: Sized {
+    fn abs(self) -> maths::Abs<Self>
+    where
+        Self: Sized,
+    {
         maths::Abs(self)
     }
 
-    fn neg(self) -> maths::Negate<Self> where Self: Sized {
+    fn neg(self) -> maths::Negate<Self>
+    where
+        Self: Sized,
+    {
         maths::Negate(self)
     }
 
-    fn pow<P>(self, power: P) -> maths::Power<Self, P> where Self: Sized {
+    fn pow<P>(self, power: P) -> maths::Power<Self, P>
+    where
+        Self: Sized,
+    {
         maths::Power(self, power)
     }
 
-    fn squared(self) -> maths::Square<Self> where Self: Sized {
+    fn squared(self) -> maths::Square<Self>
+    where
+        Self: Sized,
+    {
         maths::Square(self)
     }
 
-    fn reduce(self) -> maths::Reduce<Self> where Self: Sized {
+    fn reduce(self) -> maths::Reduce<Self>
+    where
+        Self: Sized,
+    {
         maths::Reduce(self)
     }
 }
@@ -156,11 +190,10 @@ pub trait Function<D: Database>: Node {
 
 /// Trait for [`Identifier`]-differentiable [Functions](Function).
 pub trait Differentiable<D: Database, T: Identifier>: Function<D> + Contains<T> {
-    type Jacobian: buffer::Buffer<
-        Field = buffer::FieldOf<<Self as Function<D>>::Codomain>
-    >;
+    type Jacobian: buffer::Buffer<Field = buffer::FieldOf<<Self as Function<D>>::Codomain>>;
 
-    /// Compute the [Jacobian](Differentiable::Jacobian) associated with `target`.
+    /// Compute the [Jacobian](Differentiable::Jacobian) associated with
+    /// `target`.
     ///
     /// # Examples
     /// ```
@@ -176,23 +209,29 @@ pub trait Differentiable<D: Database, T: Identifier>: Function<D> + Contains<T> 
         self.dual(db, target).map(|dual| dual.adjoint)
     }
 
-    /// Evaluate the function and compute the [Jacobian](Differentiable::Jacobian) associated with
-    /// `target` in a single pass.
-    fn dual(&self, db: &D, target: T) -> Result<
-        dual::Dual<Self::Codomain, Self::Jacobian>, Self::Error
-    > {
+    /// Evaluate the function and compute the
+    /// [Jacobian](Differentiable::Jacobian) associated with `target` in a
+    /// single pass.
+    fn dual(
+        &self,
+        db: &D,
+        target: T,
+    ) -> Result<dual::Dual<Self::Codomain, Self::Jacobian>, Self::Error> {
         self.evaluate(db).and_then(|value| {
-            self.grad(db, target).map(|adjoint| dual::Dual { value, adjoint, })
+            self.grad(db, target)
+                .map(|adjoint| dual::Dual { value, adjoint })
         })
     }
 }
 
-/// Trait for [Differentiables](Differentiable) that can be expressed statically within `aegir`.
+/// Trait for [Differentiables](Differentiable) that can be expressed statically
+/// within `aegir`.
 pub trait Compile<T: Identifier>: Node {
     type CompiledJacobian: Node;
     type Error: std::error::Error;
 
-    /// Compile the [Jacobian](Differentiable::Jacobian) associated with `target`.
+    /// Compile the [Jacobian](Differentiable::Jacobian) associated with
+    /// `target`.
     ///
     /// # Examples
     /// ```
@@ -211,10 +250,8 @@ pub trait Compile<T: Identifier>: Node {
 pub type ErrorOf<F, D> = <F as Function<D>>::Error;
 pub type CodomainOf<F, D> = <F as Function<D>>::Codomain;
 pub type JacobianOf<F, D, T> = <F as Differentiable<D, T>>::Jacobian;
-pub type DualOf<F, D, T> = dual::Dual<
-    <F as Function<D>>::Codomain,
-    <F as Differentiable<D, T>>::Jacobian
->;
+pub type DualOf<F, D, T> =
+    dual::Dual<<F as Function<D>>::Codomain, <F as Differentiable<D, T>>::Jacobian>;
 
 extern crate self as aegir;
 
@@ -224,16 +261,13 @@ mod macros;
 pub mod buffer;
 pub mod dual;
 
-pub mod sources;
 pub mod maths;
+pub mod sources;
 
 mod named;
 pub use self::named::NamedNode;
 
-pub fn evaluate<D, F>(
-    f: F,
-    db: &D,
-) -> Result<F::Codomain, F::Error>
+pub fn evaluate<D, F>(f: F, db: &D) -> Result<F::Codomain, F::Error>
 where
     F: Function<D>,
     D: Database,
@@ -241,11 +275,7 @@ where
     f.evaluate(db)
 }
 
-pub fn differentiate<D, T, F>(
-    f: F,
-    db: &D,
-    target: T,
-) -> Result<F::Jacobian, F::Error>
+pub fn differentiate<D, T, F>(f: F, db: &D, target: T) -> Result<F::Jacobian, F::Error>
 where
     D: Database,
     T: Identifier,

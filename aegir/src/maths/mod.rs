@@ -115,24 +115,25 @@ type AddOut<A, B> = <A as std::ops::Add<B>>::Output;
 type MulOut<A, B> = <A as std::ops::Mul<B>>::Output;
 
 mod arithmetic;
-pub use self::arithmetic::{
-    Dirac, Sign, Abs,
-    Negate, Add, Sub, Double,
-    Mul, Power, Square,
-};
+pub use self::arithmetic::{Abs, Add, Dirac, Double, Mul, Negate, Power, Sign, Square, Sub};
 
 mod linalg;
-pub use self::linalg::{
-    InnerProduct,
-    OuterProduct, OuterProductTrait,
-    MatMul, MatMulTrait,
-};
+pub use self::linalg::{InnerProduct, MatMul, MatMulTrait, OuterProduct, OuterProductTrait};
 
 mod trig;
 pub use self::trig::{
-    Cos, Cosh, ArcCos, ArcCosh,
-    Sin, Sinh, ArcSin, ArcSinh,
-    Tan, Tanh, ArcTan, ArcTanh,
+    ArcCos,
+    ArcCosh,
+    ArcSin,
+    ArcSinh,
+    ArcTan,
+    ArcTanh,
+    Cos,
+    Cosh,
+    Sin,
+    Sinh,
+    Tan,
+    Tanh,
 };
 
 mod reduce;
@@ -142,6 +143,4 @@ mod sigmoid;
 pub use self::sigmoid::Sigmoid;
 
 mod special;
-pub use self::special::{
-    Gamma, LogGamma, Factorial, Erf,
-};
+pub use self::special::{Erf, Factorial, Gamma, LogGamma};

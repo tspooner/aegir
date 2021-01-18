@@ -2,7 +2,7 @@
 extern crate aegir;
 extern crate rand;
 
-use aegir::{Node, Identifier, Function, Differentiable, Compile};
+use aegir::{Compile, Differentiable, Function, Identifier, Node};
 use ndarray::Array1;
 
 ids!(X::x, Y::y, W::w);
@@ -14,8 +14,12 @@ db!(Database {
 
 macro_rules! make_db {
     ($x:ident, $y:ident, $w:ident) => {
-        &Database { input: &$x, output: &$y, weights: &$w, }
-    }
+        &Database {
+            input: &$x,
+            output: &$y,
+            weights: &$w,
+        }
+    };
 }
 
 fn main() {
@@ -35,7 +39,10 @@ fn main() {
         let y_ = x_[0] * 2.0 - x_[1] * 4.0;
         let g = sse.grad(make_db!(x_, y_, weights), W).unwrap();
 
-        weights.iter_mut().zip(g.iter()).for_each(|(w, dw)| { *w -= 0.01 * dw });
+        weights
+            .iter_mut()
+            .zip(g.iter())
+            .for_each(|(w, dw)| *w -= 0.01 * dw);
     }
 
     println!("{:?}", weights.to_vec());

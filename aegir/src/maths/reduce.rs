@@ -1,7 +1,12 @@
 use crate::{
-    Identifier, Database, Node, Contains,
-    Function, Differentiable, Compile,
     buffer::{Buffer, FieldOf},
+    Compile,
+    Contains,
+    Database,
+    Differentiable,
+    Function,
+    Identifier,
+    Node,
 };
 use std::fmt;
 
@@ -29,9 +34,9 @@ where
     type Error = N::Error;
 
     fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
-        self.0.evaluate(db).map(|buffer| {
-            buffer.fold(num_traits::zero(), |acc, &x| acc + x)
-        })
+        self.0
+            .evaluate(db)
+            .map(|buffer| buffer.fold(num_traits::zero(), |acc, &x| acc + x))
     }
 }
 

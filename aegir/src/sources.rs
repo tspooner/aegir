@@ -1,7 +1,13 @@
 use crate::{
-    Identifier, Database, Get, Node, Contains,
-    Function, Differentiable, Compile,
-    buffer::{Buffer, Field, OwnedBuffer, OwnedOf, FieldOf},
+    buffer::{Buffer, Field, FieldOf, OwnedBuffer, OwnedOf},
+    Compile,
+    Contains,
+    Database,
+    Differentiable,
+    Function,
+    Get,
+    Identifier,
+    Node,
 };
 
 #[derive(Copy, Clone, Debug)]
@@ -39,8 +45,7 @@ where
     type Error = VariableError<I>;
 
     fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
-        db
-            .get(self.0)
+        db.get(self.0)
             .map(|v| v.to_owned())
             .ok_or_else(|| VariableError(self.0))
     }
@@ -61,13 +66,11 @@ where
 
     fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
         if self.contains(target) {
-            db
-                .get(self.0)
+            db.get(self.0)
                 .map(|a| a.to_ones())
                 .ok_or_else(|| VariableError(self.0))
         } else {
-            db
-                .get(self.0)
+            db.get(self.0)
                 .map(|a| a.to_zeroes())
                 .ok_or_else(|| VariableError(self.0))
         }
@@ -102,7 +105,10 @@ impl<I> From<I> for Variable<I> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum GradValue { Zero, One }
+pub enum GradValue {
+    Zero,
+    One,
+}
 
 impl GradValue {
     pub(self) fn convert<B>(&self, buffer: &B) -> B::Owned
@@ -143,8 +149,7 @@ where
     type Error = VariableError<I>;
 
     fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
-        db
-            .get(self.1)
+        db.get(self.1)
             .map(|buffer| self.0.convert(buffer))
             .ok_or_else(|| VariableError(self.1))
     }
@@ -162,8 +167,7 @@ where
     type Jacobian = OwnedOf<<D as Get<I>>::Output>;
 
     fn grad(&self, db: &D, _: T) -> Result<Self::Jacobian, Self::Error> {
-        db
-            .get(self.1)
+        db.get(self.1)
             .map(|v| v.to_zeroes())
             .ok_or_else(|| VariableError(self.1))
     }
@@ -211,9 +215,7 @@ where
     type Codomain = OwnedOf<B>;
     type Error = VariableError<()>;
 
-    fn evaluate(&self, _: &D) -> Result<Self::Codomain, Self::Error> {
-        Ok(self.0.clone())
-    }
+    fn evaluate(&self, _: &D) -> Result<Self::Codomain, Self::Error> { Ok(self.0.clone()) }
 }
 
 impl<D, T, B> Differentiable<D, T> for Constant<B>
@@ -226,9 +228,7 @@ where
 {
     type Jacobian = B;
 
-    fn grad(&self, _: &D, _: T) -> Result<Self::Jacobian, Self::Error> {
-        Ok(self.0.to_zeroes())
-    }
+    fn grad(&self, _: &D, _: T) -> Result<Self::Jacobian, Self::Error> { Ok(self.0.to_zeroes()) }
 }
 
 impl<T, B> Compile<T> for Constant<B>
@@ -247,60 +247,62 @@ where
 }
 
 impl<B: std::fmt::Display> std::fmt::Display for Constant<B> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { self.0.fmt(f) }
 }
 
 #[cfg(test)]
 mod tests {
-    use aegir::{Identifier, Function, buffer::Buffer};
     use super::*;
+    use aegir::{buffer::Buffer, Function, Identifier};
 
     ids!(X::x);
 
     #[derive(Database)]
     struct DB<T> {
-        #[id(X)] pub x: T,
+        #[id(X)]
+        pub x: T,
     }
 
     #[test]
     fn test_variable() {
         let var = X.to_var();
 
-        assert_eq!(var.evaluate(&DB { x: 1.0, }).unwrap(), 1.0);
-        assert_eq!(var.evaluate(&DB { x: [-10.0, 5.0], }).unwrap(), [-10.0, 5.0]);
-        assert_eq!(var.evaluate(&DB { x: (-1.0, 50.0), }).unwrap(), (-1.0, 50.0));
-        assert_eq!(var.evaluate(&DB { x: vec![1.0, 2.0], }).unwrap(), vec![1.0, 2.0]);
+        assert_eq!(var.evaluate(&DB { x: 1.0 }).unwrap(), 1.0);
+        assert_eq!(var.evaluate(&DB { x: [-10.0, 5.0] }).unwrap(), [-10.0, 5.0]);
+        assert_eq!(var.evaluate(&DB { x: (-1.0, 50.0) }).unwrap(), (-1.0, 50.0));
+        assert_eq!(
+            var.evaluate(&DB { x: vec![1.0, 2.0] }).unwrap(),
+            vec![1.0, 2.0]
+        );
     }
 
     #[test]
     fn test_constant() {
         let c = 2.0f64.into_constant();
 
-        assert_eq!(c.evaluate(&DB { x: 1.0, }).unwrap(), 2.0);
-        assert_eq!(c.evaluate(&DB { x: [-10.0, 5.0], }).unwrap(), 2.0);
-        assert_eq!(c.evaluate(&DB { x: (-1.0, 50.0), }).unwrap(), 2.0);
-        assert_eq!(c.evaluate(&DB { x: vec![1.0, 2.0], }).unwrap(), 2.0);
+        assert_eq!(c.evaluate(&DB { x: 1.0 }).unwrap(), 2.0);
+        assert_eq!(c.evaluate(&DB { x: [-10.0, 5.0] }).unwrap(), 2.0);
+        assert_eq!(c.evaluate(&DB { x: (-1.0, 50.0) }).unwrap(), 2.0);
+        assert_eq!(c.evaluate(&DB { x: vec![1.0, 2.0] }).unwrap(), 2.0);
     }
 
     #[test]
     fn test_gradvalue_zero() {
         let g = GradReplace(GradValue::Zero, X);
 
-        assert_eq!(g.evaluate(&DB { x: 1.0, }).unwrap(), 0.0);
-        assert_eq!(g.evaluate(&DB { x: [-10.0, 5.0], }).unwrap(), [0.0; 2]);
-        assert_eq!(g.evaluate(&DB { x: (-1.0, 50.0), }).unwrap(), (0.0, 0.0));
-        assert_eq!(g.evaluate(&DB { x: vec![1.0, 2.0], }).unwrap(), vec![0.0; 2]);
+        assert_eq!(g.evaluate(&DB { x: 1.0 }).unwrap(), 0.0);
+        assert_eq!(g.evaluate(&DB { x: [-10.0, 5.0] }).unwrap(), [0.0; 2]);
+        assert_eq!(g.evaluate(&DB { x: (-1.0, 50.0) }).unwrap(), (0.0, 0.0));
+        assert_eq!(g.evaluate(&DB { x: vec![1.0, 2.0] }).unwrap(), vec![0.0; 2]);
     }
 
     #[test]
     fn test_gradvalue_one() {
         let g = GradReplace(GradValue::One, X);
 
-        assert_eq!(g.evaluate(&DB { x: 1.0, }).unwrap(), 1.0);
-        assert_eq!(g.evaluate(&DB { x: [-10.0, 5.0], }).unwrap(), [1.0; 2]);
-        assert_eq!(g.evaluate(&DB { x: (-1.0, 50.0), }).unwrap(), (1.0, 1.0));
-        assert_eq!(g.evaluate(&DB { x: vec![1.0, 2.0], }).unwrap(), vec![1.0; 2]);
+        assert_eq!(g.evaluate(&DB { x: 1.0 }).unwrap(), 1.0);
+        assert_eq!(g.evaluate(&DB { x: [-10.0, 5.0] }).unwrap(), [1.0; 2]);
+        assert_eq!(g.evaluate(&DB { x: (-1.0, 50.0) }).unwrap(), (1.0, 1.0));
+        assert_eq!(g.evaluate(&DB { x: vec![1.0, 2.0] }).unwrap(), vec![1.0; 2]);
     }
 }

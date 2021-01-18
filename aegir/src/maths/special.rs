@@ -1,6 +1,10 @@
 use crate::{
-    Identifier, Database, Contains, Function, Differentiable,
     buffer::{Buffer, FieldOf, OwnedOf},
+    Contains,
+    Database,
+    Differentiable,
+    Function,
+    Identifier,
 };
 use num_traits::{float::FloatConst, real::Real};
 use special_fun::FloatSpecial;
@@ -60,18 +64,14 @@ impl_special!(@unary LogGamma["ln \u{0393}"], |x| x.loggamma(), |x| x.digamma())
 impl_special!(@unary Factorial, |x| x.factorial(), |_| todo!());
 
 impl<X: fmt::Display> fmt::Display for Factorial<X> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}!", self.0)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}!", self.0) }
 }
 
 #[derive(Clone, Copy, Debug, Node, Contains)]
 pub struct Erf<N>(#[op] pub N);
 
 impl<N> Erf<N> {
-    pub fn complementary(self) -> crate::maths::Negate<Self> {
-        crate::maths::Negate(self)
-    }
+    pub fn complementary(self) -> crate::maths::Negate<Self> { crate::maths::Negate(self) }
 }
 
 impl<D, N> Function<D> for Erf<N>
@@ -103,16 +103,17 @@ where
     type Jacobian = crate::buffer::OwnedOf<N::Jacobian>;
 
     fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
-        self.0.grad(db, target).map(|buffer| buffer.map(|x| {
-            let two = num_traits::one::<crate::buffer::FieldOf<N::Codomain>>() + num_traits::one();
+        self.0.grad(db, target).map(|buffer| {
+            buffer.map(|x| {
+                let two =
+                    num_traits::one::<crate::buffer::FieldOf<N::Codomain>>() + num_traits::one();
 
-            (-x.powi(2)).exp() * two / <crate::buffer::FieldOf<N::Codomain>>::PI().sqrt()
-        }))
+                (-x.powi(2)).exp() * two / <crate::buffer::FieldOf<N::Codomain>>::PI().sqrt()
+            })
+        })
     }
 }
 
 impl<X: fmt::Display> fmt::Display for Erf<X> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "erf({})", self.0)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "erf({})", self.0) }
 }

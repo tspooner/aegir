@@ -1,7 +1,4 @@
-use crate::{
-    buffer::Buffer,
-    maths::MulOut,
-};
+use crate::{buffer::Buffer, maths::MulOut};
 use num_traits::real::Real;
 use std::ops::Neg;
 
@@ -21,9 +18,9 @@ macro_rules! impl_trig {
             type Error = N::Error;
 
             fn evaluate(&self, state: &D) -> Result<Self::Codomain, Self::Error> {
-                self.0.evaluate(state).map(|buffer| {
-                    crate::buffer::Buffer::map(buffer, $eval)
-                })
+                self.0
+                    .evaluate(state)
+                    .map(|buffer| crate::buffer::Buffer::map(buffer, $eval))
             }
         }
 
@@ -37,16 +34,15 @@ macro_rules! impl_trig {
 
             N::Jacobian: std::ops::Mul<crate::buffer::OwnedOf<N::Codomain>>,
 
-            MulOut<N::Jacobian, crate::buffer::OwnedOf<N::Codomain>>: crate::buffer::Buffer<
-                Field = crate::buffer::FieldOf<N::Codomain>
-            >,
+            MulOut<N::Jacobian, crate::buffer::OwnedOf<N::Codomain>>:
+                crate::buffer::Buffer<Field = crate::buffer::FieldOf<N::Codomain>>,
         {
             type Jacobian = MulOut<N::Jacobian, crate::buffer::OwnedOf<N::Codomain>>;
 
             fn grad(&self, state: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
-                self.0.dual(state, target).map(|d| {
-                    d.adjoint * d.value.map($grad)
-                })
+                self.0
+                    .dual(state, target)
+                    .map(|d| d.adjoint * d.value.map($grad))
             }
         }
 
@@ -55,7 +51,7 @@ macro_rules! impl_trig {
                 write!(f, $str, self.0)
             }
         }
-    }
+    };
 }
 
 impl_trig!(Cos["cos({})"], |x| { x.cos() }, |x| { -x.sin() });
@@ -76,8 +72,12 @@ impl_trig!(ArcSinh["asinh({})"], |x| { x.asinh() }, |x| {
     (x.powi(2) + num_traits::one()).sqrt().recip()
 });
 
-impl_trig!(Tan["tan({})"], |x| { x.tan() }, |x| { x.cos().powi(2).recip() });
-impl_trig!(Tanh["tanh({})"], |x| { x.tanh() }, |x| { x.cosh().powi(2).recip() });
+impl_trig!(Tan["tan({})"], |x| { x.tan() }, |x| {
+    x.cos().powi(2).recip()
+});
+impl_trig!(Tanh["tanh({})"], |x| { x.tanh() }, |x| {
+    x.cosh().powi(2).recip()
+});
 impl_trig!(ArcTan["atan({})"], |x| { x.atan() }, |x| {
     (x.powi(2) + num_traits::one()).recip()
 });

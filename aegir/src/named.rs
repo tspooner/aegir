@@ -1,6 +1,12 @@
 use crate::{
-    Identifier, Database, Get, Node, Contains, Function, Differentiable,
     buffer::{Buffer, OwnedOf},
+    Contains,
+    Database,
+    Differentiable,
+    Function,
+    Get,
+    Identifier,
+    Node,
 };
 
 pub struct NamedNode<N, I>(pub N, pub I);
@@ -13,9 +19,7 @@ where
     N: Contains<T>,
     I: Identifier + std::cmp::PartialEq<T>,
 {
-    fn contains(&self, target: T) -> bool {
-        self.1 == target || self.0.contains(target)
-    }
+    fn contains(&self, target: T) -> bool { self.1 == target || self.0.contains(target) }
 }
 
 impl<D, N, I> Function<D> for NamedNode<N, I>

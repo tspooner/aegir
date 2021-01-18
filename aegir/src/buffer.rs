@@ -1,53 +1,70 @@
-use num_traits::{NumOps, Zero, One};
+use num_traits::{NumOps, One, Zero};
 
 /// Trait for numeric types implementing basic scalar operations.
 pub trait Field: Copy + Buffer<Field = Self> + NumOps + std::fmt::Debug {}
 
-impl<T> Field for T
-where
-    T: Copy + Buffer<Field = Self> + NumOps + std::fmt::Debug,
-{}
+impl<T> Field for T where T: Copy + Buffer<Field = Self> + NumOps + std::fmt::Debug {}
 
 /// Trait for types defining a vector space over a [Field](Buffer::Field).
 pub trait Buffer: std::fmt::Debug {
     type Field: Field;
     type Owned: OwnedBuffer<Field = Self::Field>;
 
-    /// Creates an [Owned](Buffer::Owned) instance from a borrowed buffer, usually by cloning.
+    /// Creates an [Owned](Buffer::Owned) instance from a borrowed buffer,
+    /// usually by cloning.
     fn to_owned(&self) -> Self::Owned;
 
-    /// Convert buffer directly into an [Owned](Buffer::Owned) instance, cloning when necessary.
+    /// Convert buffer directly into an [Owned](Buffer::Owned) instance, cloning
+    /// when necessary.
     fn into_owned(self) -> Self::Owned;
 
     fn to_constant(&self) -> crate::sources::Constant<Self::Owned> {
         crate::sources::Constant(self.to_owned())
     }
 
-    fn into_constant(self) -> crate::sources::Constant<Self::Owned> where Self: Sized {
+    fn into_constant(self) -> crate::sources::Constant<Self::Owned>
+    where
+        Self: Sized,
+    {
         crate::sources::Constant(self.into_owned())
     }
 
-    fn to_zeroes(&self) -> Self::Owned where Self::Field: Zero {
+    fn to_zeroes(&self) -> Self::Owned
+    where
+        Self::Field: Zero,
+    {
         self.to_filled(num_traits::identities::zero())
     }
 
-    fn into_zeroes(self) -> Self::Owned where Self: Sized, Self::Field: Zero {
+    fn into_zeroes(self) -> Self::Owned
+    where
+        Self: Sized,
+        Self::Field: Zero,
+    {
         self.into_filled(num_traits::identities::zero())
     }
 
-    fn to_ones(&self) -> Self::Owned where Self::Field: One {
+    fn to_ones(&self) -> Self::Owned
+    where
+        Self::Field: One,
+    {
         self.to_filled(num_traits::identities::one())
     }
 
-    fn into_ones(self) -> Self::Owned where Self: Sized, Self::Field: One {
+    fn into_ones(self) -> Self::Owned
+    where
+        Self: Sized,
+        Self::Field: One,
+    {
         self.into_filled(num_traits::identities::one())
     }
 
-    fn to_filled(&self, value: Self::Field) -> Self::Owned {
-        self.to_owned().map(|_| value)
-    }
+    fn to_filled(&self, value: Self::Field) -> Self::Owned { self.to_owned().map(|_| value) }
 
-    fn into_filled(self, value: Self::Field) -> Self::Owned where Self: Sized {
+    fn into_filled(self, value: Self::Field) -> Self::Owned
+    where
+        Self: Sized,
+    {
         self.map(|_| value)
     }
 
@@ -65,7 +82,8 @@ pub trait Buffer: std::fmt::Debug {
     /// assert_eq!(new_buffer[3], 6.0);
     /// ```
     fn map<F>(self, f: F) -> Self::Owned
-    where F: Fn(Self::Field) -> Self::Field;
+    where
+        F: Fn(Self::Field) -> Self::Field;
 
     /// Perform a fold over the elements of the buffer.
     ///
@@ -77,7 +95,8 @@ pub trait Buffer: std::fmt::Debug {
     /// assert_eq!(buffer.fold(0.0, |init, &el| init + 2.0 * el), 12.0);
     /// ```
     fn fold<F>(&self, init: Self::Field, f: F) -> Self::Field
-    where F: Fn(Self::Field, &Self::Field) -> Self::Field;
+    where
+        F: Fn(Self::Field, &Self::Field) -> Self::Field;
 
     /// Sum over the elements of the buffer.
     ///
@@ -89,7 +108,10 @@ pub trait Buffer: std::fmt::Debug {
     /// assert_eq!(buffer.sum(), 6.0);
     /// assert_eq!(buffer.map(|el| 2.0 * el).sum(), 12.0);
     /// ```
-    fn sum(&self) -> Self::Field where Self::Field: num_traits::Zero {
+    fn sum(&self) -> Self::Field
+    where
+        Self::Field: num_traits::Zero,
+    {
         self.fold(num_traits::zero(), |init, &el| init + el)
     }
 }
@@ -141,9 +163,7 @@ impl<F: Field> Buffer for (F, F) {
 
     fn map<Func: Fn(F) -> Self::Field>(self, f: Func) -> Self { (f(self.0), f(self.1)) }
 
-    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
-        f(f(init, &self.0), &self.1)
-    }
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F { f(f(init, &self.0), &self.1) }
 }
 
 impl<F: Field> Buffer for &(F, F) {
@@ -154,13 +174,9 @@ impl<F: Field> Buffer for &(F, F) {
 
     fn into_owned(self) -> Self::Owned { *self }
 
-    fn map<Func: Fn(F) -> Self::Field>(self, f: Func) -> Self::Owned {
-        (f(self.0), f(self.1))
-    }
+    fn map<Func: Fn(F) -> Self::Field>(self, f: Func) -> Self::Owned { (f(self.0), f(self.1)) }
 
-    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
-        f(f(init, &self.0), &self.1)
-    }
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F { f(f(init, &self.0), &self.1) }
 }
 
 impl<F: Field> Buffer for [F; 2] {
@@ -173,9 +189,7 @@ impl<F: Field> Buffer for [F; 2] {
 
     fn map<Func: Fn(F) -> Self::Field>(self, f: Func) -> Self { [f(self[0]), f(self[1])] }
 
-    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
-        f(f(init, &self[0]), &self[1])
-    }
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F { f(f(init, &self[0]), &self[1]) }
 }
 
 impl<F: Field> Buffer for &[F; 2] {
@@ -186,12 +200,42 @@ impl<F: Field> Buffer for &[F; 2] {
 
     fn into_owned(self) -> Self::Owned { *self }
 
-    fn map<Func: Fn(F) -> Self::Field>(self, f: Func) -> Self::Owned {
-        [f(self[0]), f(self[1])]
+    fn map<Func: Fn(F) -> Self::Field>(self, f: Func) -> Self::Owned { [f(self[0]), f(self[1])] }
+
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F { f(f(init, &self[0]), &self[1]) }
+}
+
+impl<F: Field> Buffer for [F; 3] {
+    type Field = F;
+    type Owned = Self;
+
+    fn to_owned(&self) -> Self { *self }
+
+    fn into_owned(self) -> Self { self }
+
+    fn map<Func: Fn(F) -> Self::Field>(self, f: Func) -> Self {
+        [f(self[0]), f(self[1]), f(self[2])]
     }
 
     fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
-        f(f(init, &self[0]), &self[1])
+        f(f(f(init, &self[0]), &self[1]), &self[2])
+    }
+}
+
+impl<F: Field> Buffer for &[F; 3] {
+    type Field = F;
+    type Owned = [F; 3];
+
+    fn to_owned(&self) -> Self::Owned { **self }
+
+    fn into_owned(self) -> Self::Owned { *self }
+
+    fn map<Func: Fn(F) -> Self::Field>(self, f: Func) -> Self::Owned {
+        [f(self[0]), f(self[1]), f(self[2])]
+    }
+
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
+        f(f(f(init, &self[0]), &self[1]), &self[2])
     }
 }
 
@@ -203,9 +247,7 @@ impl<F: Field> Buffer for Vec<F> {
 
     fn into_owned(self) -> Vec<F> { self }
 
-    fn map<Func: Fn(F) -> F>(self, f: Func) -> Self {
-        self.into_iter().map(f).collect()
-    }
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> Self { self.into_iter().map(f).collect() }
 
     fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> Self::Field {
         self.into_iter().fold(init, f)
@@ -220,7 +262,22 @@ impl<F: Field> Buffer for &Vec<F> {
 
     fn into_owned(self) -> Vec<F> { self.to_vec() }
 
-    fn map<Func: Fn(F) -> F>(self, f: Func) -> Vec<F> {
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> Vec<F> { self.into_iter().map(|x| f(*x)).collect() }
+
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> Self::Field {
+        self.into_iter().fold(init, f)
+    }
+}
+
+impl<F: Field> Buffer for &[F] {
+    type Field = F;
+    type Owned = ndarray::Array1<F>;
+
+    fn to_owned(&self) -> ndarray::Array1<F> { ndarray::arr1(self) }
+
+    fn into_owned(self) -> ndarray::Array1<F> { ndarray::arr1(self) }
+
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array1<F> {
         self.into_iter().map(|x| f(*x)).collect()
     }
 
@@ -241,13 +298,9 @@ where
 
     fn into_owned(self) -> ndarray::Array1<F> { self.into_owned() }
 
-    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array1<F> {
-        self.into_owned().mapv(f)
-    }
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array1<F> { self.into_owned().mapv(f) }
 
-    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
-        self.fold(init, f)
-    }
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F { self.fold(init, f) }
 }
 
 impl<F, S> Buffer for &ndarray::ArrayBase<S, ndarray::Ix1>
@@ -262,9 +315,7 @@ where
 
     fn into_owned(self) -> ndarray::Array1<F> { ndarray::ArrayBase::into_owned(self.clone()) }
 
-    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array1<F> {
-        self.into_owned().mapv(f)
-    }
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array1<F> { self.into_owned().mapv(f) }
 
     fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
         ndarray::ArrayBase::fold(self, init, f)
@@ -283,13 +334,9 @@ where
 
     fn into_owned(self) -> ndarray::Array2<F> { self.into_owned() }
 
-    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array2<F> {
-        self.into_owned().mapv(f)
-    }
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array2<F> { self.into_owned().mapv(f) }
 
-    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
-        self.fold(init, f)
-    }
+    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F { self.fold(init, f) }
 }
 
 impl<F, S> Buffer for &ndarray::ArrayBase<S, ndarray::Ix2>
@@ -304,9 +351,7 @@ where
 
     fn into_owned(self) -> ndarray::Array2<F> { ndarray::ArrayBase::into_owned(self.clone()) }
 
-    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array2<F> {
-        self.into_owned().mapv(f)
-    }
+    fn map<Func: Fn(F) -> F>(self, f: Func) -> ndarray::Array2<F> { self.into_owned().mapv(f) }
 
     fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F {
         ndarray::ArrayBase::fold(self, init, f)

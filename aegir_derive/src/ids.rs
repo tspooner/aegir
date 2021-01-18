@@ -15,7 +15,8 @@ impl DataIdentifier {
         syn::parse2(quote! {
             #[derive(Clone, Copy, Debug, PartialEq, Eq)]
             pub struct #type_id;
-        }).unwrap()
+        })
+        .unwrap()
     }
 
     pub fn impl_identifier(&self) -> syn::ItemImpl {
@@ -34,7 +35,8 @@ impl DataIdentifier {
                     write!(f, stringify!(#symbol))
                 }
             }
-        }).unwrap()
+        })
+        .unwrap()
     }
 
     pub fn impl_partial_eq(&self, other: &DataIdentifier, code: TokenStream) -> syn::ItemImpl {
@@ -45,7 +47,8 @@ impl DataIdentifier {
             impl std::cmp::PartialEq<#type_id_> for #type_id {
                 fn eq(&self, other: &#type_id_) -> bool { #code }
             }
-        }).unwrap()
+        })
+        .unwrap()
     }
 }
 
@@ -58,7 +61,7 @@ impl syn::parse::Parse for DataIdentifier {
             Ok(DataIdentifier {
                 type_id,
                 colon: Some(input.parse()?),
-                symbol: Some(input.parse()?)
+                symbol: Some(input.parse()?),
             })
         } else {
             Ok(DataIdentifier {
@@ -73,7 +76,9 @@ impl syn::parse::Parse for DataIdentifier {
 type DataIdentifiers = syn::punctuated::Punctuated<DataIdentifier, Token![,]>;
 
 pub fn expand(tokens: proc_macro::TokenStream) -> proc_macro2::TokenStream {
-    let data_ids = DataIdentifiers::parse_separated_nonempty.parse(tokens).unwrap();
+    let data_ids = DataIdentifiers::parse_separated_nonempty
+        .parse(tokens)
+        .unwrap();
 
     let mut code = TokenStream::new();
 
@@ -83,7 +88,9 @@ pub fn expand(tokens: proc_macro::TokenStream) -> proc_macro2::TokenStream {
         data_id.impl_display().to_tokens(&mut code);
 
         for data_id_ in data_ids.iter().filter(|di| di.type_id != data_id.type_id) {
-            data_id.impl_partial_eq(data_id_, quote! { false }).to_tokens(&mut code);
+            data_id
+                .impl_partial_eq(data_id_, quote! { false })
+                .to_tokens(&mut code);
         }
     }
 

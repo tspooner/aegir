@@ -1,7 +1,13 @@
 use crate::{
-    Identifier, Database, Node, Contains, Function, Differentiable, Compile,
     buffer::{Buffer, Field, FieldOf},
-    maths::{AddOut, reduce::Reduce, arithmetic::Mul},
+    maths::{arithmetic::Mul, reduce::Reduce, AddOut},
+    Compile,
+    Contains,
+    Database,
+    Differentiable,
+    Function,
+    Identifier,
+    Node,
 };
 use ndarray::{ArrayBase, Ix1, Ix2};
 
@@ -22,10 +28,14 @@ where
         match self {
             LinalgError::Inner1(e) => e.fmt(f),
             LinalgError::Inner2(e) => e.fmt(f),
-            LinalgError::IncompatibleVectors(a, b) =>
-                write!(f, "Lengths of vectors are incompatible: {} vs {}.", a, b),
-            LinalgError::IncompatibleMatrices(a, b) =>
-                write!(f, "Matrices are of incompatible shapes: {:?} vs {:?}.", a, b),
+            LinalgError::IncompatibleVectors(a, b) => {
+                write!(f, "Lengths of vectors are incompatible: {} vs {}.", a, b)
+            },
+            LinalgError::IncompatibleMatrices(a, b) => write!(
+                f,
+                "Matrices are of incompatible shapes: {:?} vs {:?}.",
+                a, b
+            ),
         }
     }
 }
@@ -34,7 +44,8 @@ impl<E1, E2> std::error::Error for LinalgError<E1, E2>
 where
     E1: std::fmt::Debug + std::fmt::Display,
     E2: std::fmt::Debug + std::fmt::Display,
-{}
+{
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Inner Products
@@ -42,9 +53,7 @@ where
 impl_newtype!(InnerProduct<N1, N2>(Reduce<Mul<N1, N2>>));
 
 impl<N1, N2> InnerProduct<N1, N2> {
-    pub fn new(n1: N1, n2: N2) -> Self {
-        InnerProduct(Reduce(Mul(n1, n2)))
-    }
+    pub fn new(n1: N1, n2: N2) -> Self { InnerProduct(Reduce(Mul(n1, n2))) }
 }
 
 impl<T, N1, N2> Compile<T> for InnerProduct<N1, N2>
@@ -63,7 +72,7 @@ where
 
 impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for InnerProduct<N1, N2> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\u{27E8}{}, {}\u{27E9}", self.0.0.0, self.0.0.1)
+        write!(f, "\u{27E8}{}, {}\u{27E9}", self.0 .0 .0, self.0 .0 .1)
     }
 }
 
@@ -86,11 +95,10 @@ where
 {
     type Output = ndarray::Array2<F>;
 
-    fn outer_product<E1, E2>(&self, rhs: &ArrayBase<D, Ix1>) -> Result<
-        ndarray::Array2<F>,
-        LinalgError<E1, E2>
-    >
-    {
+    fn outer_product<E1, E2>(
+        &self,
+        rhs: &ArrayBase<D, Ix1>,
+    ) -> Result<ndarray::Array2<F>, LinalgError<E1, E2>> {
         let nx = self.len();
         let ny = rhs.len();
 
@@ -107,10 +115,10 @@ where
 {
     type Output = ndarray::Array2<F>;
 
-    fn outer_product<E1, E2>(&self, rhs: &Vec<F>) -> Result<
-        ndarray::Array2<F>,
-        LinalgError<E1, E2>
-    > {
+    fn outer_product<E1, E2>(
+        &self,
+        rhs: &Vec<F>,
+    ) -> Result<ndarray::Array2<F>, LinalgError<E1, E2>> {
         ndarray::aview1(self).outer_product(&ndarray::aview1(rhs))
     }
 }
@@ -125,9 +133,7 @@ where
     N1: Contains<T>,
     N2: Contains<T>,
 {
-    fn contains(&self, target: T) -> bool {
-        self.0.contains(target) || self.1.contains(target)
-    }
+    fn contains(&self, target: T) -> bool { self.0.contains(target) || self.1.contains(target) }
 }
 
 impl<D, N1, N2> Function<D> for OuterProduct<N1, N2>
@@ -168,27 +174,28 @@ where
 
     AddOut<
         <N1::Jacobian as OuterProductTrait<N2::Codomain>>::Output,
-        <N1::Codomain as OuterProductTrait<N2::Jacobian>>::Output
+        <N1::Codomain as OuterProductTrait<N2::Jacobian>>::Output,
     >: Buffer<Field = FieldOf<Self::Codomain>>,
 {
     type Jacobian = AddOut<
         <N1::Jacobian as OuterProductTrait<N2::Codomain>>::Output,
-        <N1::Codomain as OuterProductTrait<N2::Jacobian>>::Output
+        <N1::Codomain as OuterProductTrait<N2::Jacobian>>::Output,
     >;
 
     fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
-        let dual_x = self.0.dual(db, target).map_err(|e| LinalgError::Inner1(e))?;
-        let dual_y = self.1.dual(db, target).map_err(|e| LinalgError::Inner2(e))?;
+        let dual_x = self
+            .0
+            .dual(db, target)
+            .map_err(|e| LinalgError::Inner1(e))?;
+        let dual_y = self
+            .1
+            .dual(db, target)
+            .map_err(|e| LinalgError::Inner2(e))?;
 
         dual_x
             .adjoint
             .outer_product(&dual_y.value)
-            .and_then(|x| {
-                dual_x
-                    .value
-                    .outer_product(&dual_y.adjoint)
-                    .map(|y| x + y)
-            })
+            .and_then(|x| dual_x.value.outer_product(&dual_y.adjoint).map(|y| x + y))
     }
 }
 
@@ -213,9 +220,8 @@ where
 
     fn mat_mul<E1, E2>(
         &self,
-        rhs: &ArrayBase<D, Ix2>
-    ) -> Result<ndarray::Array2<F>, LinalgError<E1, E2>>
-    {
+        rhs: &ArrayBase<D, Ix2>,
+    ) -> Result<ndarray::Array2<F>, LinalgError<E1, E2>> {
         if self.ncols() == rhs.nrows() {
             Ok(self.dot(rhs))
         } else {
@@ -234,9 +240,7 @@ where
     N1: Contains<T>,
     N2: Contains<T>,
 {
-    fn contains(&self, target: T) -> bool {
-        self.0.contains(target) || self.1.contains(target)
-    }
+    fn contains(&self, target: T) -> bool { self.0.contains(target) || self.1.contains(target) }
 }
 
 impl<D, N1, N2> Function<D> for MatMul<N1, N2>
@@ -277,26 +281,27 @@ where
 
     AddOut<
         <N1::Jacobian as MatMulTrait<N2::Codomain>>::Output,
-        <N1::Codomain as MatMulTrait<N2::Jacobian>>::Output
+        <N1::Codomain as MatMulTrait<N2::Jacobian>>::Output,
     >: Buffer<Field = FieldOf<Self::Codomain>>,
 {
     type Jacobian = AddOut<
         <N1::Jacobian as MatMulTrait<N2::Codomain>>::Output,
-        <N1::Codomain as MatMulTrait<N2::Jacobian>>::Output
+        <N1::Codomain as MatMulTrait<N2::Jacobian>>::Output,
     >;
 
     fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
-        let dual_x = self.0.dual(db, target).map_err(|e| LinalgError::Inner1(e))?;
-        let dual_y = self.1.dual(db, target).map_err(|e| LinalgError::Inner2(e))?;
+        let dual_x = self
+            .0
+            .dual(db, target)
+            .map_err(|e| LinalgError::Inner1(e))?;
+        let dual_y = self
+            .1
+            .dual(db, target)
+            .map_err(|e| LinalgError::Inner2(e))?;
 
         dual_x
             .adjoint
             .mat_mul(&dual_y.value)
-            .and_then(|x| {
-                dual_x
-                    .value
-                    .mat_mul(&dual_y.adjoint)
-                    .map(|y| x + y)
-            })
+            .and_then(|x| dual_x.value.mat_mul(&dual_y.adjoint).map(|y| x + y))
     }
 }

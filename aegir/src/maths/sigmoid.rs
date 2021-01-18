@@ -1,10 +1,15 @@
 use crate::{
-    Identifier, Database, Contains, Function, Differentiable, DualOf,
-    buffer::{Buffer, OwnedOf, FieldOf},
+    buffer::{Buffer, FieldOf, OwnedOf},
     dual::Dual,
     maths::MulOut,
+    Contains,
+    Database,
+    Differentiable,
+    DualOf,
+    Function,
+    Identifier,
 };
-use num_traits::{one, zero, real::Real};
+use num_traits::{one, real::Real, zero};
 use std::fmt;
 
 fn sigmoid<F: Real>(x: F) -> F {
@@ -16,7 +21,7 @@ fn sigmoid<F: Real>(x: F) -> F {
         let l: F = one();
         let z = x.exp();
 
-        return z / (l + z)
+        return z / (l + z);
     }
 }
 
@@ -69,9 +74,7 @@ where
 
     N::Jacobian: std::ops::Mul<OwnedOf<N::Codomain>>,
 
-    MulOut<N::Jacobian, OwnedOf<N::Codomain>>: Buffer<
-        Field = FieldOf<N::Codomain>,
-    >,
+    MulOut<N::Jacobian, OwnedOf<N::Codomain>>: Buffer<Field = FieldOf<N::Codomain>>,
 {
     type Jacobian = MulOut<N::Jacobian, OwnedOf<N::Codomain>>;
 
@@ -80,17 +83,16 @@ where
 
         self.0.dual(db, target).map(|dual| Dual {
             value: dual.value.to_owned().map(sigmoid),
-            adjoint: dual.adjoint * dual.value.map(|x| {
-                let s = sigmoid(x);
+            adjoint: dual.adjoint
+                * dual.value.map(|x| {
+                    let s = sigmoid(x);
 
-                s * (o - s)
-            })
+                    s * (o - s)
+                }),
         })
     }
 }
 
 impl<N: fmt::Display> fmt::Display for Sigmoid<N> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\u{03C3}{}", self.0)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "\u{03C3}{}", self.0) }
 }
