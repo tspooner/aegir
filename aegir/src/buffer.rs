@@ -65,12 +65,14 @@ pub trait Buffer: std::fmt::Debug {
     /// when necessary.
     fn into_owned(self) -> Self::Owned;
 
-    /// Create a [Constant] source node from the buffer, usually by cloning.
+    /// Create a [Constant](crate::sources::Constant) source node from the
+    /// buffer, usually by cloning.
     fn to_constant(&self) -> crate::sources::Constant<Self::Owned> {
         crate::sources::Constant(self.to_owned())
     }
 
-    /// Convert buffer directly into a [Constant] source node.
+    /// Convert buffer directly into a [Constant](crate::sources::Constant)
+    /// source node.
     fn into_constant(self) -> crate::sources::Constant<Self::Owned>
     where
         Self: Sized,

@@ -14,10 +14,22 @@ use num_traits::{real::Real, Pow};
 use std::{fmt, ops};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Unary Operators:
+// Negate:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 impl_unary!(
     /// Computes the element-wise additive inverse of a [Buffer].
+    ///
+    /// # Examples
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Negate};
+    /// ids!(X::x);
+    ///
+    /// let f = Negate(X.to_var());
+    ///
+    /// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(-1.0, -1.0));
+    /// assert_eq!(f.dual(&simple_db!(X => -1.0), X).unwrap(), dual!(1.0, -1.0));
+    /// ```
     Negate["-{}"]: num_traits::real::Real,
     |x| { -x },
     |dx| { -dx }
@@ -36,6 +48,9 @@ where
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Dirac:
+///////////////////////////////////////////////////////////////////////////////////////////////////
 fn dirac<F: Field + num_traits::Float>(x: F) -> F {
     match x {
         _ if (x == num_traits::zero()) => num_traits::Float::infinity(),
@@ -45,12 +60,43 @@ fn dirac<F: Field + num_traits::Float>(x: F) -> F {
 
 impl_unary!(
     /// Computes the element-wise dirac delta about zero of a [Buffer].
+    ///
+    /// # Examples
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::{Identifier, Function, SimpleDatabase, dual::Dual, maths::Dirac};
+    /// # use std::f64::INFINITY;
+    /// ids!(X::x);
+    ///
+    /// let f = Dirac(X.to_var());
+    ///
+    /// assert_eq!(f.evaluate(&simple_db!(X => -1.0)).unwrap(), 0.0);
+    /// assert_eq!(f.evaluate(&simple_db!(X => 0.0)).unwrap(), INFINITY);
+    /// assert_eq!(f.evaluate(&simple_db!(X => 1.0)).unwrap(), 0.0);
+    /// ```
     Dirac["\u{03B4}({})"]: num_traits::Float,
     dirac,
-    |_| { num_traits::zero() }
+    |_| { unimplemented!() }
 );
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Sign:
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Computes the element-wise sign of a [Buffer].
+///
+/// # Examples
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Sign};
+/// # use std::f64::INFINITY;
+/// ids!(X::x);
+///
+/// let f = Sign(X.to_var());
+///
+/// assert_eq!(f.dual(&simple_db!(X => -1.0), X).unwrap(), dual!(-1.0, 0.0));
+/// assert_eq!(f.dual(&simple_db!(X => 0.0), X).unwrap(), dual!(0.0, INFINITY));
+/// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(1.0, 0.0));
+/// ```
 #[derive(Copy, Clone, Debug)]
 pub struct Sign<N>(pub N);
 
@@ -72,7 +118,15 @@ where
     type Error = N::Error;
 
     fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
-        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.signum()))
+        self.0.evaluate(db).map(|buffer| {
+            buffer.map(|x| {
+                if num_traits::Zero::is_zero(&x) {
+                    x
+                } else {
+                    x.signum()
+                }
+            })
+        })
     }
 }
 
@@ -96,7 +150,27 @@ where
     }
 }
 
+impl<X: fmt::Display> fmt::Display for Sign<X> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "sgn({})", self.0) }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Absolute value:
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Computes the element-wise absolute value of a [Buffer].
+///
+/// # Examples
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Abs};
+/// ids!(X::x);
+///
+/// let f = Abs(X.to_var());
+///
+/// assert_eq!(f.dual(&simple_db!(X => -1.0), X).unwrap(), dual!(1.0, -1.0));
+/// assert_eq!(f.dual(&simple_db!(X => 0.0), X).unwrap(), dual!(0.0, 0.0));
+/// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(1.0, 1.0));
+/// ```
 #[derive(Copy, Clone, Debug)]
 pub struct Abs<N>(pub N);
 
@@ -136,21 +210,41 @@ where
     type Jacobian = MulOut<OwnedOf<N::Codomain>, N::Jacobian>;
 
     fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
-        self.0
-            .dual(db, target)
-            .map(|d| d.value.map(|v| v.signum()) * d.adjoint)
+        self.0.dual(db, target).map(|d| {
+            d.value.map(|v| {
+                if num_traits::Zero::is_zero(&v) {
+                    v
+                } else {
+                    v.signum()
+                }
+            }) * d.adjoint
+        })
     }
-}
-
-impl<X: fmt::Display> fmt::Display for Sign<X> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "sgn({})", self.0) }
 }
 
 impl<X: fmt::Display> fmt::Display for Abs<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "|{}|", self.0) }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Power:
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Computes the element-wise power of a [Buffer] to a [Field].
+///
+/// # Examples
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # #[macro_use] extern crate ndarray;
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Power};
+/// ids!(X::x);
+///
+/// let f = Power(X.to_var(), 2.0);
+///
+/// assert_eq!(f.dual(&simple_db!(X => -1.0), X).unwrap(), dual!(1.0, -2.0));
+/// assert_eq!(f.dual(&simple_db!(X => 0.0), X).unwrap(), dual!(0.0, 0.0));
+/// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(1.0, 2.0));
+/// assert_eq!(f.dual(&simple_db!(X => 2.0), X).unwrap(), dual!(4.0, 4.0));
+/// ```
 #[derive(Copy, Clone, Debug)]
 pub struct Power<N, P>(pub N, pub P);
 
@@ -230,7 +324,24 @@ impl<X: fmt::Display, P: fmt::Display> fmt::Display for Power<X, P> {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Double:
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Computes the element-wise double of a [Buffer].
+///
+/// # Examples
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # #[macro_use] extern crate ndarray;
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Double};
+/// ids!(X::x);
+///
+/// let f = Double(X.to_var());
+///
+/// assert_eq!(f.dual(&simple_db!(X => -1.0), X).unwrap(), dual!(-2.0, 2.0));
+/// assert_eq!(f.dual(&simple_db!(X => 0.0), X).unwrap(), dual!(0.0, 2.0));
+/// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(2.0, 2.0));
+/// ```
 #[derive(Copy, Clone, Debug)]
 pub struct Double<N>(pub N);
 
@@ -297,7 +408,25 @@ impl<X: fmt::Display> fmt::Display for Double<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "2({})", self.0) }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Double:
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Computes the element-wise square of a [Buffer].
+///
+/// # Examples
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # #[macro_use] extern crate ndarray;
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Square};
+/// ids!(X::x);
+///
+/// let f = Square(X.to_var());
+///
+/// assert_eq!(f.dual(&simple_db!(X => -1.0), X).unwrap(), dual!(1.0, -2.0));
+/// assert_eq!(f.dual(&simple_db!(X => 0.0), X).unwrap(), dual!(0.0, 0.0));
+/// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(1.0, 2.0));
+/// assert_eq!(f.dual(&simple_db!(X => 2.0), X).unwrap(), dual!(4.0, 4.0));
+/// ```
 #[derive(Copy, Clone, Debug)]
 pub struct Square<N>(pub N);
 
@@ -374,11 +503,40 @@ impl<X: fmt::Display> fmt::Display for Square<X> {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Binary Operators:
+// Addition:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 impl_trait!(
     @binary
     /// Computes the element-wise addition of two [Buffer] instances.
+    ///
+    /// # Examples
+    /// ## x + y
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # #[macro_use] extern crate ndarray;
+    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Add};
+    /// ids!(X::x, Y::y);
+    /// db!(DB { x: X, y: Y });
+    ///
+    /// let f = Add(X.to_var(), Y.to_var());
+    ///
+    /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, X).unwrap(), dual!(3.0, 1.0));
+    /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, Y).unwrap(), dual!(3.0, 1.0));
+    /// ```
+    ///
+    /// ## x + y^2
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # #[macro_use] extern crate ndarray;
+    /// # use aegir::{Identifier, Node, Differentiable, dual::Dual, maths::Add};
+    /// ids!(X::x, Y::y);
+    /// db!(DB { x: X, y: Y });
+    ///
+    /// let f = Add(X.to_var(), Y.to_var().pow(2.0));
+    ///
+    /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, X).unwrap(), dual!(5.0, 1.0));
+    /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, Y).unwrap(), dual!(5.0, 4.0));
+    /// ```
     Add["+"], ops::Add, |x, y| { x + y }, |dx, dy| { dx + dy }
 );
 
@@ -399,9 +557,41 @@ where
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Subtraction:
+///////////////////////////////////////////////////////////////////////////////////////////////////
 impl_trait!(
     @binary
     /// Computes the element-wise subtraction of two [Buffer] instances.
+    ///
+    /// # Examples
+    /// ## x - y
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # #[macro_use] extern crate ndarray;
+    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Sub};
+    /// ids!(X::x, Y::y);
+    /// db!(DB { x: X, y: Y });
+    ///
+    /// let f = Sub(X.to_var(), Y.to_var());
+    ///
+    /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, X).unwrap(), dual!(-1.0, 1.0));
+    /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, Y).unwrap(), dual!(-1.0, -1.0));
+    /// ```
+    ///
+    /// ## x - y^2
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # #[macro_use] extern crate ndarray;
+    /// # use aegir::{Identifier, Node, Differentiable, dual::Dual, maths::Sub};
+    /// ids!(X::x, Y::y);
+    /// db!(DB { x: X, y: Y });
+    ///
+    /// let f = Sub(X.to_var(), Y.to_var().pow(2.0));
+    ///
+    /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, X).unwrap(), dual!(-3.0, 1.0));
+    /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, Y).unwrap(), dual!(-3.0, -4.0));
+    /// ```
     Sub["-"], ops::Sub, |x, y| { x - y }, |dx, dy| { dx - dy }
 );
 
@@ -423,6 +613,35 @@ where
 }
 
 /// Computes the element-wise multiplication of two [Buffer] instances.
+///
+/// # Examples
+/// ## x . y
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # #[macro_use] extern crate ndarray;
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Mul};
+/// ids!(X::x, Y::y);
+/// db!(DB { x: X, y: Y });
+///
+/// let f = Mul(X.to_var(), Y.to_var());
+///
+/// assert_eq!(f.dual(&DB { x: 3.0, y: 2.0, }, X).unwrap(), dual!(6.0, 2.0));
+/// assert_eq!(f.dual(&DB { x: 3.0, y: 2.0, }, Y).unwrap(), dual!(6.0, 3.0));
+/// ```
+///
+/// ## x . y^2
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # #[macro_use] extern crate ndarray;
+/// # use aegir::{Identifier, Node, Differentiable, dual::Dual, maths::Mul};
+/// ids!(X::x, Y::y);
+/// db!(DB { x: X, y: Y });
+///
+/// let f = Mul(X.to_var(), Y.to_var().pow(2.0));
+///
+/// assert_eq!(f.dual(&DB { x: 3.0, y: 2.0, }, X).unwrap(), dual!(12.0, 4.0));
+/// assert_eq!(f.dual(&DB { x: 3.0, y: 2.0, }, Y).unwrap(), dual!(12.0, 12.0));
+/// ```
 #[derive(Copy, Clone, Debug)]
 pub struct Mul<N1, N2>(pub N1, pub N2);
 

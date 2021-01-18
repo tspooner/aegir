@@ -90,6 +90,13 @@ macro_rules! db {
     }
 }
 
+#[macro_export]
+macro_rules! simple_db {
+    ($s:ident => $v:expr) => {
+        SimpleDatabase::new($s, $v)
+    };
+}
+
 /// Trait for computation nodes.
 pub trait Node {
     fn named<I: Identifier>(self, id: I) -> NamedNode<Self, I>

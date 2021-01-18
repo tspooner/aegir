@@ -5,9 +5,17 @@ use std::ops;
 type AddOut<A, B> = <A as std::ops::Add<B>>::Output;
 type MulOut<A, B> = <A as std::ops::Mul<B>>::Output;
 
+#[macro_export]
 macro_rules! dual {
-    ($v:expr) => { Dual::constant($v) };
-    ($v:expr, $a:expr) => { Dual { value: $v, adjoint: $a, } }
+    ($v:expr) => {
+        Dual::constant($v)
+    };
+    ($v:expr, $a:expr) => {
+        Dual {
+            value: $v,
+            adjoint: $a,
+        }
+    };
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -102,10 +110,8 @@ where
     A: Buffer,
     A::Owned: std::ops::Neg,
 {
-    type Output = Dual<
-        <OwnedOf<V> as std::ops::Neg>::Output,
-        <OwnedOf<A> as std::ops::Neg>::Output
-    >;
+    type Output =
+        Dual<<OwnedOf<V> as std::ops::Neg>::Output, <OwnedOf<A> as std::ops::Neg>::Output>;
 
     fn neg(self) -> Self::Output { self.map_ref(|v, a| (-v.to_owned(), -a.to_owned())) }
 }
@@ -272,10 +278,7 @@ where
 
     MulOut<A, V>: std::ops::Add<MulOut<A, V>>,
 {
-    type Output = Dual<
-        MulOut<V::Owned, V::Owned>,
-        AddOut<MulOut<A, V>, MulOut<A, V>>
-    >;
+    type Output = Dual<MulOut<V::Owned, V::Owned>, AddOut<MulOut<A, V>, MulOut<A, V>>>;
 
     fn mul(self, rhs: Dual<V, A>) -> Self::Output {
         Dual {
@@ -294,10 +297,7 @@ where
 
     MulOut<A, &'a V>: std::ops::Add<MulOut<V, &'a A>>,
 {
-    type Output = Dual<
-        MulOut<V::Owned, &'a V>,
-        AddOut<MulOut<A, &'a V>, MulOut<V, &'a A>>
-    >;
+    type Output = Dual<MulOut<V::Owned, &'a V>, AddOut<MulOut<A, &'a V>, MulOut<V, &'a A>>>;
 
     fn mul(self, rhs: &'a Dual<V, A>) -> Self::Output {
         Dual {
