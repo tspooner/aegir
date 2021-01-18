@@ -10,18 +10,21 @@ use std::{fmt, ops};
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Unary Operators:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-impl_unary!(Neg["-{}"]: num_traits::real::Real, |x| { -x }, |dx| { -dx });
+impl_unary!(
+    /// Computes the element-wise additive inverse of a [Buffer].
+    Negate["-{}"]: num_traits::real::Real, |x| { -x }, |dx| { -dx }
+);
 
-impl<T, N> Compile<T> for Neg<N>
+impl<T, N> Compile<T> for Negate<N>
 where
     T: Identifier,
     N: Compile<T>,
 {
-    type CompiledJacobian = Neg<N::CompiledJacobian>;
+    type CompiledJacobian = Negate<N::CompiledJacobian>;
     type Error = N::Error;
 
     fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error> {
-        self.0.compile_grad(target).map(Neg)
+        self.0.compile_grad(target).map(Negate)
     }
 }
 
@@ -32,8 +35,12 @@ fn dirac<F: Field + num_traits::Float>(x: F) -> F {
     }
 }
 
-impl_unary!(Dirac["\u{03B4}({})"]: num_traits::Float, dirac, |_| { num_traits::zero() });
+impl_unary!(
+    /// Computes the element-wise dirac delta about zero of a [Buffer].
+    Dirac["\u{03B4}({})"]: num_traits::Float, dirac, |_| { num_traits::zero() }
+);
 
+/// Computes the element-wise sign of a [Buffer].
 #[derive(Copy, Clone, Debug)]
 pub struct Sign<N>(pub N);
 
@@ -83,6 +90,7 @@ where
     }
 }
 
+/// Computes the element-wise absolute value of a [Buffer].
 #[derive(Copy, Clone, Debug)]
 pub struct Abs<N>(pub N);
 
@@ -144,6 +152,7 @@ impl<X: fmt::Display> fmt::Display for Abs<X> {
     }
 }
 
+/// Computes the element-wise power of a [Buffer] to a [Field].
 #[derive(Copy, Clone, Debug)]
 pub struct Power<N, P>(pub N, pub P);
 
@@ -228,6 +237,7 @@ impl<X: fmt::Display, P: fmt::Display> fmt::Display for Power<X, P> {
     }
 }
 
+/// Computes the element-wise double of a [Buffer].
 #[derive(Copy, Clone, Debug)]
 pub struct Double<N>(pub N);
 
@@ -302,6 +312,7 @@ impl<X: fmt::Display> fmt::Display for Double<X> {
     }
 }
 
+/// Computes the element-wise square of a [Buffer].
 #[derive(Copy, Clone, Debug)]
 pub struct Square<N>(pub N);
 
@@ -390,7 +401,11 @@ impl<X: fmt::Display> fmt::Display for Square<X> {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Binary Operators:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-impl_trait!(@binary Add["+"], ops::Add, |x, y| { x + y }, |dx, dy| { dx + dy });
+impl_trait!(
+    @binary
+    /// Computes the element-wise addition of two [Buffer] instances.
+    Add["+"], ops::Add, |x, y| { x + y }, |dx, dy| { dx + dy }
+);
 
 impl<T, N1, N2> Compile<T> for Add<N1, N2>
 where
@@ -409,7 +424,11 @@ where
     }
 }
 
-impl_trait!(@binary Sub["-"], ops::Sub, |x, y| { x - y }, |dx, dy| { dx - dy });
+impl_trait!(
+    @binary
+    /// Computes the element-wise subtraction of two [Buffer] instances.
+    Sub["-"], ops::Sub, |x, y| { x - y }, |dx, dy| { dx - dy }
+);
 
 impl<T, N1, N2> Compile<T> for Sub<N1, N2>
 where
@@ -428,6 +447,7 @@ where
     }
 }
 
+/// Computes the element-wise multiplication of two [Buffer] instances.
 #[derive(Copy, Clone, Debug)]
 pub struct Mul<N1, N2>(pub N1, pub N2);
 

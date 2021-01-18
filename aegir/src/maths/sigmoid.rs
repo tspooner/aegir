@@ -30,9 +30,7 @@ fn sigmoid<F: Real>(x: F) -> F {
 /// ids!(X::x);
 ///
 /// let db = SimpleDatabase::new(X, array![1.0, 2.0, 3.0]);
-/// let func = Sigmoid(X.to_var());
-///
-/// let dual = func.dual(&db, X).unwrap();
+/// let dual = Sigmoid(X.to_var()).dual(&db, X).unwrap();
 ///
 /// assert!((dual.value[0] - 0.73106).abs() < 1e-5);
 /// assert!((dual.value[1] - 0.88080).abs() < 1e-5);

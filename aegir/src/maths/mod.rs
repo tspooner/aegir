@@ -1,5 +1,6 @@
 macro_rules! impl_unary {
-    ($name:ident[$str:tt]: $field_type:path, $eval:expr, $grad:expr) => {
+    ($(#[$attr:meta])* $name:ident[$str:tt]: $field_type:path, $eval:expr, $grad:expr) => {
+        $(#[$attr])*
         #[derive(Clone, Copy, Debug, Node, Contains)]
         pub struct $name<N>(#[op] pub N);
 
@@ -48,7 +49,8 @@ macro_rules! impl_unary {
 }
 
 macro_rules! impl_trait {
-    (@binary $name:ident[$str:tt], $($path:ident)::+, $eval:expr, $grad:expr) => {
+    (@binary $(#[$attr:meta])* $name:ident[$str:tt], $($path:ident)::+, $eval:expr, $grad:expr) => {
+        $(#[$attr])*
         #[derive(Clone, Copy, Debug, Node, Contains)]
         pub struct $name<N1, N2>(#[op] pub N1, #[op] pub N2);
 
@@ -114,8 +116,8 @@ type MulOut<A, B> = <A as std::ops::Mul<B>>::Output;
 
 mod arithmetic;
 pub use self::arithmetic::{
-    Neg, Dirac, Sign, Abs,
-    Add, Sub, Double,
+    Dirac, Sign, Abs,
+    Negate, Add, Sub, Double,
     Mul, Power, Square,
 };
 

@@ -109,8 +109,8 @@ pub trait Node {
         maths::Abs(self)
     }
 
-    fn neg(self) -> maths::Neg<Self> where Self: Sized {
-        maths::Neg(self)
+    fn neg(self) -> maths::Negate<Self> where Self: Sized {
+        maths::Negate(self)
     }
 
     fn pow<P>(self, power: P) -> maths::Power<Self, P> where Self: Sized {

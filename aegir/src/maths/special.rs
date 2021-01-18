@@ -69,8 +69,8 @@ impl<X: fmt::Display> fmt::Display for Factorial<X> {
 pub struct Erf<N>(#[op] pub N);
 
 impl<N> Erf<N> {
-    pub fn complementary(self) -> crate::maths::arithmetic::Neg<Self> {
-        crate::maths::arithmetic::Neg(self)
+    pub fn complementary(self) -> crate::maths::Negate<Self> {
+        crate::maths::Negate(self)
     }
 }
 
