@@ -5,7 +5,12 @@ use std::ops;
 type AddOut<A, B> = <A as std::ops::Add<B>>::Output;
 type MulOut<A, B> = <A as std::ops::Mul<B>>::Output;
 
-#[derive(Clone, Copy, Debug)]
+macro_rules! dual {
+    ($v:expr) => { Dual::constant($v) };
+    ($v:expr, $a:expr) => { Dual { value: $v, adjoint: $a, } }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Dual<V, A = V> {
     pub value: V,
     pub adjoint: A,
@@ -298,6 +303,79 @@ where
         Dual {
             value: self.value.to_owned() * &rhs.value,
             adjoint: self.adjoint * &rhs.value + self.value * &rhs.adjoint,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod f64 {
+        use super::*;
+
+        #[test]
+        fn test_neg() {
+            assert_eq!(-dual!(0.0), dual!(0.0));
+            assert_eq!(-dual!(2.0), dual!(-2.0));
+            assert_eq!(-dual!(-4.0), dual!(4.0));
+        }
+
+        #[test]
+        fn test_add() {
+            assert_eq!(dual!(0.0) + dual!(1.0), dual!(1.0));
+            assert_eq!(dual!(5.0) + dual!(1.0), dual!(6.0));
+            assert_eq!(dual!(5.0) + dual!(-2.0), dual!(3.0));
+
+            assert_eq!(dual!(0.0, 1.0) + dual!(1.0), dual!(1.0, 1.0));
+            assert_eq!(dual!(5.0, 1.0) + dual!(1.0), dual!(6.0, 1.0));
+            assert_eq!(dual!(5.0, 1.0) + dual!(-2.0), dual!(3.0, 1.0));
+
+            assert_eq!(dual!(0.0) + dual!(1.0, 1.0), dual!(1.0, 1.0));
+            assert_eq!(dual!(5.0) + dual!(1.0, 1.0), dual!(6.0, 1.0));
+            assert_eq!(dual!(5.0) + dual!(-2.0, 1.0), dual!(3.0, 1.0));
+
+            assert_eq!(dual!(0.0, 1.0) + dual!(1.0, 1.0), dual!(1.0, 2.0));
+            assert_eq!(dual!(5.0, 1.0) + dual!(1.0, 1.0), dual!(6.0, 2.0));
+            assert_eq!(dual!(5.0, 1.0) + dual!(-2.0, 1.0), dual!(3.0, 2.0));
+        }
+
+        #[test]
+        fn test_sub() {
+            assert_eq!(dual!(0.0) - dual!(1.0), dual!(-1.0));
+            assert_eq!(dual!(5.0) - dual!(1.0), dual!(4.0));
+            assert_eq!(dual!(5.0) - dual!(-2.0), dual!(7.0));
+
+            assert_eq!(dual!(0.0, 1.0) - dual!(1.0), dual!(-1.0, 1.0));
+            assert_eq!(dual!(5.0, 1.0) - dual!(1.0), dual!(4.0, 1.0));
+            assert_eq!(dual!(5.0, 1.0) - dual!(-2.0), dual!(7.0, 1.0));
+
+            assert_eq!(dual!(0.0) - dual!(1.0, 1.0), dual!(-1.0, -1.0));
+            assert_eq!(dual!(5.0) - dual!(1.0, 1.0), dual!(4.0, 1.0));
+            assert_eq!(dual!(5.0) - dual!(-2.0, 1.0), dual!(7.0, -1.0));
+
+            assert_eq!(dual!(0.0, 1.0) - dual!(1.0, 1.0), dual!(-1.0, 0.0));
+            assert_eq!(dual!(5.0, 1.0) - dual!(1.0, 1.0), dual!(4.0, 0.0));
+            assert_eq!(dual!(5.0, 1.0) - dual!(-2.0, 1.0), dual!(7.0, 0.0));
+        }
+
+        #[test]
+        fn test_mul() {
+            assert_eq!(dual!(0.0) * dual!(1.0), dual!(0.0));
+            assert_eq!(dual!(5.0) * dual!(1.0), dual!(5.0));
+            assert_eq!(dual!(5.0) * dual!(-2.0), dual!(-10.0));
+
+            assert_eq!(dual!(0.0, 1.0) * dual!(1.0), dual!(0.0, 1.0));
+            assert_eq!(dual!(5.0, 1.0) * dual!(1.0), dual!(5.0, 1.0));
+            assert_eq!(dual!(5.0, 1.0) * dual!(-2.0), dual!(-10.0, -2.0));
+
+            assert_eq!(dual!(0.0) * dual!(1.0, 1.0), dual!(0.0, 0.0));
+            assert_eq!(dual!(5.0) * dual!(1.0, 1.0), dual!(5.0, 5.0));
+            assert_eq!(dual!(5.0) * dual!(-2.0, 1.0), dual!(-10.0, 5.0));
+
+            assert_eq!(dual!(0.0, 1.0) - dual!(1.0, 1.0), dual!(-1.0, 0.0));
+            assert_eq!(dual!(5.0, 1.0) - dual!(1.0, 1.0), dual!(4.0, 0.0));
+            assert_eq!(dual!(5.0, 1.0) - dual!(-2.0, 1.0), dual!(7.0, 0.0));
         }
     }
 }
