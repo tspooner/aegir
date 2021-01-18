@@ -47,8 +47,10 @@ pub trait Identifier: Eq + Copy + std::fmt::Debug + std::fmt::Display {
     // Idx: Copy + Clone + Eq + std::fmt::Debug + std::fmt::Display,
 // {}
 
+/// Trait for types that store data.
 pub trait Database {}
 
+/// Trait for accessing entries in a [Database].
 pub trait Get<T: Identifier>: Database {
     type Output;
 
@@ -84,6 +86,7 @@ macro_rules! db {
     }
 }
 
+/// Trait for computation nodes.
 pub trait Node {
     fn named<I: Identifier>(self, id: I) -> NamedNode<Self, I> where Self: Sized {
         NamedNode(self, id)
@@ -126,11 +129,12 @@ pub trait Node {
     }
 }
 
+/// Trait for [Nodes](Node) that can assert their symbolic contents.
 pub trait Contains<T: Identifier>: Node {
     fn contains(&self, target: T) -> bool;
 }
 
-/// Trait for types that can be evaluated against a database.
+/// Trait for [Nodes](Node) that can be evaluated against a database.
 pub trait Function<D: Database>: Node {
     type Codomain: buffer::Buffer;
     type Error: std::error::Error;
@@ -150,7 +154,7 @@ pub trait Function<D: Database>: Node {
     fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error>;
 }
 
-/// Trait for [`Identifier`]-differentiable [Function] types.
+/// Trait for [`Identifier`]-differentiable [Functions](Function).
 pub trait Differentiable<D: Database, T: Identifier>: Function<D> + Contains<T> {
     type Jacobian: buffer::Buffer<
         Field = buffer::FieldOf<<Self as Function<D>>::Codomain>
@@ -183,7 +187,7 @@ pub trait Differentiable<D: Database, T: Identifier>: Function<D> + Contains<T> 
     }
 }
 
-/// Trait for [Differentiable] types that can be expressed statically within `aegir`.
+/// Trait for [Differentiables](Differentiable) that can be expressed statically within `aegir`.
 pub trait Compile<T: Identifier>: Node {
     type CompiledJacobian: Node;
     type Error: std::error::Error;
@@ -202,10 +206,6 @@ pub trait Compile<T: Identifier>: Node {
     /// assert_eq!(grad.evaluate(&db).unwrap(), 2.0);
     /// ```
     fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error>;
-}
-
-pub trait Prune: Node where Self: Sized {
-    fn prune(self) -> Option<Self>;
 }
 
 pub type ErrorOf<F, D> = <F as Function<D>>::Error;

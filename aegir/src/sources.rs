@@ -1,6 +1,6 @@
 use crate::{
     Identifier, Database, Get, Node, Contains,
-    Function, Differentiable, Compile, Prune,
+    Function, Differentiable, Compile,
     buffer::{Buffer, Field, OwnedBuffer, OwnedOf, FieldOf},
 };
 
@@ -179,18 +179,6 @@ where
 
     fn compile_grad(&self, _: T) -> Result<Self::CompiledJacobian, Self::Error> {
         Ok(GradReplace(GradValue::Zero, self.1))
-    }
-}
-
-impl<I> Prune for GradReplace<I>
-where
-    I: Identifier,
-{
-    fn prune(self) -> Option<Self> {
-        match self.0 {
-            GradValue::Zero => None,
-            GradValue::One => Some(self),
-        }
     }
 }
 
