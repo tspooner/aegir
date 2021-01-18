@@ -351,7 +351,7 @@ mod tests {
             assert_eq!(dual!(5.0, 1.0) - dual!(-2.0), dual!(7.0, 1.0));
 
             assert_eq!(dual!(0.0) - dual!(1.0, 1.0), dual!(-1.0, -1.0));
-            assert_eq!(dual!(5.0) - dual!(1.0, 1.0), dual!(4.0, 1.0));
+            assert_eq!(dual!(5.0) - dual!(1.0, 1.0), dual!(4.0, -1.0));
             assert_eq!(dual!(5.0) - dual!(-2.0, 1.0), dual!(7.0, -1.0));
 
             assert_eq!(dual!(0.0, 1.0) - dual!(1.0, 1.0), dual!(-1.0, 0.0));
