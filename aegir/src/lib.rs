@@ -257,23 +257,27 @@ pub trait Compile<T: Identifier>: Node {
 pub type ErrorOf<F, D> = <F as Function<D>>::Error;
 pub type CodomainOf<F, D> = <F as Function<D>>::Codomain;
 pub type JacobianOf<F, D, T> = <F as Differentiable<D, T>>::Jacobian;
-pub type DualOf<F, D, T> =
-    dual::Dual<<F as Function<D>>::Codomain, <F as Differentiable<D, T>>::Jacobian>;
+pub type DualOf<F, D, T> = Dual<
+    <F as Function<D>>::Codomain,
+    <F as Differentiable<D, T>>::Jacobian
+>;
 
 extern crate self as aegir;
 
 #[macro_use]
 mod macros;
 
-pub mod buffer;
-pub mod dual;
+mod dual;
+pub use self::dual::Dual;
 
+pub mod buffer;
 pub mod maths;
 pub mod sources;
 
 mod named;
 pub use self::named::NamedNode;
 
+/// Evaluate a [Function] node against a given [Database].
 pub fn evaluate<D, F>(f: F, db: &D) -> Result<F::Codomain, F::Error>
 where
     F: Function<D>,
@@ -282,6 +286,7 @@ where
     f.evaluate(db)
 }
 
+/// Compute the derivative of a [Differentiable] node wrt `target` against a given [Database].
 pub fn differentiate<D, T, F>(f: F, db: &D, target: T) -> Result<F::Jacobian, F::Error>
 where
     D: Database,

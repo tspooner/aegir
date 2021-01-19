@@ -1,5 +1,6 @@
 macro_rules! impl_newtype {
-    ($name:ident<$($tp:ident),+>($inner:ty)) => {
+    ($(#[$attr:meta])* $name:ident<$($tp:ident),+>($inner:ty)) => {
+        $(#[$attr])*
         #[derive(Copy, Clone, Debug, Node, Contains)]
         pub struct $name<$($tp),+>(#[op] pub $inner);
 
@@ -26,6 +27,10 @@ macro_rules! impl_newtype {
 
             fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
                 self.0.grad(db, target)
+            }
+
+            fn dual(&self, db: &D, target: T) -> Result<crate::Dual<Self::Codomain, Self::Jacobian>, Self::Error> {
+                self.0.dual(db, target)
             }
         }
     }

@@ -17,12 +17,12 @@ use std::{fmt, ops};
 // Negate:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 impl_unary!(
-    /// Computes the element-wise additive inverse of a [Buffer].
+    /// Computes the additive inverse of a [Buffer].
     ///
     /// # Examples
     /// ```
     /// # #[macro_use] extern crate aegir;
-    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Negate};
+    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Negate};
     /// ids!(X::x);
     ///
     /// let f = Negate(X.to_var());
@@ -59,12 +59,12 @@ fn dirac<F: Field + num_traits::Float>(x: F) -> F {
 }
 
 impl_unary!(
-    /// Computes the element-wise dirac delta about zero of a [Buffer].
+    /// Computes the dirac delta about zero of a [Buffer].
     ///
     /// # Examples
     /// ```
     /// # #[macro_use] extern crate aegir;
-    /// # use aegir::{Identifier, Function, SimpleDatabase, dual::Dual, maths::Dirac};
+    /// # use aegir::{Identifier, Function, SimpleDatabase, Dual, maths::Dirac};
     /// # use std::f64::INFINITY;
     /// ids!(X::x);
     ///
@@ -82,12 +82,12 @@ impl_unary!(
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Sign:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/// Computes the element-wise sign of a [Buffer].
+/// Computes the sign of a [Buffer].
 ///
 /// # Examples
 /// ```
 /// # #[macro_use] extern crate aegir;
-/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Sign};
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Sign};
 /// # use std::f64::INFINITY;
 /// ids!(X::x);
 ///
@@ -157,12 +157,12 @@ impl<X: fmt::Display> fmt::Display for Sign<X> {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Absolute value:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/// Computes the element-wise absolute value of a [Buffer].
+/// Computes the absolute value of a [Buffer].
 ///
 /// # Examples
 /// ```
 /// # #[macro_use] extern crate aegir;
-/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Abs};
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Abs};
 /// ids!(X::x);
 ///
 /// let f = Abs(X.to_var());
@@ -229,13 +229,13 @@ impl<X: fmt::Display> fmt::Display for Abs<X> {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Power:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/// Computes the element-wise power of a [Buffer] to a [Field].
+/// Computes the power of a [Buffer] to a [Field].
 ///
 /// # Examples
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # #[macro_use] extern crate ndarray;
-/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Power};
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Power};
 /// ids!(X::x);
 ///
 /// let f = Power(X.to_var(), 2.0);
@@ -327,13 +327,13 @@ impl<X: fmt::Display, P: fmt::Display> fmt::Display for Power<X, P> {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Double:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/// Computes the element-wise double of a [Buffer].
+/// Computes the double of a [Buffer].
 ///
 /// # Examples
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # #[macro_use] extern crate ndarray;
-/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Double};
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Double};
 /// ids!(X::x);
 ///
 /// let f = Double(X.to_var());
@@ -411,13 +411,13 @@ impl<X: fmt::Display> fmt::Display for Double<X> {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Double:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/// Computes the element-wise square of a [Buffer].
+/// Computes the square of a [Buffer].
 ///
 /// # Examples
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # #[macro_use] extern crate ndarray;
-/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Square};
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Square};
 /// ids!(X::x);
 ///
 /// let f = Square(X.to_var());
@@ -507,14 +507,14 @@ impl<X: fmt::Display> fmt::Display for Square<X> {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 impl_trait!(
     @binary
-    /// Computes the element-wise addition of two [Buffer] instances.
+    /// Computes the addition of two [Buffer] instances.
     ///
     /// # Examples
     /// ## x + y
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # #[macro_use] extern crate ndarray;
-    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Add};
+    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Add};
     /// ids!(X::x, Y::y);
     /// db!(DB { x: X, y: Y });
     ///
@@ -528,7 +528,7 @@ impl_trait!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # #[macro_use] extern crate ndarray;
-    /// # use aegir::{Identifier, Node, Differentiable, dual::Dual, maths::Add};
+    /// # use aegir::{Identifier, Node, Differentiable, Dual, maths::Add};
     /// ids!(X::x, Y::y);
     /// db!(DB { x: X, y: Y });
     ///
@@ -558,18 +558,103 @@ where
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// Addition (reduce):
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/// Compute the sum over elements in a [Buffer].
+///
+/// # Examples
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # #[macro_use] extern crate ndarray;
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Reduce};
+/// ids!(X::x);
+///
+/// let f = Reduce(X.to_var());
+///
+/// assert_eq!(
+///     f.dual(&simple_db!(X => vec![1.0, 2.0, 3.0]), X).unwrap(),
+///     dual!(6.0, vec![1.0, 1.0, 1.0])
+/// );
+/// ```
+#[derive(Copy, Clone, Debug)]
+pub struct Reduce<N>(pub N);
+
+impl<N> Node for Reduce<N> {}
+
+impl<T, N> Contains<T> for Reduce<N>
+where
+    T: Identifier,
+    N: Contains<T>,
+{
+    fn contains(&self, target: T) -> bool { self.0.contains(target) }
+}
+
+impl<D, N> Function<D> for Reduce<N>
+where
+    D: Database,
+    N: Function<D>,
+
+    FieldOf<N::Codomain>: num_traits::Zero,
+{
+    type Codomain = FieldOf<N::Codomain>;
+    type Error = N::Error;
+
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        self.0
+            .evaluate(db)
+            .map(|buffer| buffer.fold(num_traits::zero(), |acc, &x| acc + x))
+    }
+}
+
+impl<D, T, N> Differentiable<D, T> for Reduce<N>
+where
+    D: Database,
+    T: Identifier,
+    N: Differentiable<D, T>,
+
+    N::Jacobian: Buffer<Field = FieldOf<N::Codomain>>,
+
+    FieldOf<N::Codomain>: num_traits::Zero,
+{
+    type Jacobian = N::Jacobian;
+
+    fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
+        self.0.grad(db, target)
+    }
+}
+
+impl<T, N> Compile<T> for Reduce<N>
+where
+    T: Identifier,
+    N: Compile<T>,
+{
+    type CompiledJacobian = N::CompiledJacobian;
+    type Error = N::Error;
+
+    fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error> {
+        self.0.compile_grad(target)
+    }
+}
+
+impl<N: fmt::Display> fmt::Display for Reduce<N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\u{03A3}_i ({})_i", self.0)
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Subtraction:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 impl_trait!(
     @binary
-    /// Computes the element-wise subtraction of two [Buffer] instances.
+    /// Computes the subtraction of two [Buffer] instances.
     ///
     /// # Examples
     /// ## x - y
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # #[macro_use] extern crate ndarray;
-    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Sub};
+    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Sub};
     /// ids!(X::x, Y::y);
     /// db!(DB { x: X, y: Y });
     ///
@@ -583,7 +668,7 @@ impl_trait!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # #[macro_use] extern crate ndarray;
-    /// # use aegir::{Identifier, Node, Differentiable, dual::Dual, maths::Sub};
+    /// # use aegir::{Identifier, Node, Differentiable, Dual, maths::Sub};
     /// ids!(X::x, Y::y);
     /// db!(DB { x: X, y: Y });
     ///
@@ -612,14 +697,14 @@ where
     }
 }
 
-/// Computes the element-wise multiplication of two [Buffer] instances.
+/// Computes the multiplication of two [Buffer] instances.
 ///
 /// # Examples
 /// ## x . y
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # #[macro_use] extern crate ndarray;
-/// # use aegir::{Identifier, Differentiable, SimpleDatabase, dual::Dual, maths::Mul};
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Mul};
 /// ids!(X::x, Y::y);
 /// db!(DB { x: X, y: Y });
 ///
@@ -633,7 +718,7 @@ where
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # #[macro_use] extern crate ndarray;
-/// # use aegir::{Identifier, Node, Differentiable, dual::Dual, maths::Mul};
+/// # use aegir::{Identifier, Node, Differentiable, Dual, maths::Mul};
 /// ids!(X::x, Y::y);
 /// db!(DB { x: X, y: Y });
 ///
@@ -717,11 +802,11 @@ where
         &self,
         db: &D,
         target: T,
-    ) -> Result<crate::dual::Dual<Self::Codomain, Self::Jacobian>, Self::Error> {
+    ) -> Result<crate::Dual<Self::Codomain, Self::Jacobian>, Self::Error> {
         let d1 = self.0.dual(db, target).map_err(either::Either::Left)?;
         let d2 = self.1.dual(db, target).map_err(either::Either::Right)?;
 
-        Ok(crate::dual::Dual {
+        Ok(crate::Dual {
             value: &d1.value * &d2.value,
             adjoint: d1.adjoint * d2.value + d2.adjoint * d1.value,
         })

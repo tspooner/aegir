@@ -1,6 +1,6 @@
 use crate::{
     buffer::{Buffer, Field, FieldOf},
-    maths::{arithmetic::Mul, reduce::Reduce, AddOut},
+    maths::{Mul, Reduce, AddOut},
     Compile,
     Contains,
     Database,
@@ -48,9 +48,30 @@ where
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Inner Products
+// Inner Products:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-impl_newtype!(InnerProduct<N1, N2>(Reduce<Mul<N1, N2>>));
+impl_newtype!(
+    /// Computes the inner product of two vector [Buffers](Buffer).
+    ///
+    /// # Examples
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # #[macro_use] extern crate ndarray;
+    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::InnerProduct};
+    /// ids!(X::x, Y::y);
+    /// db!(DB { x: X, y: Y });
+    ///
+    /// let f = InnerProduct::new(X.to_var(), Y.to_var());
+    /// let db = DB {
+    ///     x: array![1.0, 2.0, 3.0],
+    ///     y: array![-1.0, 0.0, 2.0]
+    /// };
+    ///
+    /// assert_eq!(f.dual(&db, X).unwrap(), dual!(5.0, array![-1.0, 0.0, 2.0]));
+    /// assert_eq!(f.dual(&db, Y).unwrap(), dual!(5.0, array![1.0, 2.0, 3.0]));
+    /// ```
+    InnerProduct<N1, N2>(Reduce<Mul<N1, N2>>)
+);
 
 impl<N1, N2> InnerProduct<N1, N2> {
     pub fn new(n1: N1, n2: N2) -> Self { InnerProduct(Reduce(Mul(n1, n2))) }
@@ -77,7 +98,7 @@ impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for InnerPr
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Outer Products
+// Outer Products:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 pub trait OuterProductTrait<T>: Buffer
 where
@@ -123,6 +144,38 @@ where
     }
 }
 
+/// Computes the outer product of two vector [Buffers](Buffer).
+///
+/// # Examples
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # #[macro_use] extern crate ndarray;
+/// # use aegir::{Identifier, Function, Differentiable, SimpleDatabase, Dual, maths::OuterProduct};
+/// ids!(X::x, Y::y);
+/// db!(DB { x: X, y: Y });
+///
+/// let f = OuterProduct(X.to_var(), Y.to_var());
+/// let db = DB {
+///     x: array![1.0, 2.0, 3.0],
+///     y: array![-1.0, 0.0, 2.0]
+/// };
+///
+/// assert_eq!(f.evaluate(&db).unwrap(), array![
+///     [-1.0, 0.0, 2.0],
+///     [-2.0, 0.0, 4.0],
+///     [-3.0, 0.0, 6.0]
+/// ]);
+/// assert_eq!(f.grad(&db, X).unwrap(), array![
+///     [-1.0, 0.0, 2.0],
+///     [-1.0, 0.0, 2.0],
+///     [-1.0, 0.0, 2.0]
+/// ]);
+/// assert_eq!(f.grad(&db, Y).unwrap(), array![
+///     [1.0, 1.0, 1.0],
+///     [2.0, 2.0, 2.0],
+///     [3.0, 3.0, 3.0]
+/// ]);
+/// ```
 pub struct OuterProduct<N1, N2>(pub N1, pub N2);
 
 impl<N1, N2> Node for OuterProduct<N1, N2> {}
@@ -230,6 +283,41 @@ where
     }
 }
 
+/// Computes the product of two matrix [Buffers](Buffer).
+///
+/// # Examples
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # #[macro_use] extern crate ndarray;
+/// # use aegir::{Identifier, Function, Differentiable, SimpleDatabase, Dual, maths::MatMul};
+/// ids!(X::x, Y::y);
+/// db!(DB { x: X, y: Y });
+///
+/// let f = MatMul(X.to_var(), Y.to_var());
+/// let db = DB {
+///     x: array![
+///         [0.0, -1.0],
+///         [1.0, 0.0]
+///     ],
+///     y: array![
+///         [1.0, 2.0],
+///         [3.0, 4.0]
+///     ]
+/// };
+///
+/// assert_eq!(f.evaluate(&db).unwrap(), array![
+///     [-3.0, -4.0],
+///     [1.0, 2.0]
+/// ]);
+/// assert_eq!(f.grad(&db, X).unwrap(), array![
+///     [4.0, 6.0],
+///     [4.0, 6.0]
+/// ]);
+/// assert_eq!(f.grad(&db, Y).unwrap(), array![
+///     [-1.0, -1.0],
+///     [1.0, 1.0]
+/// ]);
+/// ```
 pub struct MatMul<N1, N2>(pub N1, pub N2);
 
 impl<N1, N2> Node for MatMul<N1, N2> {}
