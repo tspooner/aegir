@@ -21,6 +21,7 @@ coveralls = { repository = "tspooner/aegir", branch = "master", service = "githu
 
 [dependencies]
 aegir_derive = { path = "../aegir_derive" }
+aegir_compile = { path = "../aegir_compile" }
 
 paste = "1.0"
 either = "1.6"

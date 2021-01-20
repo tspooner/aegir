@@ -261,6 +261,12 @@ where
     }
 }
 
+impl<N: fmt::Display> fmt::Display for SafeXlnX<N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}*ln({})", self.0, self.0)
+    }
+}
+
 /// Computes the power of a [Buffer] to a [Field].
 ///
 /// # Examples

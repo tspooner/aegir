@@ -1,0 +1,17 @@
+[package]
+name = "aegir_compile"
+version = "0.1.0"
+authors = ["Jared Vann <jared@vann.me>"]
+edition = "2018"
+
+[lib]
+name = "aegir_compile"
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "1.0", features = ["fold", "full"] }
+
+[dev-dependencies]
+aegir = { path = "../aegir" }

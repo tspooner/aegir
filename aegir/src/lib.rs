@@ -5,6 +5,12 @@ extern crate aegir_derive;
 pub use self::aegir_derive::*;
 
 #[allow(unused_imports)]
+#[macro_use]
+extern crate aegir_compile;
+#[doc(hidden)]
+pub use self::aegir_compile::*;
+
+#[allow(unused_imports)]
 use paste::paste;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

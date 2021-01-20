@@ -29,7 +29,11 @@ fn main() {
     let y = Y.to_var();
     let w = W.to_var();
 
+    // Using standard method calls...
     let sse = w.dot(x).sub(y).squared();
+
+    // ...or using compile! macro
+    let sse = compile!((w.dot(x) - y) ^ 2.0);
 
     println!("{}", sse);
     println!("{}", sse.compile_grad(W).unwrap());
