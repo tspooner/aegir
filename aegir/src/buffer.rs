@@ -6,7 +6,7 @@ pub trait Field: Copy + Buffer<Field = Self> + Zero + One + NumOps + std::fmt::D
 impl<T> Field for T where T: Copy + Buffer<Field = Self> + Zero + One + NumOps + std::fmt::Debug {}
 
 /// Trait for types defining a vector space over a [Field](Buffer::Field).
-pub trait Buffer: std::fmt::Debug {
+pub trait Buffer: std::fmt::Debug + PartialEq {
     type Field: Field;
     type Owned: OwnedBuffer<Field = Self::Field>;
 

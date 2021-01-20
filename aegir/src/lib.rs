@@ -19,7 +19,7 @@ impl std::error::Error for NoError {
 }
 
 /// Trait for type-level identifiers.
-pub trait Identifier: Eq + Copy + std::fmt::Debug + std::fmt::Display {
+pub trait Identifier: Eq + Copy + PartialEq + std::fmt::Debug + std::fmt::Display {
     /// Convert the identifier into a [Variable](sources::Variable).
     fn to_var(self) -> sources::Variable<Self> { sources::Variable(self) }
 }
@@ -98,7 +98,7 @@ macro_rules! simple_db {
 }
 
 /// Trait for computation nodes.
-pub trait Node {
+pub trait Node: PartialEq {
     fn named<I: Identifier>(self, id: I) -> NamedNode<Self, I>
     where
         Self: Sized,

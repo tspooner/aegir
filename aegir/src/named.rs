@@ -9,9 +9,10 @@ use crate::{
     Node,
 };
 
+#[derive(PartialEq)]
 pub struct NamedNode<N, I>(pub N, pub I);
 
-impl<N, I> Node for NamedNode<N, I> {}
+impl<N: PartialEq, I: PartialEq> Node for NamedNode<N, I> {}
 
 impl<T, N, I> Contains<T> for NamedNode<N, I>
 where

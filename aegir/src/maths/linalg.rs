@@ -73,13 +73,15 @@ impl_newtype!(
     InnerProduct<N1, N2>(Reduce<Mul<N1, N2>>)
 );
 
-impl<N1, N2> InnerProduct<N1, N2> {
+impl<N1: PartialEq, N2: PartialEq> InnerProduct<N1, N2> {
     pub fn new(n1: N1, n2: N2) -> Self { InnerProduct(Reduce(Mul(n1, n2))) }
 }
 
 impl<T, N1, N2> Compile<T> for InnerProduct<N1, N2>
 where
     T: Identifier,
+    N1: PartialEq,
+    N2: PartialEq,
 
     Reduce<Mul<N1, N2>>: Compile<T>,
 {
@@ -91,7 +93,9 @@ where
     }
 }
 
-impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for InnerProduct<N1, N2> {
+impl<N1: std::fmt::Display + PartialEq, N2: std::fmt::Display + PartialEq> std::fmt::Display
+    for InnerProduct<N1, N2>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "\u{27E8}{}, {}\u{27E9}", self.0 .0 .0, self.0 .0 .1)
     }
@@ -176,9 +180,10 @@ where
 ///     [3.0, 3.0, 3.0]
 /// ]);
 /// ```
+#[derive(PartialEq)]
 pub struct OuterProduct<N1, N2>(pub N1, pub N2);
 
-impl<N1, N2> Node for OuterProduct<N1, N2> {}
+impl<N1: PartialEq, N2: PartialEq> Node for OuterProduct<N1, N2> {}
 
 impl<T, N1, N2> Contains<T> for OuterProduct<N1, N2>
 where
@@ -318,9 +323,10 @@ where
 ///     [1.0, 1.0]
 /// ]);
 /// ```
+#[derive(PartialEq)]
 pub struct MatMul<N1, N2>(pub N1, pub N2);
 
-impl<N1, N2> Node for MatMul<N1, N2> {}
+impl<N1: PartialEq, N2: PartialEq> Node for MatMul<N1, N2> {}
 
 impl<T, N1, N2> Contains<T> for MatMul<N1, N2>
 where

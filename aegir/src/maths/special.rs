@@ -12,8 +12,8 @@ use std::fmt;
 
 macro_rules! impl_special {
     (@unary $name:ident, $eval:expr, $grad:expr) => {
-        #[derive(Clone, Copy, Debug, Node, Contains)]
-        pub struct $name<N>(#[op] pub N);
+        #[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+        pub struct $name<N: PartialEq>(#[op] pub N);
 
         impl<D, N> Function<D> for $name<N>
         where
@@ -50,7 +50,7 @@ macro_rules! impl_special {
     (@unary $name:ident[$str:tt], $eval:expr, $grad:expr) => {
         impl_special!(@unary $name, $eval, $grad);
 
-        impl<X: fmt::Display> fmt::Display for $name<X> {
+        impl<X: fmt::Display + PartialEq> fmt::Display for $name<X> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(f, "{}({})", $str, self.0)
             }
@@ -63,14 +63,14 @@ impl_special!(@unary LogGamma["ln \u{0393}"], |x| x.loggamma(), |x| x.digamma())
 
 impl_special!(@unary Factorial, |x| x.factorial(), |_| todo!());
 
-impl<X: fmt::Display> fmt::Display for Factorial<X> {
+impl<X: fmt::Display + PartialEq> fmt::Display for Factorial<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}!", self.0) }
 }
 
-#[derive(Clone, Copy, Debug, Node, Contains)]
-pub struct Erf<N>(#[op] pub N);
+#[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+pub struct Erf<N: PartialEq>(#[op] pub N);
 
-impl<N> Erf<N> {
+impl<N: PartialEq> Erf<N> {
     pub fn complementary(self) -> crate::maths::Negate<Self> { crate::maths::Negate(self) }
 }
 
@@ -114,6 +114,6 @@ where
     }
 }
 
-impl<X: fmt::Display> fmt::Display for Erf<X> {
+impl<X: fmt::Display + PartialEq> fmt::Display for Erf<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "erf({})", self.0) }
 }

@@ -1,8 +1,8 @@
 macro_rules! impl_unary {
     ($(#[$attr:meta])* $name:ident[$str:tt]: $field_type:path, $eval:expr, $grad:expr) => {
         $(#[$attr])*
-        #[derive(Clone, Copy, Debug, Node, Contains)]
-        pub struct $name<N>(#[op] pub N);
+        #[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+        pub struct $name<N: PartialEq>(#[op] pub N);
 
         impl<D, N> crate::Function<D> for $name<N>
         where
@@ -40,7 +40,7 @@ macro_rules! impl_unary {
             }
         }
 
-        impl<X: std::fmt::Display> std::fmt::Display for $name<X> {
+        impl<X: std::fmt::Display + PartialEq> std::fmt::Display for $name<X> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, $str, self.0)
             }
@@ -51,8 +51,8 @@ macro_rules! impl_unary {
 macro_rules! impl_trait {
     (@binary $(#[$attr:meta])* $name:ident[$str:tt], $($path:ident)::+, $eval:expr, $grad:expr) => {
         $(#[$attr])*
-        #[derive(Clone, Copy, Debug, Node, Contains)]
-        pub struct $name<N1, N2>(#[op] pub N1, #[op] pub N2);
+        #[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+        pub struct $name<N1: PartialEq, N2: PartialEq>(#[op] pub N1, #[op] pub N2);
 
         impl<D, N1, N2> Function<D> for $name<N1, N2>
         where
@@ -103,7 +103,7 @@ macro_rules! impl_trait {
             }
         }
 
-        impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for $name<N1, N2> {
+        impl<N1: std::fmt::Display + PartialEq, N2: std::fmt::Display + PartialEq> std::fmt::Display for $name<N1, N2> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "{} {} {}", self.0, $str, self.1)
             }

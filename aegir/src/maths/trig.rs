@@ -4,8 +4,8 @@ use std::ops::Neg;
 
 macro_rules! impl_trig {
     ($name:ident[$str:tt], $eval:expr, $grad:expr) => {
-        #[derive(Clone, Copy, Debug, Node, Contains)]
-        pub struct $name<N>(#[op] pub N);
+        #[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+        pub struct $name<N: PartialEq>(#[op] pub N);
 
         impl<D, N> crate::Function<D> for $name<N>
         where
@@ -46,7 +46,7 @@ macro_rules! impl_trig {
             }
         }
 
-        impl<X: std::fmt::Display> std::fmt::Display for $name<X> {
+        impl<X: std::fmt::Display + PartialEq> std::fmt::Display for $name<X> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, $str, self.0)
             }

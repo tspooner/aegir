@@ -96,10 +96,10 @@ impl_unary!(
 /// assert_eq!(f.dual(&simple_db!(X => 0.0), X).unwrap(), dual!(0.0, INFINITY));
 /// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(1.0, 0.0));
 /// ```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Sign<N>(pub N);
 
-impl<N> Node for Sign<N> {}
+impl<N: PartialEq> Node for Sign<N> {}
 
 impl<T, N> Contains<T> for Sign<N>
 where
@@ -149,7 +149,7 @@ where
     }
 }
 
-impl<X: fmt::Display> fmt::Display for Sign<X> {
+impl<X: fmt::Display + PartialEq> fmt::Display for Sign<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "sgn({})", self.0) }
 }
 
@@ -170,10 +170,10 @@ impl<X: fmt::Display> fmt::Display for Sign<X> {
 /// assert_eq!(f.dual(&simple_db!(X => 0.0), X).unwrap(), dual!(0.0, 0.0));
 /// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(1.0, 1.0));
 /// ```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Abs<N>(pub N);
 
-impl<N> Node for Abs<N> {}
+impl<N: PartialEq> Node for Abs<N> {}
 
 impl<T, N> Contains<T> for Abs<N>
 where
@@ -221,17 +221,17 @@ where
     }
 }
 
-impl<X: fmt::Display> fmt::Display for Abs<X> {
+impl<X: fmt::Display + PartialEq> fmt::Display for Abs<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "|{}|", self.0) }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Power:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SafeXlnX<N>(pub N);
 
-impl<N> Node for SafeXlnX<N> {}
+impl<N: PartialEq> Node for SafeXlnX<N> {}
 
 impl<T, N> Contains<T> for SafeXlnX<N>
 where
@@ -300,10 +300,10 @@ where
 ///     f.grad(&DB { x: 2.0, y: 1.5, }, Y).unwrap() - 2.0f64.powf(1.5) * 2.0f64.ln()
 /// ) < 1e-5);
 /// ```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Power<N, E>(pub N, pub E);
 
-impl<N, E> Node for Power<N, E> {}
+impl<N: PartialEq, E: PartialEq> Node for Power<N, E> {}
 
 impl<T, N, E> Contains<T> for Power<N, E>
 where
@@ -448,10 +448,10 @@ impl<X: fmt::Display, E: fmt::Display> fmt::Display for Power<X, E> {
 /// assert_eq!(f.dual(&simple_db!(X => 0.0), X).unwrap(), dual!(0.0, 2.0));
 /// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(2.0, 2.0));
 /// ```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Double<N>(pub N);
 
-impl<N> Node for Double<N> {}
+impl<N: PartialEq> Node for Double<N> {}
 
 impl<T, N> Contains<T> for Double<N>
 where
@@ -531,10 +531,10 @@ impl<X: fmt::Display> fmt::Display for Double<X> {
 /// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(1.0, 2.0));
 /// assert_eq!(f.dual(&simple_db!(X => 2.0), X).unwrap(), dual!(4.0, 4.0));
 /// ```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Square<N>(pub N);
 
-impl<N> Node for Square<N> {}
+impl<N: PartialEq> Node for Square<N> {}
 
 impl<T, N> Contains<T> for Square<N>
 where
@@ -678,10 +678,10 @@ where
 ///     dual!(6.0, vec![1.0, 1.0, 1.0])
 /// );
 /// ```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Reduce<N>(pub N);
 
-impl<N> Node for Reduce<N> {}
+impl<N: PartialEq> Node for Reduce<N> {}
 
 impl<T, N> Contains<T> for Reduce<N>
 where
@@ -865,10 +865,10 @@ where
 /// assert_eq!(f.dual(&DB { x: 3.0, y: 2.0, }, X).unwrap(), dual!(12.0, 4.0));
 /// assert_eq!(f.dual(&DB { x: 3.0, y: 2.0, }, Y).unwrap(), dual!(12.0, 12.0));
 /// ```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Mul<N1, N2>(pub N1, pub N2);
 
-impl<N1, N2> Node for Mul<N1, N2> {}
+impl<N1: PartialEq, N2: PartialEq> Node for Mul<N1, N2> {}
 
 impl<T, N1, N2> Contains<T> for Mul<N1, N2>
 where

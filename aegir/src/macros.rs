@@ -1,13 +1,14 @@
 macro_rules! impl_newtype {
     ($(#[$attr:meta])* $name:ident<$($tp:ident),+>($inner:ty)) => {
         $(#[$attr])*
-        #[derive(Copy, Clone, Debug, Node, Contains)]
-        pub struct $name<$($tp),+>(#[op] pub $inner);
+        #[derive(Copy, Clone, Debug, PartialEq, Node, Contains)]
+        pub struct $name<$($tp: PartialEq),+>(#[op] pub $inner);
 
         impl<D, $($tp),+> crate::Function<D> for $name<$($tp),+>
         where
             D: crate::Database,
             $inner: crate::Function<D>,
+            $($tp: PartialEq),+
         {
             type Codomain = crate::CodomainOf<$inner, D>;
             type Error = crate::ErrorOf<$inner, D>;
@@ -22,6 +23,7 @@ macro_rules! impl_newtype {
             D: crate::Database,
             T: crate::Identifier,
             $inner: crate::Differentiable<D, T>,
+            $($tp: PartialEq),+
         {
             type Jacobian = crate::JacobianOf<$inner, D, T>;
 

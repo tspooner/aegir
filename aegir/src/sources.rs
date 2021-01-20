@@ -21,10 +21,10 @@ impl<ID: std::fmt::Debug> std::fmt::Display for VariableError<ID> {
 
 impl<ID: std::fmt::Debug> std::error::Error for VariableError<ID> {}
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Variable<I>(pub I);
 
-impl<I> Node for Variable<I> {}
+impl<I: PartialEq> Node for Variable<I> {}
 
 impl<T, I> Contains<T> for Variable<I>
 where
@@ -104,7 +104,7 @@ impl<I> From<I> for Variable<I> {
     fn from(selector: I) -> Variable<I> { Variable(selector) }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GradValue {
     Zero,
     One,
@@ -123,10 +123,10 @@ impl GradValue {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct GradReplace<I>(pub GradValue, pub I);
 
-impl<I> Node for GradReplace<I> {}
+impl<I: PartialEq> Node for GradReplace<I> {}
 
 impl<T, I> Contains<T> for GradReplace<I>
 where
@@ -195,14 +195,15 @@ impl<I: std::fmt::Display> std::fmt::Display for GradReplace<I> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Constant<B>(pub B);
 
-impl<B> Node for Constant<B> {}
+impl<B: PartialEq> Node for Constant<B> {}
 
 impl<T, B> Contains<T> for Constant<B>
 where
     T: Identifier,
+    B: PartialEq,
 {
     fn contains(&self, _: T) -> bool { false }
 }

@@ -45,8 +45,8 @@ fn sigmoid<F: Real>(x: F) -> F {
 /// assert!((dual.adjoint[1] - 0.10499).abs() < 1e-5);
 /// assert!((dual.adjoint[2] - 0.04518).abs() < 1e-5);
 /// ```
-#[derive(Clone, Copy, Debug, Node, Contains)]
-pub struct Sigmoid<N>(#[op] pub N);
+#[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+pub struct Sigmoid<N: PartialEq>(#[op] pub N);
 
 impl<D, N> Function<D> for Sigmoid<N>
 where
@@ -93,6 +93,6 @@ where
     }
 }
 
-impl<N: fmt::Display> fmt::Display for Sigmoid<N> {
+impl<N: fmt::Display + PartialEq> fmt::Display for Sigmoid<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "\u{03C3}{}", self.0) }
 }
