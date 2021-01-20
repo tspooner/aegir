@@ -115,7 +115,20 @@ type AddOut<A, B> = <A as std::ops::Add<B>>::Output;
 type MulOut<A, B> = <A as std::ops::Mul<B>>::Output;
 
 mod arithmetic;
-pub use self::arithmetic::{Abs, Add, Dirac, Double, Mul, Negate, Power, Sign, Square, Sub, Reduce};
+pub use self::arithmetic::{
+    Abs,
+    Add,
+    Dirac,
+    Double,
+    Mul,
+    Negate,
+    Power,
+    Reduce,
+    Sign,
+    Square,
+    Sub,
+    SubOne,
+};
 
 mod linalg;
 pub use self::linalg::{InnerProduct, MatMul, MatMulTrait, OuterProduct, OuterProductTrait};

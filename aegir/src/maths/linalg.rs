@@ -1,6 +1,6 @@
 use crate::{
     buffer::{Buffer, Field, FieldOf},
-    maths::{Mul, Reduce, AddOut},
+    maths::{AddOut, Mul, Reduce},
     Compile,
     Contains,
     Database,
@@ -111,7 +111,7 @@ where
 
 impl<F, D> OuterProductTrait<ArrayBase<D, Ix1>> for ArrayBase<D, Ix1>
 where
-    F: Field + num_traits::Zero + num_traits::One + 'static,
+    F: Field + 'static,
     D: ndarray::Data<Elem = F> + ndarray::RawDataClone,
 {
     type Output = ndarray::Array2<F>;
@@ -132,7 +132,7 @@ where
 
 impl<F> OuterProductTrait<Vec<F>> for Vec<F>
 where
-    F: Field + num_traits::Zero + num_traits::One + 'static,
+    F: Field + 'static,
 {
     type Output = ndarray::Array2<F>;
 
@@ -266,7 +266,7 @@ where
 
 impl<F, D> MatMulTrait<ArrayBase<D, Ix2>> for ArrayBase<D, Ix2>
 where
-    F: Field + num_traits::Zero + num_traits::One + 'static,
+    F: Field + 'static,
     D: ndarray::Data<Elem = F> + ndarray::RawDataClone,
 {
     type Output = ndarray::Array2<F>;

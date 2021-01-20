@@ -1,7 +1,6 @@
 use crate::{
     buffer::{Buffer, Field, FieldOf, OwnedOf},
     maths::{AddOut, MulOut},
-    sources::Constant,
     Compile,
     Contains,
     Database,
@@ -10,7 +9,7 @@ use crate::{
     Identifier,
     Node,
 };
-use num_traits::{real::Real, Pow};
+use num_traits::{real::Real, Pow, Zero};
 use std::{fmt, ops};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -229,28 +228,12 @@ impl<X: fmt::Display> fmt::Display for Abs<X> {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Power:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/// Computes the power of a [Buffer] to a [Field].
-///
-/// # Examples
-/// ```
-/// # #[macro_use] extern crate aegir;
-/// # #[macro_use] extern crate ndarray;
-/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Power};
-/// ids!(X::x);
-///
-/// let f = Power(X.to_var(), 2.0);
-///
-/// assert_eq!(f.dual(&simple_db!(X => -1.0), X).unwrap(), dual!(1.0, -2.0));
-/// assert_eq!(f.dual(&simple_db!(X => 0.0), X).unwrap(), dual!(0.0, 0.0));
-/// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(1.0, 2.0));
-/// assert_eq!(f.dual(&simple_db!(X => 2.0), X).unwrap(), dual!(4.0, 4.0));
-/// ```
 #[derive(Copy, Clone, Debug)]
-pub struct Power<N, P>(pub N, pub P);
+pub struct SafeXlnX<N>(pub N);
 
-impl<N, P> Node for Power<N, P> {}
+impl<N> Node for SafeXlnX<N> {}
 
-impl<T, N, P> Contains<T> for Power<N, P>
+impl<T, N> Contains<T> for SafeXlnX<N>
 where
     T: Identifier,
     N: Contains<T>,
@@ -258,69 +241,192 @@ where
     fn contains(&self, target: T) -> bool { self.0.contains(target) }
 }
 
-impl<D, N, P> Function<D> for Power<N, P>
+impl<D: Database, N: Function<D>> Function<D> for SafeXlnX<N>
 where
-    D: Database,
-    N: Function<D>,
-    P: Field,
-
-    FieldOf<N::Codomain>: num_traits::Pow<P, Output = FieldOf<N::Codomain>>,
+    FieldOf<N::Codomain>: num_traits::real::Real,
 {
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
 
     fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
-        self.0
-            .evaluate(db)
-            .map(|buffer| buffer.map(|x| x.pow(self.1.clone())))
+        self.0.evaluate(db).map(|buffer| {
+            buffer.map(|x| {
+                if x <= num_traits::zero() {
+                    num_traits::zero()
+                } else {
+                    x * x.ln()
+                }
+            })
+        })
     }
 }
 
-impl<D, T, N, P> Differentiable<D, T> for Power<N, P>
+/// Computes the power of a [Buffer] to a [Field].
+///
+/// # Examples
+/// ## x^2
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # #[macro_use] extern crate ndarray;
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, buffer::Buffer, maths::Power};
+/// ids!(X::x);
+///
+/// let f = Power(X.to_var(), 2.0f64.to_constant());
+///
+/// assert_eq!(f.dual(&simple_db!(X => -1.0), X).unwrap(), dual!(1.0, -2.0));
+/// assert_eq!(f.dual(&simple_db!(X => 0.0), X).unwrap(), dual!(0.0, 0.0));
+/// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(1.0, 2.0));
+/// assert_eq!(f.dual(&simple_db!(X => 2.0), X).unwrap(), dual!(4.0, 4.0));
+/// ```
+///
+/// ## x^y
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # #[macro_use] extern crate ndarray;
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Compile, Dual, buffer::Buffer, maths::Power};
+/// # use aegir::{Function};
+/// ids!(X::x, Y::y);
+/// db!(DB { x: X, y: Y });
+///
+/// let f = Power(X.to_var(), Y.to_var());
+///
+/// assert!((
+///     f.evaluate(&DB { x: 2.0, y: 1.5, }).unwrap() - 2.0f64.powf(1.5)
+/// ) < 1e-5);
+/// assert!((
+///     f.grad(&DB { x: 2.0, y: 1.5, }, X).unwrap() - 1.5 * 2.0f64.powf(0.5)
+/// ) < 1e-5);
+/// assert!((
+///     f.grad(&DB { x: 2.0, y: 1.5, }, Y).unwrap() - 2.0f64.powf(1.5) * 2.0f64.ln()
+/// ) < 1e-5);
+/// ```
+#[derive(Copy, Clone, Debug)]
+pub struct Power<N, E>(pub N, pub E);
+
+impl<N, E> Node for Power<N, E> {}
+
+impl<T, N, E> Contains<T> for Power<N, E>
+where
+    T: Identifier,
+    N: Contains<T>,
+    E: Contains<T>,
+{
+    fn contains(&self, target: T) -> bool { self.0.contains(target) || self.1.contains(target) }
+}
+
+impl<D, N, E> Function<D> for Power<N, E>
+where
+    D: Database,
+    N: Function<D>,
+    E: Function<D>,
+
+    E::Codomain: Field,
+
+    FieldOf<N::Codomain>: num_traits::Pow<E::Codomain, Output = FieldOf<N::Codomain>>,
+{
+    type Codomain = OwnedOf<N::Codomain>;
+    type Error = either::Either<N::Error, E::Error>;
+
+    fn evaluate(&self, db: &D) -> Result<Self::Codomain, Self::Error> {
+        let exponent = self.1.evaluate(db).map_err(either::Right)?;
+
+        self.0
+            .evaluate(db)
+            .map(move |buffer| buffer.map(|x| x.pow(exponent)))
+            .map_err(either::Left)
+    }
+}
+
+impl<D, T, N, E> Differentiable<D, T> for Power<N, E>
 where
     D: Database,
     T: Identifier,
     N: Differentiable<D, T>,
-    P: Field + num_traits::One + std::ops::Sub<P, Output = P>,
+    E: Differentiable<D, T>,
 
-    FieldOf<N::Codomain>: num_traits::Pow<P, Output = FieldOf<N::Codomain>>,
-    FieldOf<N::Jacobian>: std::ops::Mul<P, Output = FieldOf<N::Jacobian>>,
-    OwnedOf<N::Codomain>: std::ops::Mul<OwnedOf<N::Jacobian>>,
+    E::Codomain: Field,
+    N::Jacobian: std::ops::Mul<E::Codomain>,
 
-    MulOut<OwnedOf<N::Codomain>, OwnedOf<N::Jacobian>>: Buffer<Field = FieldOf<N::Codomain>>,
+    OwnedOf<N::Codomain>: std::ops::Mul<E::Codomain> + std::ops::Mul<E::Jacobian>,
+    FieldOf<N::Codomain>:
+        num_traits::real::Real + num_traits::Pow<E::Codomain, Output = FieldOf<N::Codomain>>,
+
+    MulOut<N::Jacobian, E::Codomain>: std::ops::Add<MulOut<OwnedOf<N::Codomain>, E::Jacobian>>,
+    MulOut<OwnedOf<N::Codomain>, E::Codomain>: Buffer<Field = FieldOf<Self::Codomain>>,
+    MulOut<OwnedOf<N::Codomain>, E::Codomain>: std::ops::Mul<
+        AddOut<MulOut<N::Jacobian, E::Codomain>, MulOut<OwnedOf<N::Codomain>, E::Jacobian>>,
+    >,
+    MulOut<
+        MulOut<OwnedOf<N::Codomain>, E::Codomain>,
+        AddOut<MulOut<N::Jacobian, E::Codomain>, MulOut<OwnedOf<N::Codomain>, E::Jacobian>>,
+    >: Buffer<Field = FieldOf<Self::Codomain>>,
 {
-    type Jacobian = MulOut<OwnedOf<N::Codomain>, OwnedOf<N::Jacobian>>;
+    type Jacobian = MulOut<
+        MulOut<OwnedOf<N::Codomain>, E::Codomain>,
+        AddOut<MulOut<N::Jacobian, E::Codomain>, MulOut<OwnedOf<N::Codomain>, E::Jacobian>>,
+    >;
 
     fn grad(&self, db: &D, target: T) -> Result<Self::Jacobian, Self::Error> {
-        let np = self.1 - num_traits::one();
+        let base = self.0.evaluate(db).map_err(either::Left)?;
+        let base_grad = self.0.grad(db, target).map_err(either::Left)?;
 
-        self.0
-            .dual(db, target)
-            .map(|d| d.value.map(|v| v.pow(np)) * d.adjoint.map(|g| g * self.1))
+        let exponent = self.1.evaluate(db).map_err(either::Right)?;
+        let exponent_grad = self.1.grad(db, target).map_err(either::Right)?;
+
+        let c: MulOut<OwnedOf<N::Codomain>, E::Codomain> =
+            base.to_owned() * (exponent - num_traits::one());
+
+        let t1: MulOut<N::Jacobian, E::Codomain> = base_grad * exponent;
+
+        let t2: MulOut<OwnedOf<N::Codomain>, E::Jacobian> = base.map(|x| {
+            if x <= num_traits::zero() {
+                num_traits::zero()
+            } else {
+                x * x.ln()
+            }
+        }) * exponent_grad;
+
+        let t: AddOut<
+            MulOut<N::Jacobian, E::Codomain>,
+            MulOut<OwnedOf<N::Codomain>, E::Jacobian>,
+        > = t1 + t2;
+
+        Ok(c * t)
     }
 }
 
-impl<T, N, P> Compile<T> for Power<N, P>
+impl<T, N, E> Compile<T> for Power<N, E>
 where
     T: Identifier,
     N: Compile<T> + Clone,
-    P: Field + num_traits::One,
+    E: Compile<T> + Clone,
+
+    Self: Clone,
 {
-    type CompiledJacobian = Mul<Mul<Constant<P>, Power<N, P>>, N::CompiledJacobian>;
-    type Error = N::Error;
+    type CompiledJacobian = Mul<
+        Mul<N, SubOne<E>>,
+        Add<Mul<N::CompiledJacobian, E>, Mul<SafeXlnX<N>, E::CompiledJacobian>>,
+    >;
+    type Error = either::Either<N::Error, E::Error>;
 
     fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error> {
-        let c = Constant(self.1);
-        let n = self.0.clone().pow(self.1 - num_traits::one());
-        let g = self.0.compile_grad(target)?;
+        let base = self.0.clone();
+        let base_g = self.0.compile_grad(target).map_err(|e| either::Left(e))?;
 
-        Ok(c.mul(n).mul(g))
+        let exponent = self.1.clone();
+        let exponent_g = self.1.compile_grad(target).map_err(|e| either::Right(e))?;
+
+        let c: Mul<N, SubOne<E>> = base.clone().mul(SubOne(exponent.clone()));
+        let t1: Mul<N::CompiledJacobian, E> = base_g.mul(exponent);
+        let t2: Mul<SafeXlnX<N>, E::CompiledJacobian> = SafeXlnX(base).mul(exponent_g);
+
+        Ok(c.mul(t1.add(t2)))
     }
 }
 
-impl<X: fmt::Display, P: fmt::Display> fmt::Display for Power<X, P> {
+impl<X: fmt::Display, E: fmt::Display> fmt::Display for Power<X, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({})^{}", self.0, self.1)
+        write!(f, "({})^({})", self.0, self.1)
     }
 }
 
@@ -360,8 +466,7 @@ where
     D: Database,
     N: Function<D>,
 
-    FieldOf<N::Codomain>:
-        num_traits::One + std::ops::Mul<FieldOf<N::Codomain>, Output = FieldOf<N::Codomain>>,
+    FieldOf<N::Codomain>: std::ops::Mul<FieldOf<N::Codomain>, Output = FieldOf<N::Codomain>>,
 {
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
@@ -379,8 +484,7 @@ where
     T: Identifier,
     N: Differentiable<D, T>,
 
-    FieldOf<N::Jacobian>:
-        num_traits::One + std::ops::Mul<FieldOf<N::Jacobian>, Output = FieldOf<N::Jacobian>>,
+    FieldOf<N::Jacobian>: std::ops::Mul<FieldOf<N::Jacobian>, Output = FieldOf<N::Jacobian>>,
 {
     type Jacobian = OwnedOf<N::Jacobian>;
 
@@ -445,8 +549,7 @@ where
     D: Database,
     N: Function<D>,
 
-    FieldOf<N::Codomain>:
-        num_traits::One + num_traits::Pow<FieldOf<N::Codomain>, Output = FieldOf<N::Codomain>>,
+    FieldOf<N::Codomain>: num_traits::Pow<FieldOf<N::Codomain>, Output = FieldOf<N::Codomain>>,
 {
     type Codomain = OwnedOf<N::Codomain>;
     type Error = N::Error;
@@ -464,8 +567,7 @@ where
     T: Identifier,
     N: Differentiable<D, T>,
 
-    FieldOf<N::Codomain>: num_traits::One
-        + num_traits::Pow<FieldOf<N::Codomain>, Output = FieldOf<N::Codomain>>
+    FieldOf<N::Codomain>: num_traits::Pow<FieldOf<N::Codomain>, Output = FieldOf<N::Codomain>>
         + std::ops::Mul<FieldOf<N::Codomain>, Output = FieldOf<N::Codomain>>,
 
     N::Codomain: std::ops::Mul<OwnedOf<N::Jacobian>>,
@@ -528,11 +630,11 @@ impl_trait!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # #[macro_use] extern crate ndarray;
-    /// # use aegir::{Identifier, Node, Differentiable, Dual, maths::Add};
+    /// # use aegir::{Identifier, Node, Differentiable, Dual, buffer::Buffer, maths::Add};
     /// ids!(X::x, Y::y);
     /// db!(DB { x: X, y: Y });
     ///
-    /// let f = Add(X.to_var(), Y.to_var().pow(2.0));
+    /// let f = Add(X.to_var(), Y.to_var().pow(2.0f64.to_constant()));
     ///
     /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, X).unwrap(), dual!(5.0, 1.0));
     /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, Y).unwrap(), dual!(5.0, 4.0));
@@ -654,7 +756,7 @@ impl_trait!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # #[macro_use] extern crate ndarray;
-    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Sub};
+    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, buffer::Buffer, maths::Sub};
     /// ids!(X::x, Y::y);
     /// db!(DB { x: X, y: Y });
     ///
@@ -668,11 +770,11 @@ impl_trait!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # #[macro_use] extern crate ndarray;
-    /// # use aegir::{Identifier, Node, Differentiable, Dual, maths::Sub};
+    /// # use aegir::{Identifier, Node, Differentiable, Dual, buffer::Buffer, maths::Sub};
     /// ids!(X::x, Y::y);
     /// db!(DB { x: X, y: Y });
     ///
-    /// let f = Sub(X.to_var(), Y.to_var().pow(2.0));
+    /// let f = Sub(X.to_var(), Y.to_var().pow(2.0f64.to_constant()));
     ///
     /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, X).unwrap(), dual!(-3.0, 1.0));
     /// assert_eq!(f.dual(&DB { x: 1.0, y: 2.0, }, Y).unwrap(), dual!(-3.0, -4.0));
@@ -697,6 +799,42 @@ where
     }
 }
 
+impl_unary!(
+    /// Computes the subtraction of one from a [Buffer].
+    ///
+    /// # Examples
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::SubOne};
+    /// ids!(X::x);
+    ///
+    /// let f = SubOne(X.to_var());
+    ///
+    /// assert_eq!(f.dual(&simple_db!(X => 1.0), X).unwrap(), dual!(0.0, 1.0));
+    /// assert_eq!(f.dual(&simple_db!(X => 0.0), X).unwrap(), dual!(-1.0, 1.0));
+    /// assert_eq!(f.dual(&simple_db!(X => -1.0), X).unwrap(), dual!(-2.0, 1.0));
+    /// ```
+    SubOne["{} - 1"]: Field,
+    |x| { x - num_traits::one() },
+    |dx| { dx }
+);
+
+impl<T, N> Compile<T> for SubOne<N>
+where
+    T: Identifier,
+    N: Compile<T>,
+{
+    type CompiledJacobian = N::CompiledJacobian;
+    type Error = N::Error;
+
+    fn compile_grad(&self, target: T) -> Result<Self::CompiledJacobian, Self::Error> {
+        self.0.compile_grad(target)
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Multiplication:
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Computes the multiplication of two [Buffer] instances.
 ///
 /// # Examples
@@ -704,7 +842,7 @@ where
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # #[macro_use] extern crate ndarray;
-/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, maths::Mul};
+/// # use aegir::{Identifier, Differentiable, SimpleDatabase, Dual, buffer::Buffer, maths::Mul};
 /// ids!(X::x, Y::y);
 /// db!(DB { x: X, y: Y });
 ///
@@ -718,11 +856,11 @@ where
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # #[macro_use] extern crate ndarray;
-/// # use aegir::{Identifier, Node, Differentiable, Dual, maths::Mul};
+/// # use aegir::{Identifier, Node, Differentiable, Dual, buffer::Buffer, maths::Mul};
 /// ids!(X::x, Y::y);
 /// db!(DB { x: X, y: Y });
 ///
-/// let f = Mul(X.to_var(), Y.to_var().pow(2.0));
+/// let f = Mul(X.to_var(), Y.to_var().pow(2.0f64.to_constant()));
 ///
 /// assert_eq!(f.dual(&DB { x: 3.0, y: 2.0, }, X).unwrap(), dual!(12.0, 4.0));
 /// assert_eq!(f.dual(&DB { x: 3.0, y: 2.0, }, Y).unwrap(), dual!(12.0, 12.0));

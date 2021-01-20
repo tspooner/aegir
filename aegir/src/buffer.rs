@@ -1,9 +1,9 @@
 use num_traits::{NumOps, One, Zero};
 
 /// Trait for numeric types implementing basic scalar operations.
-pub trait Field: Copy + Buffer<Field = Self> + NumOps + std::fmt::Debug {}
+pub trait Field: Copy + Buffer<Field = Self> + Zero + One + NumOps + std::fmt::Debug {}
 
-impl<T> Field for T where T: Copy + Buffer<Field = Self> + NumOps + std::fmt::Debug {}
+impl<T> Field for T where T: Copy + Buffer<Field = Self> + Zero + One + NumOps + std::fmt::Debug {}
 
 /// Trait for types defining a vector space over a [Field](Buffer::Field).
 pub trait Buffer: std::fmt::Debug {
@@ -80,32 +80,20 @@ pub trait Buffer: std::fmt::Debug {
         crate::sources::Constant(self.into_owned())
     }
 
-    fn to_zeroes(&self) -> Self::Owned
-    where
-        Self::Field: Zero,
-    {
-        self.to_filled(num_traits::identities::zero())
-    }
+    fn to_zeroes(&self) -> Self::Owned { self.to_filled(num_traits::identities::zero()) }
 
     fn into_zeroes(self) -> Self::Owned
     where
         Self: Sized,
-        Self::Field: Zero,
     {
         self.into_filled(num_traits::identities::zero())
     }
 
-    fn to_ones(&self) -> Self::Owned
-    where
-        Self::Field: One,
-    {
-        self.to_filled(num_traits::identities::one())
-    }
+    fn to_ones(&self) -> Self::Owned { self.to_filled(num_traits::identities::one()) }
 
     fn into_ones(self) -> Self::Owned
     where
         Self: Sized,
-        Self::Field: One,
     {
         self.into_filled(num_traits::identities::one())
     }
