@@ -15,7 +15,6 @@
 - Infinitely differentiable: _Jacobian, Hessian, etc..._
 - Custom DSL for operator expansion.
 - Decoupled/generic tensor type.
-- Plug-and-play backends.
 
 ## Installation
 
