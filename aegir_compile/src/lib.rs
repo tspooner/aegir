@@ -3,7 +3,7 @@ use quote::quote;
 use syn::fold::Fold;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, parse_quote, token, BinOp, Expr, ExprMethodCall, Ident, Lit};
+use syn::{parse_macro_input, parse_quote, token, BinOp, Expr, ExprMethodCall, Ident, Lit, Path};
 
 struct ConvertToAegir {}
 
@@ -25,31 +25,62 @@ impl Fold for ConvertToAegir {
                     _ => unimplemented!(),
                 };
 
-                let mut args = Punctuated::<Expr, token::Comma>::new();
+                fn is_square(lit: &Lit) -> bool {
+                    match lit {
+                        Lit::Float(f) => {
+                            let two: syn::LitFloat = parse_quote!(2.0);
 
-                args.push_value(self.fold_expr(*b.right));
+                            f == &two
+                        },
+                        Lit::Int(f) => {
+                            let two: syn::LitInt = parse_quote!(2);
 
-                Expr::MethodCall(ExprMethodCall {
-                    attrs: b.attrs,
-                    receiver: Box::new(self.fold_expr(*b.left)),
-                    dot_token: token::Dot { spans: [span] },
-                    method: Ident::new(method, span),
-                    turbofish: None,
-                    paren_token: token::Paren { span },
-                    args,
-                })
+                            f == &two
+                        },
+                        _ => false,
+                    }
+                }
+
+                match *b.right {
+                    Expr::Lit(ref l) if method == "pow" && is_square(&l.lit) => {
+                        Expr::MethodCall(ExprMethodCall {
+                            attrs: b.attrs,
+                            receiver: Box::new(self.fold_expr(*b.left)),
+                            dot_token: token::Dot { spans: [span] },
+                            method: Ident::new("squared", span),
+                            turbofish: None,
+                            paren_token: token::Paren { span },
+                            args: Punctuated::<Expr, token::Comma>::new(),
+                        })
+                    },
+                    _ => {
+                        let mut args = Punctuated::<Expr, token::Comma>::new();
+
+                        args.push_value(self.fold_expr(*b.right));
+
+                        Expr::MethodCall(ExprMethodCall {
+                            attrs: b.attrs,
+                            receiver: Box::new(self.fold_expr(*b.left)),
+                            dot_token: token::Dot { spans: [span] },
+                            method: Ident::new(method, span),
+                            turbofish: None,
+                            paren_token: token::Paren { span },
+                            args,
+                        })
+                    },
+                }
             },
             // Convert integer and float literals into Constant type instances
             // Example: 10 --> Constant<i64>(10)
             Expr::Lit(l) => match l.lit {
                 Lit::Int(val) => {
                     parse_quote!({
-                        aegir::sources::Constant::<i64>(#val)
+                        aegir::Constant::<i64>(#val)
                     })
                 },
                 Lit::Float(val) => {
                     parse_quote!({
-                        aegir::sources::Constant::<f64>(#val)
+                        aegir::Constant::<f64>(#val)
                     })
                 },
                 _ => Expr::Lit(l),
@@ -102,7 +133,7 @@ impl Fold for ConvertToAegir {
 }
 
 #[proc_macro]
-pub fn compile(tokens: TokenStream) -> TokenStream {
+pub fn aegir(tokens: TokenStream) -> TokenStream {
     let expr: Expr = parse_macro_input!(tokens as Expr);
 
     let mut converter = ConvertToAegir {};

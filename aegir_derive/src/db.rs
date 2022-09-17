@@ -38,25 +38,47 @@ fn db_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
     let mut code = quote! {
+        impl #impl_generics ::std::convert::AsRef<Self> for #name #ty_generics #where_clause {
+            fn as_ref(&self) -> &Self { self }
+        }
+
         impl #impl_generics ::aegir::Database for #name #ty_generics #where_clause {}
     };
 
-    for f in &ds.fields {
+    let id_fields = ds.fields.iter().filter_map(|f| {
+        f.attrs
+            .iter()
+            .filter(|a| match a.path.get_ident() {
+                Some(name) => name.to_string() == "id",
+                None => false,
+            })
+            .next()
+            .map(|attr| (f, attr))
+    });
+
+    for (f, attr) in id_fields {
         let ty = &f.ty;
+        let field_id = parse_id_attr(attr).unwrap();
         let field_name = &f.ident;
 
-        let mut id_attrs = f.attrs.iter().filter(|a| match a.path.get_ident() {
-            Some(name) => name.to_string() == "id",
-            None => false,
-        });
+        let mut c_generics = ast.generics.clone();
+        let wc = c_generics
+            .where_clause
+            .get_or_insert_with(|| syn::WhereClause {
+                where_token: syn::token::Where([proc_macro2::Span::call_site()]),
+                predicates: syn::punctuated::Punctuated::new(),
+            });
 
-        let field_id = parse_id_attr(id_attrs.next().unwrap()).unwrap();
+        let f_ty = &f.ty;
+
+        wc.predicates
+            .push(parse_quote! { #f_ty: ::aegir::buffers::Buffer });
 
         (quote! {
-            impl #impl_generics ::aegir::Get<#field_id> for #name #ty_generics #where_clause {
-                type Output = #ty;
+            impl #impl_generics ::aegir::Read<#field_id> for #name #ty_generics #wc {
+                type Buffer = #ty;
 
-                fn get(&self, _: #field_id) -> Option<&#ty> {
+                fn read(&self, _: #field_id) -> Option<&#ty> {
                     Some(&self.#field_name)
                 }
             }

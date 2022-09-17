@@ -6,8 +6,16 @@
 
 ## Overview
 
-`aegir` is a strongly-typed, reverse-mode autodiff library in Rust which
-facilitates end-to-end, DAG-based computation.
+> Strongly-typed, compile-time autodifferentiation in Rust.
+
+`aegir` is an experimental autodifferentiation framework designed to leverage the powerful type-system in Rust. The approach taken resembles that of expression templates, as commonly used in linear-algebra libraries written in C++
+
+### Key Features
+- Built-in arithmetic, linear-algebraic, trigonometric and special operators.
+- Infinitely differentiable: _Jacobian, Hessian, etc..._
+- Custom DSL for operator expansion.
+- Decoupled/generic tensor type.
+- Plug-and-play backends.
 
 ## Installation
 
@@ -23,37 +31,43 @@ aegir = "0.1"
 extern crate aegir;
 extern crate rand;
 
-use aegir::{Node, Identifier, Differentiable};
-use ndarray::Array1;
+use aegir::{Differentiable, Function, Identifier, Node, ids::{X, Y, W}};
 
-ids!(X::x, Y::y, W::w);
-state!(State {
-    input: X,
-    output: Y,
-    weights: W
-});
-
-macro_rules! get_state {
-    ($x:ident, $y:ident, $w:ident) => {
-        &State { input: &$x, output: &$y, weights: &$w, }
-    }
-}
+db!(Database { x: X, y: Y, w: W });
 
 fn main() {
-    let mut weights = Array1::from(vec![0.0; 1]);
+    let mut weights = [0.0, 0.0];
 
-    let x = X.to_var();
-    let y = Y.to_var();
-    let w = W.to_var();
+    let x = X.into_var();
+    let y = Y.into_var();
+    let w = W.into_var();
 
-    let sse = y.sub(w.dot(x)).pow(2.0).reduce();
+    let model = x.dot(w);
 
-    for _ in 0..10000 {
-        let x_ = Array1::from(vec![rand::random::<f64>()]);
-        let y_ = x_.clone() * 2.0;
-        let g = sse.grad(W, get_state!(x_, y_, weights)).unwrap();
+    // Using standard method calls...
+    let sse = model.sub(y).squared();
+    let adj = sse.adjoint(W);
 
-        weights.iter_mut().zip(g.iter()).for_each(|(w, dw)| { *w -= 0.01 * dw });
+    // ...or using aegir! macro
+    let sse = aegir!((model - y) ^ 2);
+    let adj = sse.adjoint(W);
+
+    for _ in 0..100000 {
+        let [x1, x2] = [rand::random::<f64>(), rand::random::<f64>()];
+
+        let g = adj.evaluate(Database {
+            // Independent variables:
+            x: [x1, x2],
+
+            // Dependent variable:
+            y: x1 * 2.0 - x2 * 4.0,
+
+            // Model weights:
+            w: &weights,
+        }).unwrap();
+
+        weights[0] -= 0.01 * g[0][0];
+        weights[1] -= 0.01 * g[0][1];
     }
 
     println!("{:?}", weights.to_vec());

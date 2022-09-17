@@ -5,7 +5,7 @@ use syn::parse::Parser;
 struct DataIdentifier {
     pub type_id: syn::Ident,
     pub colon: Option<Token![::]>,
-    pub symbol: Option<syn::Ident>,
+    pub symbol: Option<syn::LitStr>,
 }
 
 impl DataIdentifier {
@@ -27,12 +27,13 @@ impl DataIdentifier {
 
     pub fn impl_display(&self) -> syn::ItemImpl {
         let type_id = &self.type_id;
-        let symbol = self.symbol.as_ref().unwrap_or(type_id);
+        let type_str = syn::LitStr::new(stringify!(type_id), type_id.span());
+        let symbol = self.symbol.as_ref().unwrap_or(&type_str);
 
         syn::parse2(quote! {
             impl std::fmt::Display for #type_id {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    write!(f, stringify!(#symbol))
+                    write!(f, #symbol)
                 }
             }
         })
@@ -55,13 +56,22 @@ impl DataIdentifier {
 impl syn::parse::Parse for DataIdentifier {
     fn parse(input: syn::parse::ParseStream) -> syn::parse::Result<DataIdentifier> {
         let type_id: syn::Ident = input.parse()?;
-        let lookahead = input.lookahead1();
+        let clook = input.lookahead1();
 
-        if lookahead.peek(Token![::]) {
+        if clook.peek(Token![::]) {
+            let colon: Option<Token![::]> = input.parse().ok();
+            let symbol: syn::LitStr = if input.lookahead1().peek(syn::Ident) {
+                let ident: syn::Ident = input.parse()?;
+
+                syn::LitStr::new(&ident.to_string(), ident.span())
+            } else {
+                input.parse()?
+            };
+
             Ok(DataIdentifier {
                 type_id,
-                colon: Some(input.parse()?),
-                symbol: Some(input.parse()?),
+                colon,
+                symbol: Some(symbol),
             })
         } else {
             Ok(DataIdentifier {

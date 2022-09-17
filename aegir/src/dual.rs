@@ -1,4 +1,4 @@
-use crate::buffer::{Buffer, FieldOf, OwnedBuffer, OwnedOf};
+use crate::buffers::{Buffer, FieldOf, OwnedOf};
 use num_traits::{One, Zero};
 use std::ops;
 
@@ -24,8 +24,8 @@ pub struct Dual<V, A = V> {
     pub adjoint: A,
 }
 
-impl<B: OwnedBuffer> Dual<B> {
-    pub fn variable(value: B) -> Dual<B>
+impl<B: Buffer> Dual<B> {
+    pub fn variable(value: B) -> Dual<OwnedOf<B>>
     where
         B::Field: One,
     {
@@ -35,7 +35,7 @@ impl<B: OwnedBuffer> Dual<B> {
         Dual { value, adjoint }
     }
 
-    pub fn constant(value: B) -> Dual<B>
+    pub fn constant(value: B) -> Dual<OwnedOf<B>>
     where
         B::Field: Zero,
     {
@@ -62,14 +62,14 @@ impl<V: Buffer, A: Buffer> Dual<V, A> {
         f(&self.value, &self.adjoint).into()
     }
 
-    pub fn to_owned(&self) -> Dual<V::Owned, A::Owned> {
+    pub fn to_owned(&self) -> Dual<OwnedOf<V>, OwnedOf<A>> {
         Dual {
             value: self.value.to_owned(),
             adjoint: self.adjoint.to_owned(),
         }
     }
 
-    pub fn into_owned(self) -> Dual<V::Owned, A::Owned> {
+    pub fn into_owned(self) -> Dual<OwnedOf<V>, OwnedOf<A>> {
         Dual {
             value: self.value.into_owned(),
             adjoint: self.adjoint.into_owned(),
@@ -81,7 +81,7 @@ impl<V, A: Buffer> Dual<V, A>
 where
     FieldOf<A>: std::ops::Neg<Output = FieldOf<A>>,
 {
-    pub fn conj(self) -> Dual<V, A::Owned> {
+    pub fn conj(self) -> Dual<V, OwnedOf<A>> {
         Dual {
             value: self.value,
             adjoint: self.adjoint.map(|a| -a),
@@ -105,10 +105,10 @@ where
 impl<V, A> ops::Neg for &Dual<V, A>
 where
     V: Buffer,
-    V::Owned: std::ops::Neg,
+    OwnedOf<V>: std::ops::Neg,
 
     A: Buffer,
-    A::Owned: std::ops::Neg,
+    OwnedOf<A>: std::ops::Neg,
 {
     type Output =
         Dual<<OwnedOf<V> as std::ops::Neg>::Output, <OwnedOf<A> as std::ops::Neg>::Output>;
@@ -272,13 +272,13 @@ where
 impl<V, A> ops::Mul<Dual<V, A>> for Dual<V, A>
 where
     V: Buffer + std::ops::Mul<V>,
-    V::Owned: std::ops::Mul<V::Owned>,
+    OwnedOf<V>: std::ops::Mul<OwnedOf<V>>,
 
     A: Buffer + std::ops::Mul<V>,
 
     MulOut<A, V>: std::ops::Add<MulOut<A, V>>,
 {
-    type Output = Dual<MulOut<V::Owned, V::Owned>, AddOut<MulOut<A, V>, MulOut<A, V>>>;
+    type Output = Dual<MulOut<OwnedOf<V>, OwnedOf<V>>, AddOut<MulOut<A, V>, MulOut<A, V>>>;
 
     fn mul(self, rhs: Dual<V, A>) -> Self::Output {
         Dual {
@@ -291,13 +291,13 @@ where
 impl<'a, V, A> ops::Mul<&'a Dual<V, A>> for Dual<V, A>
 where
     V: Buffer + std::ops::Mul<&'a V> + std::ops::Mul<&'a A>,
-    V::Owned: std::ops::Mul<&'a V>,
+    OwnedOf<V>: std::ops::Mul<&'a V>,
 
     A: Buffer + std::ops::Mul<&'a V>,
 
     MulOut<A, &'a V>: std::ops::Add<MulOut<V, &'a A>>,
 {
-    type Output = Dual<MulOut<V::Owned, &'a V>, AddOut<MulOut<A, &'a V>, MulOut<V, &'a A>>>;
+    type Output = Dual<MulOut<OwnedOf<V>, &'a V>, AddOut<MulOut<A, &'a V>, MulOut<V, &'a A>>>;
 
     fn mul(self, rhs: &'a Dual<V, A>) -> Self::Output {
         Dual {
