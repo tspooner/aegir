@@ -8,7 +8,10 @@
 
 > Strongly-typed, compile-time autodifferentiation in Rust.
 
-`aegir` is an experimental autodifferentiation framework designed to leverage the powerful type-system in Rust. The approach taken resembles that of expression templates, as commonly used in linear-algebra libraries written in C++
+`aegir` is an experimental autodifferentiation framework designed to leverage
+the powerful type-system in Rust and _avoid runtime as much as humanly
+possible_. The approach taken resembles that of expression templates, as
+commonly used in linear-algebra libraries written in C++
 
 ### Key Features
 - Built-in arithmetic, linear-algebraic, trigonometric and special operators.
