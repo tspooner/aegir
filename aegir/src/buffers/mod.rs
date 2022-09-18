@@ -1,4 +1,42 @@
 //! Module for tensor abstractions and their implementations.
+//!
+//! `aegir` is designed to be generic over the concrete [Buffer] types used by the operators. This
+//! has the advantage of flexibility, but also exposes performance advantages; fixed-length arrays,
+//! for example, can be optmised much more aggressively in the LLVM compared with arbitrary-length
+//! vectors. This does, however, add some complexity.
+//!
+//! # Type Hierarchy
+//! The type hierarchy exposed by [aegir::buffers] can broadly be split into three parts:
+//! [classes](Class), [buffers](Buffer) and [scalars](Scalar). Each [buffer](Buffer) is a
+//! homogeneous collection of numerical values with a given [shape](Buffer::Shape) and underlying
+//! [field](Buffer::Field). A [scalar](Scalar) type is a special case of a [buffer](Buffer) in
+//! which the [field](Buffer::Field) is equal to the implementing type itself. For example,
+//! [Scalar] is automatically derived for the [f64] primitive since it supports base numerical
+//! operations (addition, subtraction, etc...), but also implements [Buffer] with [Buffer::Field]
+//! assigned to [f64]. In other words, the [Scalar] trait defines a fixed point of the type
+//! hierarchy. Indeed, since the associated type [Buffer::Field] has a [Scalar] constraint, we get
+//! a nice uniqueness property and a unilateral support of [Buffer] at all levels. Now we
+//! understand the relationship between [Buffer] and [Scalar], it remains only to explain the
+//! purpose of [Class].
+//!
+//! #### Buffer Classes
+//! Types that implement the [Class] trait are generally used to form a semantic grouping over
+//! [buffers](Buffer). For example, [Arrays] groups together all fixed-length arrays under the same
+//! natural umbrella. A given implementation of [Class] then asserts a _unique mapping_ between a
+//! shape-field pair, and a concrete [Buffer] type (with compatible associated types) within the
+//! context of a particular grouping. In other words, there can be only one type associated with
+//! [Arrays] that has said shape and field, and this type can be reached via `Class<S, F>::Buffer`.
+//!
+//! There are two key reasons for this construction:
+//! 1. [Classes](Class) afford us the ability to construct new buffers with a particular shape and
+//!    field without knowing the concrete [Buffer] type. The yields much greater flexibility
+//!    and allows us to implement many of the core "source" types with much greater generality.
+//!    For more information, see e.g. [Class::build].
+//! 2. Because `Class<S, F>::Buffer` is unique, we can define precedence relations over
+//!    [classes](Class). For example, dynamically allocated arrays should take precedence over
+//!    fixed-length arrays to ensure the widest level of runtime compatibility. This allows us to
+//!    mix-and-match our data structures and, say, perform an inner product between `[f64; 2]` and
+//!    `(f64, f64)`.  For more information, see e.g. [Precedence] and [PrecedenceMapping].
 pub mod shapes;
 
 use shapes::{Concat, Ix, Shape};
@@ -10,10 +48,14 @@ use shapes::{Concat, Ix, Shape};
 /// mapping between a [Shape](Buffer::Shape) and [Field](Buffer::Field),
 /// and a (sized) [Buffer] type.
 ///
+/// __Note:__ as [Class::Buffer] must be sized, one can _always_ leverage the [OwnedOf]
+/// type alias to recover a concrete, owned type from a given buffer. This is particularly
+/// useful to establish the return type of methods such as [Buffer::map].
+///
 /// # Examples
 /// The Class trait is particularly useful for constructing instances of
 /// buffer types. In the example below, we consider the [Arrays] class
-/// which subsumes all compile-time homoegeneous data buffers. Note that we
+/// which subsumes all compile-time homogeneous data buffers. Note that we
 /// never explicitly pass numeric values to [S1](shapes::S1) or
 /// [S2](shapes::S2), and instead leave it to the compiler to infer.
 /// ```
@@ -177,8 +219,8 @@ pub trait Class<S: Shape, F: Scalar> {
     fn identity(shape: S) -> Self::Buffer { Self::diagonal(shape, num_traits::one()) }
 }
 
-/// Trait for types defining a data buffer over a fixed [Field](Buffer::Field)
-/// and [Shape](Buffer::Shape).
+/// Trait for types defining a data buffer over a fixed [field](Buffer::Field)
+/// and [shape](Buffer::Shape).
 pub trait Buffer: std::fmt::Debug {
     /// [Class] associated with the buffer.
     type Class: Class<Self::Shape, Self::Field>;
@@ -325,7 +367,7 @@ pub trait Buffer: std::fmt::Debug {
 /// Utility class for implementations of [PrecedenceMapping].
 pub struct Precedence;
 
-/// Trait that maps
+/// Trait used for defining precedence relations between [classes](Class).
 pub trait PrecedenceMapping<F, S1, C1, S2, C2>
 where
     F: Scalar,

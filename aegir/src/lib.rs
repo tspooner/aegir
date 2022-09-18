@@ -23,11 +23,6 @@
 //! - Custom DSL for operator expansion.
 //! - Decoupled/generic tensor type.
 // //! - Plug-and-play backends.
-//! # Formal Specification
-//! The traits exposed by `aegir` form a relatively complex set of relationships
-//! between objects. In this section, we shall briefly discuss the
-//! category-theoretic interpretation of these traits, and explore a concrete,
-//! simplified instance.
 #[allow(unused_imports)]
 #[macro_use]
 extern crate aegir_derive;
