@@ -22,11 +22,9 @@ coveralls = { repository = "tspooner/aegir", branch = "master", service = "githu
 [features]
 default = []
 
-ndarray = ["ndarray_crate"]
-
 [dependencies]
-aegir_derive = { path = "../aegir_derive" }
-aegir_compile = { path = "../aegir_compile" }
+aegir_derive = { path = "../aegir_derive", version = "0.2" }
+aegir_compile = { path = "../aegir_compile", version = "0.2" }
 
 num-traits = "0.2"
 special-fun = "0.2"
@@ -36,11 +34,6 @@ array-init = "2.0"
 concat-arrays = "0.1"
 
 paste = "1.0"
-
-[dependencies.ndarray_crate]
-package = "ndarray"
-optional = true
-version = "0.15"
 
 [dev_dependencies]
 rand = "0.8"

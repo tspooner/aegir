@@ -587,7 +587,7 @@ pub use vecs::*;
 mod arrays;
 pub use arrays::*;
 
-#[cfg(feature = "ndarray")]
-mod ndarray;
-#[cfg(feature = "ndarray")]
-pub use self::ndarray::*;
+// #[cfg(feature = "ndarray")]
+// mod ndarray;
+// #[cfg(feature = "ndarray")]
+// pub use self::ndarray::*;
