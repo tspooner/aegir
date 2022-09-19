@@ -2,7 +2,7 @@
 name = "aegir"
 description = "Strongly-typed, reverse-mode autodiff library in Rust"
 
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Tom Spooner <spooner10000@gmail.com>"]
 
 license = "MIT"
