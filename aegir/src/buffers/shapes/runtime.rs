@@ -1,6 +1,7 @@
 use super::*;
 use std::ops::{Index, IndexMut};
 
+/// Variable `DIM`-dimensional shape.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SDynamic<const DIM: usize>(pub [usize; DIM]);
 
@@ -56,21 +57,21 @@ macro_rules! impl_add_dim {
 
 impl_add_dim!([0, 1, 2, 3, 4, 5, 6] + [0, 1, 2, 3, 4, 5, 6]);
 
-macro_rules! impl_drop_dim {
-    ($n:literal) => {
-        impl DropDim for SDynamic<$n> {
-            type Lower = SDynamic<{$n - 1}>;
+// macro_rules! impl_drop_dim {
+// ($n:literal) => {
+// impl DropDim for SDynamic<$n> {
+// type Lower = SDynamic<{$n - 1}>;
 
-            fn drop_dim(self, dim: usize) -> SDynamic<{$n - 1}> {
-                if dim >= Self::DIM { panic!("Lame..."); }
+// fn drop_dim(self, dim: usize) -> SDynamic<{$n - 1}> {
+// if dim >= Self::DIM { panic!("Lame..."); }
 
-                SDynamic(array_init::array_init(|i| if i >= dim { self.0[i + 1] } else { self.0[i] }))
-            }
-        }
-    };
-    ($($n:literal),*) => {
-        $(impl_drop_dim!($n);)*
-    };
-}
+// SDynamic(array_init::array_init(|i| if i >= dim { self.0[i + 1] } else {
+// self.0[i] })) }
+// }
+// };
+// ($($n:literal),*) => {
+// $(impl_drop_dim!($n);)*
+// };
+// }
 
-impl_drop_dim!(1, 2, 3, 4, 5, 6);
+// impl_drop_dim!(1, 2, 3, 4, 5, 6);

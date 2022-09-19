@@ -437,7 +437,7 @@ mod dual;
 pub use self::dual::Dual;
 
 mod sources;
-pub use self::sources::{Constant, Variable, VariableAdjoint, VariableError, ZeroedAdjoint};
+pub use self::sources::{Constant, Variable, VariableAdjoint, VariableError, ConstantAdjoint};
 
 pub mod buffers;
 pub mod ops;

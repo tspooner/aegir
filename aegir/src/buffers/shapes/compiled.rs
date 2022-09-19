@@ -1,6 +1,7 @@
 use super::*;
 
-#[derive(Copy, Clone, Debug)]
+/// Fixed 0-dimensional (scalar) shape.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct S0;
 
 impl Shape for S0 {
@@ -19,7 +20,8 @@ impl std::fmt::Display for S0 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, "S0") }
 }
 
-#[derive(Copy, Clone, Debug)]
+/// Fixed 1-dimensional (vector) shape.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct S1<const A: usize>;
 
 impl<const A: usize> Shape for S1<A> {
@@ -49,9 +51,6 @@ macro_rules! impl_fixed {
         res
     }};
     ($dim:literal; $name:ident<$($tp:ident),*>; $trans:expr) => {
-        #[derive(Copy, Clone, Debug)]
-        pub struct $name<$(const $tp: usize),+>;
-
         impl<$(const $tp: usize),+> Shape for $name<$($tp),+> {
             const DIM: usize = $dim;
 
@@ -74,10 +73,41 @@ macro_rules! impl_fixed {
     };
 }
 
+/// Fixed 2-dimensional (matrix) shape.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct S2<const A: usize, const B: usize>;
+
 impl_fixed!(2; S2<A, B>; |ix| [ix.0, ix.1]);
+
+/// Fixed 3-dimensional shape.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct S3<const A: usize, const B: usize, const C: usize>;
+
 impl_fixed!(3; S3<A, B, C>; |ix| [ix.0, ix.1, ix.2]);
+
+/// Fixed 4-dimensional shape.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct S4<const A: usize, const B: usize, const C: usize, const D: usize>;
+
 impl_fixed!(4; S4<A, B, C, D>; |ix| [ix.0, ix.1, ix.2, ix.3]);
+
+/// Fixed 5-dimensional shape.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct S5<const A: usize, const B: usize, const C: usize, const D: usize, const E: usize>;
+
 impl_fixed!(5; S5<A, B, C, D, E>; |ix| [ix.0, ix.1, ix.2, ix.3, ix.4]);
+
+/// Fixed 6-dimensional shape.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct S6<
+    const A: usize,
+    const B: usize,
+    const C: usize,
+    const D: usize,
+    const E: usize,
+    const F: usize,
+>;
+
 impl_fixed!(6; S6<A, B, C, D, E, F>; |ix| [ix.0, ix.1, ix.2, ix.3, ix.4, ix.5]);
 
 impl<const A: usize, const B: usize> Split for S2<A, B> {

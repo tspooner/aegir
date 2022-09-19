@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{Buffer, FieldOf, IncompatibleBuffers, ShapeOf},
+    buffers::{Buffer, FieldOf, IncompatibleShapes, ShapeOf},
     ops::Add,
     BinaryError,
     Contains,
@@ -19,7 +19,7 @@ where
     fn tensor_mul(
         &self,
         rhs: &T,
-    ) -> Result<Self::Output, IncompatibleBuffers<Self::Shape, T::Shape>>;
+    ) -> Result<Self::Output, IncompatibleShapes<Self::Shape, T::Shape>>;
 }
 
 mod impls;
@@ -78,7 +78,7 @@ where
     type Error = BinaryError<
         N1::Error,
         N2::Error,
-        IncompatibleBuffers<ShapeOf<N1::Value>, ShapeOf<N2::Value>>,
+        IncompatibleShapes<ShapeOf<N1::Value>, ShapeOf<N2::Value>>,
     >;
     type Value = <N1::Value as TensorMulTrait<N2::Value>>::Output;
 

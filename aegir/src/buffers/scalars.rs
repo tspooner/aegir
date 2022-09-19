@@ -1,6 +1,7 @@
-use super::{shapes::S0, Buffer, Class, Coalesce, Hadamard, IncompatibleBuffers};
+use super::{shapes::S0, Buffer, Class, Hadamard, IncompatibleShapes, ZipFold};
 use num_traits::Num;
 
+/// Scalar buffer class.
 pub struct Scalars;
 
 impl<F: Scalar> Class<S0, F> for Scalars {
@@ -26,11 +27,7 @@ impl<F: Scalar> Class<S0, F> for Scalars {
 
 /// Trait for numeric types implementing basic scalar operations.
 pub trait Scalar:
-    Copy
-    + Num
-    + Buffer<Class = Scalars, Shape = S0, Field = Self>
-    + Hadamard<Self, Output = Self>
-    + Coalesce<Self>
+    Copy + Num + Buffer<Class = Scalars, Shape = S0, Field = Self> + Hadamard<Self> + ZipFold<Self>
 {
 }
 
@@ -42,6 +39,8 @@ macro_rules! impl_scalar {
             type Shape = S0;
 
             fn shape(&self) -> Self::Shape { S0 }
+
+            fn get(&self, _: ()) -> Option<$F> { Some(*self) }
 
             fn map<F: Fn($F) -> Self::Field>(self, f: F) -> $F { f(self) }
 
@@ -61,6 +60,8 @@ macro_rules! impl_scalar {
 
             fn shape(&self) -> Self::Shape { S0 }
 
+            fn get(&self, _: ()) -> Option<$F> { Some(**self) }
+
             fn map<F: Fn($F) -> Self::Field>(self, f: F) -> $F { f(*self) }
 
             fn map_ref<F: Fn($F) -> Self::Field>(&self, f: F) -> $F { f(**self) }
@@ -72,13 +73,13 @@ macro_rules! impl_scalar {
             fn into_owned(self) -> $F { *self }
         }
 
-        impl Coalesce for $F {
-            fn coalesce(
+        impl ZipFold for $F {
+            fn zip_fold(
                 &self,
                 rhs: &$F,
                 init: $F,
                 f: impl Fn($F, ($F, $F)) -> $F,
-            ) -> Result<$F, IncompatibleBuffers<S0>> {
+            ) -> Result<$F, IncompatibleShapes<S0>> {
                 let out = f(init, (*self, *rhs));
 
                 Ok(out)
@@ -92,7 +93,7 @@ macro_rules! impl_scalar {
                 &self,
                 rhs: &$F,
                 f: impl Fn($F, $F) -> $F,
-            ) -> Result<$F, IncompatibleBuffers<S0>> {
+            ) -> Result<$F, IncompatibleShapes<S0>> {
                 Ok(f(*self, *rhs))
             }
         }

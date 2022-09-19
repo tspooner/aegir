@@ -1,5 +1,6 @@
-use super::{shapes::S1, Buffer, Class, Coalesce, Hadamard, IncompatibleBuffers, OwnedOf, Scalar};
+use super::{shapes::S1, Buffer, Class, Hadamard, IncompatibleShapes, OwnedOf, Scalar, ZipFold};
 
+/// Tuple buffer class.
 pub struct Tuples;
 
 impl<F: Scalar> Class<S1<2>, F> for Tuples {
@@ -36,6 +37,14 @@ impl<F: Scalar> Buffer for (F, F) {
 
     fn shape(&self) -> Self::Shape { S1 }
 
+    fn get(&self, ix: usize) -> Option<F> {
+        match ix {
+            0 => Some(self.0),
+            1 => Some(self.1),
+            _ => None,
+        }
+    }
+
     fn to_owned(&self) -> Self { *self }
 
     fn into_owned(self) -> Self { self }
@@ -47,13 +56,13 @@ impl<F: Scalar> Buffer for (F, F) {
     fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> F { f(f(init, &self.0), &self.1) }
 }
 
-impl<F: Scalar> Coalesce for (F, F) {
-    fn coalesce(
+impl<F: Scalar> ZipFold for (F, F) {
+    fn zip_fold(
         &self,
         rhs: &(F, F),
         init: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<S1<2>>> {
+    ) -> Result<F, IncompatibleShapes<S1<2>>> {
         let x = f(init, (self.0, rhs.0));
         let y = f(x, (self.1, rhs.1));
 
@@ -68,7 +77,7 @@ impl<F: Scalar> Hadamard for (F, F) {
         &self,
         rhs: &(F, F),
         f: impl Fn(F, F) -> F,
-    ) -> Result<(F, F), IncompatibleBuffers<S1<2>>> {
+    ) -> Result<(F, F), IncompatibleShapes<S1<2>>> {
         Ok((f(self.0, rhs.0), f(self.1, rhs.1)))
     }
 }
@@ -79,6 +88,14 @@ impl<F: Scalar> Buffer for &(F, F) {
     type Shape = S1<2>;
 
     fn shape(&self) -> Self::Shape { S1 }
+
+    fn get(&self, ix: usize) -> Option<F> {
+        match ix {
+            0 => Some(self.0),
+            1 => Some(self.1),
+            _ => None,
+        }
+    }
 
     fn map<Func: Fn(F) -> Self::Field>(self, f: Func) -> OwnedOf<Self> { (f(self.0), f(self.1)) }
 

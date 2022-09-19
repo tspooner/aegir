@@ -1,9 +1,13 @@
+//! Module for compile-time and runtime tensor shapes.
 use concat_arrays::concat_arrays;
 use std::fmt::{Debug, Display};
 
 /// Trait for index types that can be used to access buffer elements.
 pub trait Ix: Eq + Clone + Debug {
     /// Returns true if the index is a diagonal element.
+    ///
+    /// A diagonal element is defined here as an index where all components are
+    /// equal.
     ///
     /// ```
     /// # #[macro_use] extern crate aegir;
@@ -35,51 +39,102 @@ impl<const DIM: usize> Ix for [usize; DIM] {
 
 /// Trait for types that represent the shape of a buffer.
 pub trait Shape: Copy + Debug + Display {
+    /// The dimensionality of the shape.
     const DIM: usize;
 
+    /// Corresponding index type.
     type Index: Ix;
 
+    /// Returns true if the shape corresponds to a scalar (DIM = 0).
     fn is_scalar(&self) -> bool { Self::DIM == 0 }
 
+    /// Returns true if the shape corresponds to a vector (DIM = 1).
     fn is_vector(&self) -> bool { Self::DIM == 1 }
 
+    /// Returns true if the shape corresponds to a matrix (DIM = 2).
     fn is_matrix(&self) -> bool { Self::DIM == 2 }
 }
 
+/// Type alies for index type associated with a shape.
 pub type IndexOf<S> = <S as Shape>::Index;
 
+/// Trait for iterating over all indices of a shape.
 pub trait Indices: Shape {
     type Iter: Iterator<Item = Self::Index>;
 
+    /// Return an iterator over the indices of the shape.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::shapes::{Indices, S1};
+    /// let shape: S1<5> = S1;
+    /// let indices: Vec<usize> = shape.indices().collect();
+    ///
+    /// assert_eq!(indices, vec![0, 1, 2, 3, 4]);
+    /// ```
     fn indices(&self) -> Self::Iter;
 }
 
+/// Trait for splitting a shape into two symmetric parts.
+///
+/// __Note__: this is dualistic to [Concat] which performs the reverse
+/// operation.
 pub trait Split: Shape + Sized {
-    type Left: Concat<Self::Right>;
+    /// The left side of the split.
+    type Left: Concat<Self::Right, Shape = Self>;
+
+    /// The right side of the split.
     type Right: Shape;
 
+    /// Split the shape into two parts (left and right).
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::shapes::{Split, S1, S2};
+    /// let shape: S2<2, 5> = S2;
+    ///
+    /// let left: S1<2> = S1;
+    /// let right: S1<5> = S1;
+    ///
+    /// assert_eq!(shape.split(), (left, right));
+    /// ```
     fn split(self) -> (Self::Left, Self::Right);
 
+    /// Split an index for the shape into two parts (left and right).
     fn split_index(index: Self::Index) -> (IndexOf<Self::Left>, IndexOf<Self::Right>);
 }
 
+/// Trait for concatenating two shapes into one.
+///
+/// __Note__: this is dualistic to [Split], which performs the reverse
+/// operation.
 pub trait Concat<RHS: Shape = Self>: Shape {
     type Shape: Shape;
 
+    /// Concatenate two shapes into one.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::shapes::{Concat, S1, S2};
+    /// let left: S1<2> = S1;
+    /// let right: S1<5> = S1;
+    ///
+    /// let shape: S2<2, 5> = S2;
+    ///
+    /// assert_eq!(left.concat(right), shape);
+    /// ```
     fn concat(self, rhs: RHS) -> Self::Shape;
 
+    /// Concatenate two indices for the shape one.
     fn concat_indices(left: Self::Index, rhs: RHS::Index) -> IndexOf<Self::Shape>;
 }
 
-pub trait DropDim: Shape + Sized {
-    type Lower: Shape;
+// /// Trait for dropping a chosen dimension of the shape.
+// pub trait DropDim: Shape + Sized {
+// type Lower: Shape;
 
-    fn drop_dim(self, dim: usize) -> Self::Lower;
-
-    fn drop_head(self) -> Self::Lower { self.drop_dim(0) }
-
-    fn drop_tail(self) -> Self::Lower { self.drop_dim(Self::DIM - 1) }
-}
+// fn drop_dim(self, dim: usize) -> Self::Lower;
+// }
 
 ///// -----------------------------------------------------------------
 ///// -----------------------------------------------------------------

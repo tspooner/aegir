@@ -19,8 +19,10 @@ use crate::{
     Read,
 };
 
+/// Error type for variable/source nodes.
 #[derive(Copy, Clone, Debug)]
 pub enum VariableError<ID> {
+    /// Error case when the `ID` variable is undefined.
     Undefined(ID),
 }
 
@@ -36,6 +38,27 @@ impl<ID: std::fmt::Debug> std::fmt::Display for VariableError<ID> {
 
 impl<ID: std::fmt::Debug> std::error::Error for VariableError<ID> {}
 
+/// Source node for numerical constants.
+///
+/// This node implements both [Function] and [Differentiable]. The former
+/// simply returns the wrapped value, and the latter returns an instance of
+/// [ConstantAdjoint] that handles (empty) buffer shaping.
+///
+/// # Examples
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # use aegir::{Constant, Function, Differentiable, ids::X};
+/// db!(DB { x: X });
+///
+/// let cns = Constant([10.0, 10.0]);
+/// let jac = cns.adjoint(X);
+///
+/// assert_eq!(cns.evaluate(DB { x: [1.0, 2.0] }).unwrap(), [10.0, 10.0]);
+/// assert_eq!(jac.evaluate(DB { x: [1.0, 2.0] }).unwrap(), [
+///     [0.0, 0.0],
+///     [0.0, 0.0]
+/// ]);
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Constant<B>(pub B);
 
@@ -68,15 +91,107 @@ where
 
     FieldOf<B>: num_traits::Zero,
 {
-    type Adjoint = Constant<OwnedOf<B>>;
+    type Adjoint = ConstantAdjoint<Constant<OwnedOf<B>>, T>;
 
-    fn adjoint(&self, _: T) -> Self::Adjoint { Constant(self.0.to_zeroes()) }
+    fn adjoint(&self, ident: T) -> Self::Adjoint {
+        ConstantAdjoint {
+            node: Constant(self.0.to_owned()),
+            target: ident,
+        }
+    }
 }
 
 impl<B: std::fmt::Display> std::fmt::Display for Constant<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { self.0.fmt(f) }
 }
 
+/// Source node for the adjoint of [constants](Constant).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ConstantAdjoint<N, T> {
+    /// The original source [Node].
+    pub node: N,
+
+    /// The [Identifier] associated with the adjoint target.
+    pub target: T,
+}
+
+impl<N: Node, T> Node for ConstantAdjoint<N, T> {}
+
+impl<N, T, A> Contains<A> for ConstantAdjoint<N, T>
+where
+    N: Contains<A>,
+    T: Identifier + PartialEq<A>,
+    A: Identifier,
+{
+    fn contains(&self, ident: A) -> bool { self.node.contains(ident) || self.target == ident }
+}
+
+impl<N, T, D, F, SN, CN, ST, CT, SA> Function<D> for ConstantAdjoint<N, T>
+where
+    F: Scalar,
+
+    SN: Concat<ST, Shape = SA>,
+    ST: Shape,
+    SA: Shape,
+
+    CN: Class<SN, F>,
+    CT: Class<ST, F>,
+    Precedence: PrecedenceMapping<F, SN, CN, ST, CT>,
+
+    N: Function<D>,
+    N::Value: Buffer<Field = F, Shape = SN, Class = CN>,
+
+    T: Identifier,
+
+    D: Read<T>,
+    D::Buffer: Buffer<Field = F, Shape = ST, Class = CT>,
+{
+    type Error = crate::BinaryError<N::Error, VariableError<T>, crate::NoError>;
+    type Value = <PrecedenceOf<F, SN, CN, ST, CT> as Class<SA, F>>::Buffer;
+
+    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        let shape_value = self
+            .node
+            .evaluate_shape(db.as_ref())
+            .map_err(crate::BinaryError::Left)?;
+        let shape_target = db.as_ref().read(self.target).map(|buf| buf.shape()).ok_or(
+            crate::BinaryError::Right(VariableError::Undefined(self.target)),
+        )?;
+        let shape_adjoint = shape_value.concat(shape_target);
+
+        Ok(<PrecedenceOf<F, SN, CN, ST, CT> as Class<SA, F>>::full(
+            shape_adjoint,
+            num_traits::zero(),
+        ))
+    }
+}
+
+impl<N, T> std::fmt::Display for ConstantAdjoint<N, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, "0") }
+}
+
+/// Source node for numerical variables.
+///
+/// This node implements both [Function] and [Differentiable]. The former reads from the provided
+/// [Database] and returns the buffer assigned to `I`, and the latter returns an an instance of
+/// [VariableAdjoint]. You should use this type as the entry point for all "symbolic" entities in
+/// the constructed operator tree.
+///
+/// # Examples
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # use aegir::{Variable, Function, Differentiable, ids::X};
+/// db!(DB { x: X });
+///
+/// let var = Variable(X);
+/// let jac = var.adjoint(X);
+///
+/// assert_eq!(var.evaluate(DB { x: [1.0, 2.0] }).unwrap(), [1.0, 2.0]);
+/// assert_eq!(jac.evaluate(DB { x: [1.0, 2.0] }).unwrap(), [
+///     [1.0, 0.0],
+///     [0.0, 1.0]
+/// ]);
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Variable<I>(pub I);
 
@@ -106,53 +221,6 @@ where
     }
 }
 
-// impl<S1, S2, S3, F, C, I, T, BI, BT, D> Differentiable<D, T> for Variable<I>
-// where
-// S1: shapes::Concat<S2, Shape = S3>,
-// S2: shapes::Shape,
-// S3: shapes::Split<Right = <S3 as shapes::Split>::Left>,
-
-// S3::Left: shapes::Indices + shapes::Concat<S3::Left, Shape = S3>,
-
-// F: Scalar,
-// C: Class<S1, F> + Class<S2, F> + Class<S3, F>,
-// T: Identifier,
-// I: Identifier + std::cmp::PartialEq<T>,
-
-// BI: Buffer<Class = C, Shape = S1, Field = F>,
-// BT: Buffer<Class = C, Shape = S2, Field = F>,
-
-// D: Read<T, Buffer = BT> + Read<I, Buffer = BI>,
-// {
-// type Adjoint = <C as Class<S3, F>>::Buffer;
-
-// fn grad(&self, db: &D, ident: T) -> Result<Self::Adjoint, Self::Error> {
-// let shape_inner = db.get_shape(self.0).ok_or(VariableError(self.0))?;
-// let shape_ident = db.get_shape(ident).unwrap();
-// let shape_output = shape_inner.concat(shape_target);
-
-// if self.contains(target) {
-// db.get(self.0)
-// .map(|_| {
-// let ixs = shape_output.split().0.indices().map(|ix|
-// <S3::Left as shapes::Concat>::concat_indices(ix.clone(), ix)
-// );
-
-// <C as Class<S3, F>>::full_indices(
-// shape_output, num_traits::zero(), ixs, num_traits::one()
-// )
-// })
-// .ok_or_else(|| VariableError(self.0))
-// } else {
-// db.get(self.0)
-// .map(|_| {
-// <C as Class<S3, F>>::full(shape_output, num_traits::zero())
-// })
-// .ok_or_else(|| VariableError(self.0))
-// }
-// }
-// }
-
 impl<I, T> Differentiable<T> for Variable<I>
 where
     I: Identifier,
@@ -178,9 +246,13 @@ impl<I> From<I> for Variable<I> {
     fn from(selector: I) -> Variable<I> { Variable(selector) }
 }
 
+/// Source node for the adjoint of [variables](Variable).
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct VariableAdjoint<I, T> {
+    /// The [Identifier] associated with the original [Variable].
     pub value: I,
+
+    /// The [Identifier] associated with the adjoint target.
     pub target: T,
 }
 
@@ -256,10 +328,10 @@ where
 
     Self: Clone,
 {
-    type Adjoint = ZeroedAdjoint<Self, A>;
+    type Adjoint = ConstantAdjoint<Self, A>;
 
     fn adjoint(&self, ident: A) -> Self::Adjoint {
-        ZeroedAdjoint {
+        ConstantAdjoint {
             node: self.clone(),
             target: ident,
         }
@@ -278,67 +350,6 @@ where
             write!(f, "0")
         }
     }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct ZeroedAdjoint<N, T> {
-    pub node: N,
-    pub target: T,
-}
-
-impl<N: Node, T> Node for ZeroedAdjoint<N, T> {}
-
-impl<N, T, A> Contains<A> for ZeroedAdjoint<N, T>
-where
-    N: Contains<A>,
-    T: Identifier + PartialEq<A>,
-    A: Identifier,
-{
-    fn contains(&self, ident: A) -> bool { self.node.contains(ident) || self.target == ident }
-}
-
-impl<N, T, D, F, SN, CN, ST, CT, SA> Function<D> for ZeroedAdjoint<N, T>
-where
-    F: Scalar,
-
-    SN: Concat<ST, Shape = SA>,
-    ST: Shape,
-    SA: Shape,
-
-    CN: Class<SN, F>,
-    CT: Class<ST, F>,
-    Precedence: PrecedenceMapping<F, SN, CN, ST, CT>,
-
-    N: Function<D>,
-    N::Value: Buffer<Field = F, Shape = SN, Class = CN>,
-
-    T: Identifier,
-
-    D: Read<T>,
-    D::Buffer: Buffer<Field = F, Shape = ST, Class = CT>,
-{
-    type Error = crate::BinaryError<N::Error, VariableError<T>, crate::NoError>;
-    type Value = <PrecedenceOf<F, SN, CN, ST, CT> as Class<SA, F>>::Buffer;
-
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let shape_value = self
-            .node
-            .evaluate_shape(db.as_ref())
-            .map_err(crate::BinaryError::Left)?;
-        let shape_target = db.as_ref().read(self.target).map(|buf| buf.shape()).ok_or(
-            crate::BinaryError::Right(VariableError::Undefined(self.target)),
-        )?;
-        let shape_adjoint = shape_value.concat(shape_target);
-
-        Ok(<PrecedenceOf<F, SN, CN, ST, CT> as Class<SA, F>>::full(
-            shape_adjoint,
-            num_traits::zero(),
-        ))
-    }
-}
-
-impl<N, T> std::fmt::Display for ZeroedAdjoint<N, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, "0") }
 }
 
 #[cfg(test)]

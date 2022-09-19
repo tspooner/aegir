@@ -1,42 +1,49 @@
 //! Module for tensor abstractions and their implementations.
 //!
-//! `aegir` is designed to be generic over the concrete [Buffer] types used by the operators. This
-//! has the advantage of flexibility, but also exposes performance advantages; fixed-length arrays,
-//! for example, can be optmised much more aggressively in the LLVM compared with arbitrary-length
+//! `aegir` is designed to be generic over the concrete [Buffer] types used by
+//! the operators. This has the advantage of flexibility, but also exposes
+//! performance advantages; fixed-length arrays, for example, can be optmised
+//! much more aggressively in the LLVM compared with arbitrary-length
 //! vectors. This does, however, add some complexity.
 //!
 //! # Type Hierarchy
-//! The type hierarchy exposed by [aegir::buffers] can broadly be split into three parts:
-//! [classes](Class), [buffers](Buffer) and [scalars](Scalar). Each [buffer](Buffer) is a
-//! homogeneous collection of numerical values with a given [shape](Buffer::Shape) and underlying
-//! [field](Buffer::Field). A [scalar](Scalar) type is a special case of a [buffer](Buffer) in
-//! which the [field](Buffer::Field) is equal to the implementing type itself. For example,
-//! [Scalar] is automatically derived for the [f64] primitive since it supports base numerical
-//! operations (addition, subtraction, etc...), but also implements [Buffer] with [Buffer::Field]
-//! assigned to [f64]. In other words, the [Scalar] trait defines a fixed point of the type
-//! hierarchy. Indeed, since the associated type [Buffer::Field] has a [Scalar] constraint, we get
-//! a nice uniqueness property and a unilateral support of [Buffer] at all levels. Now we
-//! understand the relationship between [Buffer] and [Scalar], it remains only to explain the
-//! purpose of [Class].
+//! The type hierarchy exposed by [aegir::buffers] can broadly be split into
+//! three parts: [classes](Class), [buffers](Buffer) and [scalars](Scalar). Each
+//! [buffer](Buffer) is a homogeneous collection of numerical values with a
+//! given [shape](Buffer::Shape) and underlying [field](Buffer::Field). A
+//! [scalar](Scalar) type is a special case of a [buffer](Buffer) in
+//! which the [field](Buffer::Field) is equal to the implementing type itself.
+//! For example, [Scalar] is automatically derived for the [f64] primitive since
+//! it supports base numerical operations (addition, subtraction, etc...), but
+//! also implements [Buffer] with [Buffer::Field] assigned to [f64]. In other
+//! words, the [Scalar] trait defines a fixed point of the type hierarchy.
+//! Indeed, since the associated type [Buffer::Field] has a [Scalar] constraint,
+//! we get a nice uniqueness property and a unilateral support of [Buffer] at
+//! all levels. Now we understand the relationship between [Buffer] and
+//! [Scalar], it remains only to explain the purpose of [Class].
 //!
 //! #### Buffer Classes
-//! Types that implement the [Class] trait are generally used to form a semantic grouping over
-//! [buffers](Buffer). For example, [Arrays] groups together all fixed-length arrays under the same
-//! natural umbrella. A given implementation of [Class] then asserts a _unique mapping_ between a
-//! shape-field pair, and a concrete [Buffer] type (with compatible associated types) within the
-//! context of a particular grouping. In other words, there can be only one type associated with
-//! [Arrays] that has said shape and field, and this type can be reached via `Class<S, F>::Buffer`.
+//! Types that implement the [Class] trait are generally used to form a semantic
+//! grouping over [buffers](Buffer). For example, [Arrays] groups together all
+//! fixed-length arrays under the same natural umbrella. A given implementation
+//! of [Class] then asserts a _unique mapping_ between a shape-field pair, and a
+//! concrete [Buffer] type (with compatible associated types) within the context
+//! of a particular grouping. In other words, there can be only one type
+//! associated with [Arrays] that has said shape and field, and this type can be
+//! reached via `Class<S, F>::Buffer`.
 //!
 //! There are two key reasons for this construction:
-//! 1. [Classes](Class) afford us the ability to construct new buffers with a particular shape and
-//!    field without knowing the concrete [Buffer] type. The yields much greater flexibility
-//!    and allows us to implement many of the core "source" types with much greater generality.
-//!    For more information, see e.g. [Class::build].
-//! 2. Because `Class<S, F>::Buffer` is unique, we can define precedence relations over
-//!    [classes](Class). For example, dynamically allocated arrays should take precedence over
-//!    fixed-length arrays to ensure the widest level of runtime compatibility. This allows us to
-//!    mix-and-match our data structures and, say, perform an inner product between `[f64; 2]` and
-//!    `(f64, f64)`.  For more information, see e.g. [Precedence] and [PrecedenceMapping].
+//! 1. [Classes](Class) afford us the ability to construct new buffers with a
+//! particular shape and    field without knowing the concrete [Buffer] type.
+//! The yields much greater flexibility    and allows us to implement many of
+//! the core "source" types with much greater generality.    For more
+//! information, see e.g. [Class::build]. 2. Because `Class<S, F>::Buffer` is
+//! unique, we can define precedence relations over    [classes](Class). For
+//! example, dynamically allocated arrays should take precedence over
+//!    fixed-length arrays to ensure the widest level of runtime compatibility.
+//! This allows us to    mix-and-match our data structures and, say, perform an
+//! inner product between `[f64; 2]` and    `(f64, f64)`.  For more information,
+//! see e.g. [Precedence] and [PrecedenceMapping].
 pub mod shapes;
 
 use shapes::{Concat, Ix, Shape};
@@ -48,9 +55,10 @@ use shapes::{Concat, Ix, Shape};
 /// mapping between a [Shape](Buffer::Shape) and [Field](Buffer::Field),
 /// and a (sized) [Buffer] type.
 ///
-/// __Note:__ as [Class::Buffer] must be sized, one can _always_ leverage the [OwnedOf]
-/// type alias to recover a concrete, owned type from a given buffer. This is particularly
-/// useful to establish the return type of methods such as [Buffer::map].
+/// __Note:__ as [Class::Buffer] must be sized, one can _always_ leverage the
+/// [OwnedOf] type alias to recover a concrete, owned type from a given buffer.
+/// This is particularly useful to establish the return type of methods such as
+/// [Buffer::map].
 ///
 /// # Examples
 /// The Class trait is particularly useful for constructing instances of
@@ -73,6 +81,10 @@ use shapes::{Concat, Ix, Shape};
 /// assert_eq!(Arrays::full(S2, 1.0f64), [1.0, 1.0, 1.0]);
 /// ```
 pub trait Class<S: Shape, F: Scalar> {
+    // TODO - look into moving type arguments to AT when GATs drop. This would
+    // yield a single Class implementation per concrete type. Indeed, this would
+    // open up the possibility of Collection traits which would make some of this
+    // redundant.
     /// The associated buffer types.
     type Buffer: Buffer<Class = Self, Shape = S, Field = F> + Sized;
 
@@ -247,6 +259,23 @@ pub trait Buffer: std::fmt::Debug {
     /// ```
     fn shape(&self) -> Self::Shape;
 
+    /// Return the value of the buffer at index `ix`.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::{Buffer, shapes::S2};
+    /// let buffer = [
+    ///     [1.0, 0.0],
+    ///     [0.0, 1.0]
+    /// ];
+    ///
+    /// assert_eq!(buffer.get([0, 0]), Some(1.0));
+    /// assert_eq!(buffer.get([0, 1]), Some(0.0));
+    /// assert_eq!(buffer.get([1, 0]), Some(0.0));
+    /// assert_eq!(buffer.get([1, 1]), Some(1.0));
+    /// ```
+    fn get(&self, ix: shapes::IndexOf<Self::Shape>) -> Option<Self::Field>;
+
     /// Perform an element-wise transformation of the buffer (in-place).
     ///
     /// # Examples
@@ -367,24 +396,44 @@ pub trait Buffer: std::fmt::Debug {
 /// Utility class for implementations of [PrecedenceMapping].
 pub struct Precedence;
 
-/// Trait used for defining precedence relations between [classes](Class).
-pub trait PrecedenceMapping<F, S1, C1, S2, C2>
+/// Trait used for defining precedence relations between [class](Class) pairs.
+///
+/// A precedence mapping is defined as a function from the set of
+/// class-class-shape triples to the set of types implementing `Class<S, F>`. In
+/// other words, take two class types, `C1` and `C2`, with the same field `F`
+/// and shapes `S1` and `S2`, respectively. Then, given a desired shape `S`, the
+/// associated type [PrecedenceMapping::Class] is given by `C1` or `C2` iff it
+/// implements [Class] for `F` and `S`.
+///
+/// __Note__: by default, [PrecedenceMapping] will assume that you intend to
+/// "outer join" the two data buffers and thus concatenate their shapes
+/// according to [shapes::Concat].
+///
+/// __Quirk__: this type does not technically enforce that the mapping forms a
+/// strict precedence relation since the user is free to choose
+/// [PrecedenceMapping::Class] however they like. Instead we'll just hope that
+/// you'll be well-behaved ;)
+pub trait PrecedenceMapping<F, S1, C1, S2, C2, S = <S1 as Concat<S2>>::Shape>
 where
     F: Scalar,
+
     S1: Concat<S2>,
     C1: Class<S1, F>,
     S2: Shape,
     C2: Class<S2, F>,
+
+    S: Shape,
 {
-    type Class: Class<<S1 as Concat<S2>>::Shape, F>;
+    /// Class with precedence over `C1` and `C2` and shape `S`.
+    type Class: Class<S, F>;
 }
 
-pub type PrecedenceOf<F, S1, C1, S2, C2> =
-    <Precedence as PrecedenceMapping<F, S1, C1, S2, C2>>::Class;
+pub type PrecedenceOf<F, S1, C1, S2, C2, S = <S1 as Concat<S2>>::Shape> =
+    <Precedence as PrecedenceMapping<F, S1, C1, S2, C2, S>>::Class;
 
 macro_rules! impl_class_precedence {
     (($cl1:ty, $cl2:ty) => $cl3:ty) => {
-        impl<F, S1, S2> PrecedenceMapping<F, S1, $cl1, S2, $cl2> for Precedence
+        impl<F, S1, S2, S> PrecedenceMapping<F, S1, $cl1, S2, $cl2, S> for Precedence
         where
             F: Scalar,
             S1: Concat<S2>,
@@ -392,7 +441,10 @@ macro_rules! impl_class_precedence {
 
             $cl1: Class<S1, F>,
             $cl2: Class<S2, F>,
-            $cl3: Class<<S1 as Concat<S2>>::Shape, F>,
+
+            S: Shape,
+
+            $cl3: Class<S, F>,
         {
             type Class = $cl3;
         }
@@ -432,52 +484,94 @@ pub type FieldOf<B> = <B as Buffer>::Field;
 pub type OwnedOf<B> =
     <<B as Buffer>::Class as Class<<B as Buffer>::Shape, <B as Buffer>::Field>>::Buffer;
 
-#[derive(Debug)]
-pub struct IncompatibleBuffers<D1, D2 = D1>(pub(crate) D1, pub(crate) D2);
-
-impl<D1, D2> std::fmt::Display for IncompatibleBuffers<D1, D2>
+/// Error type for two incompatible buffers based on their shapes.
+#[derive(Copy, Clone, Debug)]
+pub struct IncompatibleShapes<S1, S2 = S1>(pub(crate) S1, pub(crate) S2)
 where
-    D1: std::fmt::Display,
-    D2: std::fmt::Display,
+    S1: shapes::Shape,
+    S2: shapes::Shape;
+
+impl<S1, S2> std::fmt::Display for IncompatibleShapes<S1, S2>
+where
+    S1: shapes::Shape,
+    S2: shapes::Shape,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Buffers are incompatible: {} vs {}.", self.0, self.1)
+        write!(
+            f,
+            "Buffer shapes are incompatible: {} vs {}.",
+            self.0, self.1
+        )
     }
 }
 
-impl<D: std::fmt::Debug + std::fmt::Display> std::error::Error for IncompatibleBuffers<D> {}
+impl<S1, S2> std::error::Error for IncompatibleShapes<S1, S2>
+where
+    S1: shapes::Shape,
+    S2: shapes::Shape,
+{
+}
 
-pub trait Coalesce<RHS = Self>: Buffer
+/// Trait for performing a zip and fold over a pair of buffers.
+pub trait ZipFold<RHS = Self>: Buffer
 where
     RHS: Buffer<Field = Self::Field>,
 {
-    fn coalesce(
+    /// Perform a zip and fold over a pair of buffers.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::ZipFold;
+    /// let b1 = [1.0, 2.0, 3.0];
+    /// let b2 = [-1.0, 0.0, 1.0];
+    ///
+    /// assert_eq!(b1.zip_fold(&b2, 0.0, |acc, (l, r)| acc + l * r).unwrap(), 2.0);
+    /// ```
+    fn zip_fold(
         &self,
         rhs: &RHS,
         init: Self::Field,
         f: impl Fn(Self::Field, (Self::Field, Self::Field)) -> Self::Field,
-    ) -> Result<Self::Field, IncompatibleBuffers<Self::Shape, RHS::Shape>>;
+    ) -> Result<Self::Field, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
+/// Trait for combining two buffers in an elementwise fashion.
 pub trait Hadamard<RHS = Self>: Buffer
 where
     RHS: Buffer<Field = Self::Field>,
 {
+    // TODO - replace this AT with precedence mapping.
+    /// The resulting buffer type.
     type Output: Buffer<Field = Self::Field>;
 
+    /// Combine two buffers in an elementwise fashion.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::Hadamard;
+    /// let b1 = [1.0, 2.0, 3.0];
+    /// let b2 = [-1.0, 0.0, 1.0];
+    ///
+    /// assert_eq!(b1.hadamard(&b2, |l, r| l * r).unwrap(), [-1.0, 0.0, 3.0]);
+    /// ```
     fn hadamard(
         &self,
         rhs: &RHS,
         f: impl Fn(Self::Field, Self::Field) -> Self::Field,
-    ) -> Result<Self::Output, IncompatibleBuffers<Self::Shape, RHS::Shape>>;
+    ) -> Result<<Self as Hadamard<RHS>>::Output, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
-pub trait Compatible<B: Buffer>: Buffer<Field = FieldOf<B>> + Coalesce<B> + Hadamard<B> {}
+/// Helper trait for pair of compatible buffers.
+///
+/// Two buffers are considered compatible if they have the same field,
+/// and if they support both [ZipFold] and [Hadamard]. The trait is
+/// automatically implemented for all such pairs of buffer types.
+pub trait Compatible<B: Buffer>: Buffer<Field = B::Field> + ZipFold<B> + Hadamard<B> {}
 
 impl<B, T> Compatible<B> for T
 where
     B: Buffer,
-    T: Buffer<Field = FieldOf<B>> + Coalesce<B> + Hadamard<B>,
+    T: Buffer<Field = FieldOf<B>> + ZipFold<B> + Hadamard<B>,
 {
 }
 

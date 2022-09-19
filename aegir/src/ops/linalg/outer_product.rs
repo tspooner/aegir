@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{shapes, Buffer, FieldOf, IncompatibleBuffers, Scalar, ShapeOf},
+    buffers::{shapes, Buffer, FieldOf, IncompatibleShapes, Scalar, ShapeOf},
     ops::Mul,
     BinaryError,
     Contains,
@@ -24,7 +24,7 @@ where
     fn outer_prod(
         &self,
         rhs: &T,
-    ) -> Result<Self::Output, IncompatibleBuffers<Self::Shape, T::Shape>>;
+    ) -> Result<Self::Output, IncompatibleShapes<Self::Shape, T::Shape>>;
 }
 
 impl<F, const N: usize, const M: usize> OuterProductTrait<[F; M]> for [F; N]
@@ -36,7 +36,7 @@ where
     fn outer_prod(
         &self,
         rhs: &[F; M],
-    ) -> Result<[[F; M]; N], IncompatibleBuffers<shapes::S1<N>, shapes::S1<M>>> {
+    ) -> Result<[[F; M]; N], IncompatibleShapes<shapes::S1<N>, shapes::S1<M>>> {
         let out = array_init::array_init(|i| array_init::array_init(|j| self[i] * rhs[j]));
 
         Ok(out)
@@ -52,7 +52,7 @@ where
     fn outer_prod(
         &self,
         rhs: &[[F; M]; P],
-    ) -> Result<Self::Output, IncompatibleBuffers<shapes::S1<N>, shapes::S2<P, M>>> {
+    ) -> Result<Self::Output, IncompatibleShapes<shapes::S1<N>, shapes::S2<P, M>>> {
         let out = array_init::array_init(|i| {
             array_init::array_init(|j| array_init::array_init(|k| self[i] * rhs[j][k]))
         });
@@ -70,7 +70,7 @@ where
     fn outer_prod(
         &self,
         rhs: &[F; P],
-    ) -> Result<Self::Output, IncompatibleBuffers<shapes::S2<N, M>, shapes::S1<P>>> {
+    ) -> Result<Self::Output, IncompatibleShapes<shapes::S2<N, M>, shapes::S1<P>>> {
         let out = array_init::array_init(|i| {
             array_init::array_init(|j| array_init::array_init(|k| self[i][j] * rhs[k]))
         });
@@ -172,7 +172,7 @@ where
     type Error = BinaryError<
         N1::Error,
         N2::Error,
-        IncompatibleBuffers<ShapeOf<N1::Value>, ShapeOf<N2::Value>>,
+        IncompatibleShapes<ShapeOf<N1::Value>, ShapeOf<N2::Value>>,
     >;
     type Value = <N1::Value as OuterProductTrait<N2::Value>>::Output;
 

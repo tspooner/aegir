@@ -1,5 +1,5 @@
 use super::TensorMulTrait;
-use crate::buffers::{shapes, Buffer, IncompatibleBuffers, OwnedOf, Scalar, ShapeOf};
+use crate::buffers::{shapes, Buffer, IncompatibleShapes, OwnedOf, Scalar, ShapeOf};
 
 // Base Cases --------------------------------------
 impl<F, B> TensorMulTrait<B> for F
@@ -13,7 +13,7 @@ where
     fn tensor_mul(
         &self,
         rhs: &B,
-    ) -> Result<Self::Output, IncompatibleBuffers<shapes::S0, B::Shape>> {
+    ) -> Result<Self::Output, IncompatibleShapes<shapes::S0, B::Shape>> {
         Ok(rhs.map_ref(|x| *self * x))
     }
 }
@@ -28,7 +28,7 @@ where
     fn tensor_mul(
         &self,
         rhs: &[F; M],
-    ) -> Result<Self::Output, IncompatibleBuffers<shapes::S2<N, M>, shapes::S1<M>>> {
+    ) -> Result<Self::Output, IncompatibleShapes<shapes::S2<N, M>, shapes::S1<M>>> {
         let out =
             array_init::array_init(|i| (0..M).fold(F::zero(), |acc, k| acc + self[i][k] * rhs[k]));
 
@@ -46,7 +46,7 @@ where
     fn tensor_mul(
         &self,
         rhs: &[[F; M]; Z],
-    ) -> Result<Self::Output, IncompatibleBuffers<shapes::S2<N, Z>, shapes::S2<Z, M>>> {
+    ) -> Result<Self::Output, IncompatibleShapes<shapes::S2<N, Z>, shapes::S2<Z, M>>> {
         let out = array_init::array_init(|i| {
             array_init::array_init(|j| {
                 (0..Z).fold(F::zero(), |acc, z| acc + self[i][z] * rhs[z][j])
@@ -68,7 +68,7 @@ where
     fn tensor_mul(
         &self,
         rhs: &[[[F; M2]; M1]; Z],
-    ) -> Result<Self::Output, IncompatibleBuffers<shapes::S2<N, Z>, shapes::S3<Z, M1, M2>>> {
+    ) -> Result<Self::Output, IncompatibleShapes<shapes::S2<N, Z>, shapes::S3<Z, M1, M2>>> {
         let out = array_init::array_init(|i| {
             array_init::array_init(|j| {
                 array_init::array_init(|k| {
@@ -92,7 +92,7 @@ where
     fn tensor_mul(
         &self,
         rhs: &[[[[F; M3]; M2]; M1]; Z],
-    ) -> Result<Self::Output, IncompatibleBuffers<shapes::S2<N, Z>, shapes::S4<Z, M1, M2, M3>>>
+    ) -> Result<Self::Output, IncompatibleShapes<shapes::S2<N, Z>, shapes::S4<Z, M1, M2, M3>>>
     {
         let out = array_init::array_init(|i| {
             array_init::array_init(|j| {
@@ -124,7 +124,7 @@ where
     fn tensor_mul(
         &self,
         rhs: &B,
-    ) -> Result<Self::Output, IncompatibleBuffers<ShapeOf<Self>, ShapeOf<B>>> {
+    ) -> Result<Self::Output, IncompatibleShapes<ShapeOf<Self>, ShapeOf<B>>> {
         let out = array_init::array_init(|i| self[i].tensor_mul(rhs).unwrap());
 
         Ok(out)
@@ -146,7 +146,7 @@ where
     fn tensor_mul(
         &self,
         rhs: &B,
-    ) -> Result<Self::Output, IncompatibleBuffers<ShapeOf<Self>, ShapeOf<B>>> {
+    ) -> Result<Self::Output, IncompatibleShapes<ShapeOf<Self>, ShapeOf<B>>> {
         let out = array_init::array_init(|i| {
             array_init::array_init(|j| self[i][j].tensor_mul(rhs).unwrap())
         });

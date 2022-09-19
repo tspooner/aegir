@@ -2,12 +2,13 @@ use super::{
     shapes::{S0, S1, S2, S3, S4, S5},
     Buffer,
     Class,
-    Coalesce,
     Hadamard,
-    IncompatibleBuffers,
+    IncompatibleShapes,
     Scalar,
+    ZipFold,
 };
 
+/// Array buffer class.
 pub struct Arrays;
 
 // S1 ---------------------------------------------------------------------- S1
@@ -43,6 +44,14 @@ impl<F: Scalar, const D1: usize> Buffer for [F; D1] {
 
     fn shape(&self) -> Self::Shape { S1 }
 
+    fn get(&self, ix: usize) -> Option<F> {
+        if ix < D1 {
+            Some(self[ix])
+        } else {
+            None
+        }
+    }
+
     fn map<M: Fn(F) -> F>(self, f: M) -> Self { <[F; D1]>::map(self, |x| x.map(&f)) }
 
     fn map_ref<M: Fn(F) -> F>(&self, f: M) -> Self { array_init::array_init(|i| f(self[i])) }
@@ -67,7 +76,7 @@ impl<F: Scalar, const D1: usize> Hadamard for [F; D1] {
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
         Ok(array_init::array_init(|i| f(self[i], rhs[i])))
     }
 }
@@ -79,18 +88,18 @@ impl<F: Scalar, const D1: usize> Hadamard<F> for [F; D1] {
         &self,
         rhs: &F,
         f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
         Ok(array_init::array_init(|i| f(self[i], *rhs)))
     }
 }
 
-impl<F: Scalar, const D1: usize> Coalesce for [F; D1] {
-    fn coalesce(
+impl<F: Scalar, const D1: usize> ZipFold for [F; D1] {
+    fn zip_fold(
         &self,
         rhs: &Self,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape>> {
         for i in 0..D1 {
             acc = f(acc, (self[i], rhs[i]))
         }
@@ -99,13 +108,13 @@ impl<F: Scalar, const D1: usize> Coalesce for [F; D1] {
     }
 }
 
-impl<F: Scalar, const D1: usize> Coalesce<F> for [F; D1] {
-    fn coalesce(
+impl<F: Scalar, const D1: usize> ZipFold<F> for [F; D1] {
+    fn zip_fold(
         &self,
         rhs: &F,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape, S0>> {
         for i in 0..D1 {
             acc = f(acc, (self[i], *rhs))
         }
@@ -120,6 +129,14 @@ impl<F: Scalar, const D1: usize> Buffer for &[F; D1] {
     type Shape = S1<D1>;
 
     fn shape(&self) -> Self::Shape { S1 }
+
+    fn get(&self, ix: usize) -> Option<F> {
+        if ix < D1 {
+            Some(self[ix])
+        } else {
+            None
+        }
+    }
 
     fn map<M: Fn(F) -> F>(self, f: M) -> [F; D1] { <[F; D1]>::map_ref(self, |x| x.map(&f)) }
 
@@ -145,7 +162,7 @@ impl<F: Scalar, const D1: usize> Hadamard for &[F; D1] {
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
-    ) -> Result<[F; D1], IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<[F; D1], IncompatibleShapes<Self::Shape>> {
         Ok(array_init::array_init(|i| f(self[i], rhs[i])))
     }
 }
@@ -157,18 +174,18 @@ impl<F: Scalar, const D1: usize> Hadamard<F> for &[F; D1] {
         &self,
         rhs: &F,
         f: impl Fn(F, F) -> F,
-    ) -> Result<[F; D1], IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<[F; D1], IncompatibleShapes<Self::Shape, S0>> {
         Ok(array_init::array_init(|i| f(self[i], *rhs)))
     }
 }
 
-impl<F: Scalar, const D1: usize> Coalesce for &[F; D1] {
-    fn coalesce(
+impl<F: Scalar, const D1: usize> ZipFold for &[F; D1] {
+    fn zip_fold(
         &self,
         rhs: &Self,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape>> {
         for i in 0..D1 {
             acc = f(acc, (self[i], rhs[i]))
         }
@@ -177,13 +194,13 @@ impl<F: Scalar, const D1: usize> Coalesce for &[F; D1] {
     }
 }
 
-impl<F: Scalar, const D1: usize> Coalesce<F> for &[F; D1] {
-    fn coalesce(
+impl<F: Scalar, const D1: usize> ZipFold<F> for &[F; D1] {
+    fn zip_fold(
         &self,
         rhs: &F,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape, S0>> {
         for i in 0..D1 {
             acc = f(acc, (self[i], *rhs))
         }
@@ -227,6 +244,14 @@ impl<F: Scalar, const D1: usize, const D2: usize> Buffer for [[F; D2]; D1] {
 
     fn shape(&self) -> Self::Shape { S2 }
 
+    fn get(&self, ix: [usize; 2]) -> Option<F> {
+        if ix[0] < D1 && ix[1] < D2 {
+            Some(self[ix[0]][ix[1]])
+        } else {
+            None
+        }
+    }
+
     fn map<M: Fn(F) -> F>(self, f: M) -> Self { Self::map(self, |x| x.map(&f)) }
 
     fn map_ref<M: Fn(F) -> F>(&self, f: M) -> Self {
@@ -253,7 +278,7 @@ impl<F: Scalar, const D1: usize, const D2: usize> Hadamard for [[F; D2]; D1] {
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| f(self[i][j], rhs[i][j]))
         }))
@@ -267,20 +292,20 @@ impl<F: Scalar, const D1: usize, const D2: usize> Hadamard<F> for [[F; D2]; D1] 
         &self,
         rhs: &F,
         f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| f(self[i][j], *rhs))
         }))
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize> Coalesce for [[F; D2]; D1] {
-    fn coalesce(
+impl<F: Scalar, const D1: usize, const D2: usize> ZipFold for [[F; D2]; D1] {
+    fn zip_fold(
         &self,
         rhs: &Self,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 acc = f(acc, (self[i][j], rhs[i][j]))
@@ -291,13 +316,13 @@ impl<F: Scalar, const D1: usize, const D2: usize> Coalesce for [[F; D2]; D1] {
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize> Coalesce<F> for [[F; D2]; D1] {
-    fn coalesce(
+impl<F: Scalar, const D1: usize, const D2: usize> ZipFold<F> for [[F; D2]; D1] {
+    fn zip_fold(
         &self,
         rhs: &F,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape, S0>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 acc = f(acc, (self[i][j], *rhs))
@@ -314,6 +339,14 @@ impl<F: Scalar, const D1: usize, const D2: usize> Buffer for &[[F; D2]; D1] {
     type Shape = S2<D1, D2>;
 
     fn shape(&self) -> Self::Shape { S2 }
+
+    fn get(&self, ix: [usize; 2]) -> Option<F> {
+        if ix[0] < D1 && ix[1] < D2 {
+            Some(self[ix[0]][ix[1]])
+        } else {
+            None
+        }
+    }
 
     fn map<M: Fn(F) -> F>(self, f: M) -> [[F; D2]; D1] {
         <[[F; D2]; D1]>::map_ref(self, |x| x.map(&f))
@@ -343,7 +376,7 @@ impl<F: Scalar, const D1: usize, const D2: usize> Hadamard for &[[F; D2]; D1] {
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
-    ) -> Result<[[F; D2]; D1], IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<[[F; D2]; D1], IncompatibleShapes<Self::Shape>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| f(self[i][j], rhs[i][j]))
         }))
@@ -357,20 +390,20 @@ impl<F: Scalar, const D1: usize, const D2: usize> Hadamard<F> for &[[F; D2]; D1]
         &self,
         rhs: &F,
         f: impl Fn(F, F) -> F,
-    ) -> Result<[[F; D2]; D1], IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<[[F; D2]; D1], IncompatibleShapes<Self::Shape, S0>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| f(self[i][j], *rhs))
         }))
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize> Coalesce for &[[F; D2]; D1] {
-    fn coalesce(
+impl<F: Scalar, const D1: usize, const D2: usize> ZipFold for &[[F; D2]; D1] {
+    fn zip_fold(
         &self,
         rhs: &Self,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 acc = f(acc, (self[i][j], rhs[i][j]))
@@ -381,13 +414,13 @@ impl<F: Scalar, const D1: usize, const D2: usize> Coalesce for &[[F; D2]; D1] {
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize> Coalesce<F> for &[[F; D2]; D1] {
-    fn coalesce(
+impl<F: Scalar, const D1: usize, const D2: usize> ZipFold<F> for &[[F; D2]; D1] {
+    fn zip_fold(
         &self,
         rhs: &F,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape, S0>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 acc = f(acc, (self[i][j], *rhs))
@@ -441,6 +474,14 @@ where
 
     fn shape(&self) -> Self::Shape { S3 }
 
+    fn get(&self, ix: [usize; 3]) -> Option<F> {
+        if ix[0] < D1 && ix[1] < D2 && ix[2] < D3 {
+            Some(self[ix[0]][ix[1]][ix[2]])
+        } else {
+            None
+        }
+    }
+
     fn map<M: Fn(F) -> F>(self, f: M) -> Self { Self::map(self, |x| Buffer::map(x, &f)) }
 
     fn map_ref<M: Fn(F) -> F>(&self, f: M) -> Self {
@@ -469,7 +510,7 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Hadamard
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| array_init::array_init(|k| f(self[i][j][k], rhs[i][j][k])))
         }))
@@ -485,22 +526,22 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Hadamard<F>
         &self,
         rhs: &F,
         f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| array_init::array_init(|k| f(self[i][j][k], *rhs)))
         }))
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Coalesce
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> ZipFold
     for [[[F; D3]; D2]; D1]
 {
-    fn coalesce(
+    fn zip_fold(
         &self,
         rhs: &Self,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 for k in 0..D3 {
@@ -513,15 +554,15 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Coalesce
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Coalesce<F>
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> ZipFold<F>
     for [[[F; D3]; D2]; D1]
 {
-    fn coalesce(
+    fn zip_fold(
         &self,
         rhs: &F,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape, S0>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 for k in 0..D3 {
@@ -543,6 +584,14 @@ where
     type Shape = S3<D1, D2, D3>;
 
     fn shape(&self) -> Self::Shape { S3 }
+
+    fn get(&self, ix: [usize; 3]) -> Option<F> {
+        if ix[0] < D1 && ix[1] < D2 && ix[2] < D3 {
+            Some(self[ix[0]][ix[1]][ix[2]])
+        } else {
+            None
+        }
+    }
 
     fn map<M: Fn(F) -> F>(self, f: M) -> [[[F; D3]; D2]; D1] {
         <[[[F; D3]; D2]; D1]>::map_ref(self, f)
@@ -574,7 +623,7 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Hadamard
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
-    ) -> Result<[[[F; D3]; D2]; D1], IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<[[[F; D3]; D2]; D1], IncompatibleShapes<Self::Shape>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| array_init::array_init(|k| f(self[i][j][k], rhs[i][j][k])))
         }))
@@ -590,22 +639,22 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Hadamard<F>
         &self,
         rhs: &F,
         f: impl Fn(F, F) -> F,
-    ) -> Result<[[[F; D3]; D2]; D1], IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<[[[F; D3]; D2]; D1], IncompatibleShapes<Self::Shape, S0>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| array_init::array_init(|k| f(self[i][j][k], *rhs)))
         }))
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Coalesce
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> ZipFold
     for &[[[F; D3]; D2]; D1]
 {
-    fn coalesce(
+    fn zip_fold(
         &self,
         rhs: &Self,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 for k in 0..D3 {
@@ -618,15 +667,15 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Coalesce
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Coalesce<F>
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> ZipFold<F>
     for &[[[F; D3]; D2]; D1]
 {
-    fn coalesce(
+    fn zip_fold(
         &self,
         rhs: &F,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape, S0>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 for k in 0..D3 {
@@ -686,6 +735,14 @@ where
 
     fn shape(&self) -> Self::Shape { S4 }
 
+    fn get(&self, ix: [usize; 4]) -> Option<F> {
+        if ix[0] < D1 && ix[1] < D2 && ix[2] < D3 && ix[3] < D4 {
+            Some(self[ix[0]][ix[1]][ix[2]][ix[3]])
+        } else {
+            None
+        }
+    }
+
     fn map<M: Fn(F) -> F>(self, f: M) -> Self { Self::map(self, |x| Buffer::map(x, &f)) }
 
     fn map_ref<M: Fn(F) -> F>(&self, f: M) -> Self {
@@ -714,7 +771,7 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usi
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| {
                 array_init::array_init(|k| {
@@ -734,7 +791,7 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usi
         &self,
         rhs: &F,
         f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| {
                 array_init::array_init(|k| array_init::array_init(|u| f(self[i][j][k][u], *rhs)))
@@ -743,15 +800,15 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usi
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> Coalesce
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> ZipFold
     for [[[[F; D4]; D3]; D2]; D1]
 {
-    fn coalesce(
+    fn zip_fold(
         &self,
         rhs: &Self,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 for k in 0..D3 {
@@ -766,15 +823,15 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usi
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> Coalesce<F>
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> ZipFold<F>
     for [[[[F; D4]; D3]; D2]; D1]
 {
-    fn coalesce(
+    fn zip_fold(
         &self,
         rhs: &F,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape, S0>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 for k in 0..D3 {
@@ -799,6 +856,14 @@ where
     type Shape = S4<D1, D2, D3, D4>;
 
     fn shape(&self) -> Self::Shape { S4 }
+
+    fn get(&self, ix: [usize; 4]) -> Option<F> {
+        if ix[0] < D1 && ix[1] < D2 && ix[2] < D3 && ix[3] < D4 {
+            Some(self[ix[0]][ix[1]][ix[2]][ix[3]])
+        } else {
+            None
+        }
+    }
 
     fn map<M: Fn(F) -> F>(self, f: M) -> [[[[F; D4]; D3]; D2]; D1] {
         <[[[[F; D4]; D3]; D2]; D1]>::map_ref(self, f)
@@ -832,7 +897,7 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usi
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
-    ) -> Result<[[[[F; D4]; D3]; D2]; D1], IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<[[[[F; D4]; D3]; D2]; D1], IncompatibleShapes<Self::Shape>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| {
                 array_init::array_init(|k| {
@@ -852,7 +917,7 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usi
         &self,
         rhs: &F,
         f: impl Fn(F, F) -> F,
-    ) -> Result<[[[[F; D4]; D3]; D2]; D1], IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<[[[[F; D4]; D3]; D2]; D1], IncompatibleShapes<Self::Shape, S0>> {
         Ok(array_init::array_init(|i| {
             array_init::array_init(|j| {
                 array_init::array_init(|k| array_init::array_init(|u| f(self[i][j][k][u], *rhs)))
@@ -861,15 +926,15 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usi
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> Coalesce
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> ZipFold
     for &[[[[F; D4]; D3]; D2]; D1]
 {
-    fn coalesce(
+    fn zip_fold(
         &self,
         rhs: &Self,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 for k in 0..D3 {
@@ -884,15 +949,15 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usi
     }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> Coalesce<F>
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> ZipFold<F>
     for &[[[[F; D4]; D3]; D2]; D1]
 {
-    fn coalesce(
+    fn zip_fold(
         &self,
         rhs: &F,
         mut acc: F,
         f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleBuffers<Self::Shape, S0>> {
+    ) -> Result<F, IncompatibleShapes<Self::Shape, S0>> {
         for i in 0..D1 {
             for j in 0..D2 {
                 for k in 0..D3 {
@@ -961,6 +1026,14 @@ where
 
     fn shape(&self) -> Self::Shape { S5 }
 
+    fn get(&self, ix: [usize; 5]) -> Option<F> {
+        if ix[0] < D1 && ix[1] < D2 && ix[2] < D3 && ix[3] < D4 && ix[4] < D5 {
+            Some(self[ix[0]][ix[1]][ix[2]][ix[3]][ix[4]])
+        } else {
+            None
+        }
+    }
+
     fn map<M: Fn(F) -> F>(self, f: M) -> Self { Self::map(self, |x| Buffer::map(x, &f)) }
 
     fn map_ref<M: Fn(F) -> F>(&self, f: M) -> Self {
@@ -1020,7 +1093,7 @@ mod tests {
         #[test]
         fn test_linalg() {
             assert_eq!(
-                V.coalesce(&V, 0.0, |acc, (xi, yi)| acc + xi * yi).unwrap(),
+                V.zip_fold(&V, 0.0, |acc, (xi, yi)| acc + xi * yi).unwrap(),
                 5.0
             );
         }

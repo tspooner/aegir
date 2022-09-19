@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{Coalesce, Compatible, FieldOf, IncompatibleBuffers, ShapeOf},
+    buffers::{Compatible, FieldOf, IncompatibleShapes, ShapeOf, ZipFold},
     ops::{Add, TensorMul},
     BinaryError,
     Contains,
@@ -52,7 +52,7 @@ where
     type Error = BinaryError<
         N1::Error,
         N2::Error,
-        IncompatibleBuffers<ShapeOf<N1::Value>, ShapeOf<N2::Value>>,
+        IncompatibleShapes<ShapeOf<N1::Value>, ShapeOf<N2::Value>>,
     >;
     type Value = FieldOf<N1::Value>;
 
@@ -60,7 +60,7 @@ where
         let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
 
-        x.coalesce(&y, num_traits::zero(), |acc, (xi, yi)| acc + xi * yi)
+        x.zip_fold(&y, num_traits::zero(), |acc, (xi, yi)| acc + xi * yi)
             .map_err(BinaryError::Output)
     }
 }
