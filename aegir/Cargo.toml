@@ -5,8 +5,8 @@ description = "Strongly-typed, reverse-mode autodiff library in Rust"
 version = "1.0.0"
 authors = ["Tom Spooner <spooner10000@gmail.com>"]
 
-license = "MIT"
 readme = "README.md"
+license-file = "LICENSE"
 
 keywords = ["autodiff", "autograd", "compute", "dag", "math"]
 
@@ -24,7 +24,7 @@ default = []
 
 [dependencies]
 aegir_derive = { path = "../aegir_derive", version = "0.2" }
-aegir_compile = { path = "../aegir_compile", version = "0.2" }
+aegir_compile = { path = "../aegir_compile", version = "0.1" }
 
 num-traits = "0.2"
 special-fun = "0.2"
