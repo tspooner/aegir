@@ -30,6 +30,10 @@ impl_unary!(
     |dx| { dx }
 );
 
+impl<N: Node> Node for SubOne<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
+}
+
 impl<T, N> Differentiable<T> for SubOne<N>
 where
     T: Identifier,
@@ -54,8 +58,12 @@ where
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(1.0, -1.0));
 /// assert_eq!(f.evaluate_dual(X, &DB { x: -1.0 }).unwrap(), dual!(2.0, -1.0));
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+#[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct OneSub<N>(#[op] pub N);
+
+impl<N: Node> Node for OneSub<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
+}
 
 impl<D, N> crate::Function<D> for OneSub<N>
 where
@@ -110,6 +118,10 @@ impl_unary!(
     |dx| { dx }
 );
 
+impl<N: Node> Node for AddOne<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
+}
+
 impl<T, N> Differentiable<T> for AddOne<N>
 where
     T: Identifier,
@@ -135,8 +147,12 @@ where
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(1.0, 2.0));
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 2.0 }).unwrap(), dual!(4.0, 4.0));
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq, Node, Contains)]
+#[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Square<N>(#[op] pub N);
+
+impl<N: Node> Node for Square<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+}
 
 impl<F, D, N> Function<D> for Square<N>
 where
@@ -184,8 +200,12 @@ impl<X: fmt::Display> fmt::Display for Square<X> {
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(0.0, 2.0));
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(2.0, 2.0));
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq, Node, Contains)]
+#[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Double<N>(#[op] pub N);
+
+impl<N: Node> Node for Double<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+}
 
 impl<D, N> Function<D> for Double<N>
 where
@@ -235,8 +255,18 @@ impl<X: fmt::Display> fmt::Display for Double<X> {
 ///     ])
 /// );
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq, Node, Contains)]
+#[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Sum<N>(#[op] pub N);
+
+impl<N: Node> Node for Sum<N> {
+    fn is_zero(&self) -> aegir::logic::TFU {
+        if self.0.is_zero() == aegir::logic::TFU::True {
+            aegir::logic::TFU::True
+        } else {
+            aegir::logic::TFU::Unknown
+        }
+    }
+}
 
 impl<D, N> Function<D> for Sum<N>
 where
@@ -290,6 +320,10 @@ impl_unary!(
     |dx| { -dx }
 );
 
+impl<N: Node> Node for Negate<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+}
+
 impl<T, N> Differentiable<T> for Negate<N>
 where
     T: Identifier,
@@ -328,6 +362,10 @@ impl_unary!(
     |_| { unimplemented!() }
 );
 
+impl<N: Node> Node for Dirac<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
+}
+
 /// Computes the sign of a [Buffer].
 ///
 /// # Examples
@@ -343,8 +381,12 @@ impl_unary!(
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(0.0, INFINITY));
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(1.0, 0.0));
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq, Node, Contains)]
+#[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Sign<N>(#[op] pub N);
+
+impl<N: Node> Node for Sign<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+}
 
 impl<D: Database, N: Function<D>> Function<D> for Sign<N>
 where
@@ -396,8 +438,12 @@ impl<X: fmt::Display> fmt::Display for Sign<X> {
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(0.0, 0.0));
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(1.0, 1.0));
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq, Node, Contains)]
+#[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Abs<N>(#[op] pub N);
+
+impl<N: Node> Node for Abs<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+}
 
 impl<D: Database, N: Function<D>> Function<D> for Abs<N>
 where

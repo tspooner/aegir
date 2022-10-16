@@ -67,18 +67,11 @@ use std::fmt;
 ///      r(x) := z(x) * f'(x) * g(x) / f(x).
 /// Then
 ///      z'(x) = l(x) + r(x).
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Power<N, E>(pub N, pub E);
+#[derive(Copy, Clone, Debug, PartialEq, Contains)]
+pub struct Power<N, E>(#[op] pub N, #[op] pub E);
 
-impl<N, E> Node for Power<N, E> {}
-
-impl<T, N, E> Contains<T> for Power<N, E>
-where
-    T: Identifier,
-    N: Contains<T>,
-    E: Contains<T>,
-{
-    fn contains(&self, target: T) -> bool { self.0.contains(target) || self.1.contains(target) }
+impl<N: Node, E: Node> Node for Power<N, E> {
+    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
 }
 
 impl<F, D, N, E> Function<D> for Power<N, E>
@@ -152,8 +145,19 @@ impl<X: fmt::Display, E: fmt::Display> fmt::Display for Power<X, E> {
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(5.0, 1.0));
 /// assert_eq!(f.evaluate_dual(Y, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(5.0, 4.0));
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+#[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Add<N1, N2>(#[op] pub N1, #[op] pub N2);
+
+impl<N1: Node, N2: Node> Node for Add<N1, N2> {
+    fn is_zero(&self) -> aegir::logic::TFU {
+        use aegir::logic::TFU;
+
+        match (self.0.is_zero(), self.1.is_zero()) {
+            (TFU::True, TFU::True) => TFU::True,
+            _ => TFU::Unknown,
+        }
+    }
+}
 
 impl<D, S, F, N1, C1, N2, C2> Function<D> for Add<N1, N2>
 where
@@ -177,10 +181,22 @@ where
     type Value = HadOut<N1::Value, N2::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let x = self
-            .0
-            .evaluate(db.as_ref())
-            .map_err(crate::BinaryError::Left)?;
+        // First establish if either term is zero...
+        if self.0.is_zero() == crate::logic::TFU::True {
+            let rhs = self.1.evaluate(db).map_err(crate::BinaryError::Right)?;
+
+            return Ok(<N1::Value as crate::buffers::ZipMap<N2::Value>>::take_right(rhs));
+        }
+
+        // If not, then maybe the second term is...
+        if self.1.is_zero() == crate::logic::TFU::True {
+            let lhs = self.0.evaluate(db.as_ref()).map_err(crate::BinaryError::Left)?;
+
+            return Ok(<N1::Value as crate::buffers::ZipMap<N2::Value>>::take_left(lhs));
+        }
+
+        // Otherwise, we do the actual addition...
+        let x = self.0.evaluate(db.as_ref()).map_err(crate::BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(crate::BinaryError::Right)?;
 
         Ok(x.zip_map(&y, |xi, yi| xi + yi).unwrap())
@@ -203,9 +219,15 @@ where
     }
 }
 
-impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for Add<N1, N2> {
+impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Display for Add<N1, N2> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}) + ({})", self.0, self.1)
+        if self.0.is_zero() == aegir::logic::TFU::True {
+            write!(f, "{}", self.1)
+        } else if self.1.is_zero() == aegir::logic::TFU::True {
+            write!(f, "{}", self.0)
+        } else {
+            write!(f, "({}) + ({})", self.0, self.1)
+        }
     }
 }
 
@@ -235,8 +257,19 @@ impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for Add<N1,
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(-3.0, 1.0));
 /// assert_eq!(f.evaluate_dual(Y, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(-3.0, -4.0));
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+#[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Sub<N1, N2>(#[op] pub N1, #[op] pub N2);
+
+impl<N1: Node, N2: Node> Node for Sub<N1, N2> {
+    fn is_zero(&self) -> aegir::logic::TFU {
+        use aegir::logic::TFU;
+
+        match (self.0.is_zero(), self.1.is_zero()) {
+            (TFU::True, TFU::True) => TFU::True,
+            _ => TFU::Unknown,
+        }
+    }
+}
 
 impl<D, S, F, N1, C1, N2, C2> Function<D> for Sub<N1, N2>
 where
@@ -287,9 +320,15 @@ where
     }
 }
 
-impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for Sub<N1, N2> {
+impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Display for Sub<N1, N2> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}) + ({})", self.0, self.1)
+        if self.0.is_zero() == aegir::logic::TFU::True {
+            write!(f, "{}", self.1)
+        } else if self.1.is_zero() == aegir::logic::TFU::True {
+            write!(f, "{}", self.0)
+        } else {
+            write!(f, "({}) - ({})", self.0, self.1)
+        }
     }
 }
 
@@ -319,8 +358,20 @@ impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for Sub<N1,
 /// assert_eq!(f.evaluate_dual(X, &DB { x: 3.0, y: 2.0, }).unwrap(), dual!(12.0, 4.0));
 /// assert_eq!(f.evaluate_dual(Y, &DB { x: 3.0, y: 2.0, }).unwrap(), dual!(12.0, 12.0));
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq, Node, Contains)]
+#[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Mul<N1, N2>(#[op] pub N1, #[op] pub N2);
+
+impl<N1: Node, N2: Node> Node for Mul<N1, N2> {
+    fn is_zero(&self) -> aegir::logic::TFU {
+        use aegir::logic::TFU;
+
+        match (self.0.is_zero(), self.1.is_zero()) {
+            (TFU::True, _) | (_, TFU::True) => TFU::True,
+            (TFU::False, TFU::False) => TFU::False,
+            _ => TFU::Unknown,
+        }
+    }
+}
 
 impl<D, S, F, N1, C1, N2, C2> Function<D> for Mul<N1, N2>
 where
@@ -340,6 +391,15 @@ where
     type Value = HadOut<N1::Value, N2::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        // If either value is zero, we can just short-circuit...
+        if (self.0.is_zero() | self.1.is_zero()) == crate::logic::TFU::True {
+            // TODO XXX - Replace calls to unwrap!
+            return Ok(<Self::Value as Buffer>::zeroes(
+                self.0.evaluate_shape(db).unwrap()
+            ));
+        }
+
+        // Otherwise we have to perform the multiplication...
         let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
 
@@ -367,15 +427,25 @@ where
     }
 }
 
-impl<N1: fmt::Display, N2: Node + fmt::Display> fmt::Display for Mul<N1, N2> {
+impl<N1: Node + fmt::Display, N2: Node + fmt::Display> fmt::Display for Mul<N1, N2> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}) \u{2218} ({})", self.0, self.1)
+        if self.0.is_zero() == aegir::logic::TFU::True {
+            write!(f, "{}", self.1)
+        } else if self.1.is_zero() == aegir::logic::TFU::True {
+            write!(f, "{}", self.0)
+        } else {
+            write!(f, "({}) \u{2218} ({})", self.0, self.1)
+        }
     }
 }
 
 /// Computes the (elementwise) quotient of two compatible [Buffer] types.
-#[derive(Copy, Clone, Debug, PartialEq, Node, Contains)]
+#[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Div<N1, N2>(#[op] pub N1, #[op] pub N2);
+
+impl<N1: Node, N2: Node> Node for Div<N1, N2> {
+    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+}
 
 impl<D, S, F, N1, C1, N2, C2> Function<D> for Div<N1, N2>
 where

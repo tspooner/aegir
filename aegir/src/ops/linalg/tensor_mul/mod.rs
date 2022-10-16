@@ -62,8 +62,20 @@ mod impls;
 ///      [2., 1.]]
 /// ]]);
 /// ```
-#[derive(Clone, Debug, PartialEq, Node, Contains)]
+#[derive(Clone, Debug, PartialEq, Contains)]
 pub struct TensorMul<N1, N2>(#[op] pub N1, #[op] pub N2);
+
+impl<N1: Node, N2: Node> Node for TensorMul<N1, N2> {
+    fn is_zero(&self) -> aegir::logic::TFU {
+        use aegir::logic::TFU;
+
+        match (self.0.is_zero(), self.1.is_zero()) {
+            (TFU::True, _) | (_, TFU::True) => TFU::True,
+            (TFU::False, TFU::False) => TFU::False,
+            _ => TFU::Unknown,
+        }
+    }
+}
 
 impl<D, N1, N2> Function<D> for TensorMul<N1, N2>
 where
@@ -108,10 +120,16 @@ where
 
 impl<N1, N2> std::fmt::Display for TensorMul<N1, N2>
 where
-    N1: std::fmt::Display,
-    N2: std::fmt::Display,
+    N1: Node + std::fmt::Display,
+    N2: Node + std::fmt::Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}) ({})", self.0, self.1)
+        if self.0.is_zero() == aegir::logic::TFU::True {
+            write!(f, "{}", self.1)
+        } else if self.1.is_zero() == aegir::logic::TFU::True {
+            write!(f, "{}", self.0)
+        } else {
+            write!(f, "({}) ({})", self.0, self.1)
+        }
     }
 }

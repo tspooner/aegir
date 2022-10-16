@@ -4,7 +4,7 @@ use crate::buffers::{Buffer, Class, precedence::Precedence};
 macro_rules! impl_unary {
     ($(#[$attr:meta])* $name:ident[$str:tt]: $field_type:path, $eval:expr, $grad:expr) => {
         $(#[$attr])*
-        #[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+        #[derive(Clone, Copy, Debug, PartialEq, Contains)]
         pub struct $name<N>(#[op] pub N);
 
         impl<D, N> crate::Function<D> for $name<N>

@@ -1,5 +1,6 @@
 use crate::{
     buffers::{Buffer, FieldOf, OwnedOf},
+    Node,
     Contains,
     Database,
     Function,
@@ -7,51 +8,100 @@ use crate::{
 use special_fun::FloatSpecial;
 use std::fmt;
 
-macro_rules! impl_special {
-    (@unary $name:ident, $eval:expr, $grad:expr) => {
-        #[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
-        pub struct $name<N>(#[op] pub N);
+// Derive = x.gamma() * x.digamma()
+#[derive(Clone, Copy, Debug, PartialEq, Contains)]
+pub struct Gamma<N>(#[op] pub N);
 
-        impl<D, N> Function<D> for $name<N>
-        where
-            D: Database,
-            N: Function<D>,
+impl<N: Node> Node for Gamma<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::False }
+}
 
-            FieldOf<N::Value>: special_fun::FloatSpecial,
-        {
-            type Value = OwnedOf<N::Value>;
-            type Error = N::Error;
+impl<D, N> Function<D> for Gamma<N>
+where
+    D: Database,
+    N: Function<D>,
 
-            fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-                self.0.evaluate(db).map(|buffer| buffer.map($eval))
-            }
-        }
-    };
-    (@unary $name:ident[$str:tt], $eval:expr, $grad:expr) => {
-        impl_special!(@unary $name, $eval, $grad);
+    FieldOf<N::Value>: special_fun::FloatSpecial,
+{
+    type Value = OwnedOf<N::Value>;
+    type Error = N::Error;
 
-        impl<X: fmt::Display + PartialEq> fmt::Display for $name<X> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{}({})", $str, self.0)
-            }
-        }
+    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.gamma()))
     }
 }
 
-impl_special!(@unary Gamma["\u{0393}"], |x| x.gamma(), |x| x.gamma() * x.digamma());
-impl_special!(@unary LogGamma["ln \u{0393}"], |x| x.loggamma(), |x| x.digamma());
+impl<N: fmt::Display> fmt::Display for Gamma<N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\u{0393}({})", self.0)
+    }
+}
 
-impl_special!(@unary Factorial, |x| x.factorial(), |_| todo!());
+// Deriv = x.digamma()
+#[derive(Clone, Copy, Debug, PartialEq, Contains)]
+pub struct LogGamma<N>(#[op] pub N);
 
-impl<X: fmt::Display + PartialEq> fmt::Display for Factorial<X> {
+impl<N: Node> Node for LogGamma<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::False }
+}
+
+impl<D, N> Function<D> for LogGamma<N>
+where
+    D: Database,
+    N: Function<D>,
+
+    FieldOf<N::Value>: special_fun::FloatSpecial,
+{
+    type Value = OwnedOf<N::Value>;
+    type Error = N::Error;
+
+    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.loggamma()))
+    }
+}
+
+impl<N: fmt::Display> fmt::Display for LogGamma<N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ln \u{0393}({})", self.0)
+    }
+}
+
+// Deriv = x.loggamma()
+#[derive(Clone, Copy, Debug, PartialEq, Contains)]
+pub struct Factorial<N>(#[op] pub N);
+
+impl<N: Node> Node for Factorial<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::False }
+}
+
+impl<D, N> Function<D> for Factorial<N>
+where
+    D: Database,
+    N: Function<D>,
+
+    FieldOf<N::Value>: special_fun::FloatSpecial,
+{
+    type Value = OwnedOf<N::Value>;
+    type Error = N::Error;
+
+    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.loggamma()))
+    }
+}
+
+impl<N: fmt::Display> fmt::Display for Factorial<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}!", self.0) }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+#[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Erf<N>(#[op] pub N);
 
 impl<N> Erf<N> {
     pub fn complementary(self) -> crate::ops::Negate<Self> { crate::ops::Negate(self) }
+}
+
+impl<N: Node> Node for Erf<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
 }
 
 impl<D, N> Function<D> for Erf<N>
@@ -68,31 +118,6 @@ where
         self.0.evaluate(db).map(|buffer| buffer.map(|x| x.erf()))
     }
 }
-
-// impl<D, T, N> Differentiable<D, T> for Erf<N>
-// where
-// D: Database,
-// T: Identifier,
-// N: Differentiable<D, T>,
-
-// N::Adjoint: Buffer<Field = crate::buffers::FieldOf<N::Value>>,
-
-// crate::buffers::FieldOf<N::Value>:
-// special_fun::FloatSpecial + num_traits::real::Real +
-// num_traits::float::FloatConst, {
-// type Adjoint = crate::buffers::OwnedOf<N::Adjoint>;
-
-// fn grad(&self, db: &D, target: T) -> Result<Self::Adjoint, Self::Error> {
-// self.0.grad(db, target).map(|buffer| {
-// buffer.map(|x| {
-// let two =
-// num_traits::one::<crate::buffers::FieldOf<N::Value>>() + num_traits::one();
-
-// (-x.powi(2)).exp() * two / <crate::buffers::FieldOf<N::Value>>::PI().sqrt()
-// })
-// })
-// }
-// }
 
 impl<X: fmt::Display + PartialEq> fmt::Display for Erf<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "erf({})", self.0) }

@@ -1,6 +1,7 @@
 use crate::{
     buffers::{Buffer, FieldOf, OwnedOf},
     ops::TensorMul,
+    Node,
     Contains,
     Database,
     Differentiable,
@@ -10,8 +11,12 @@ use crate::{
 use num_traits::{one, real::Real, zero};
 use std::fmt;
 
-#[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+#[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Rabbit<N>(#[op] pub N);
+
+impl<N: Node> Node for Rabbit<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+}
 
 impl<D, N> Function<D> for Rabbit<N>
 where
@@ -64,8 +69,12 @@ fn sigmoid<F: Real>(x: F) -> F {
 /// assert!((dual.adjoint[0][1] - 0.10499).abs() < 1e-5);
 /// assert!((dual.adjoint[0][2] - 0.04518).abs() < 1e-5);
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+#[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Sigmoid<N>(#[op] pub N);
+
+impl<N: Node> Node for Sigmoid<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
+}
 
 impl<D, N> Function<D> for Sigmoid<N>
 where

@@ -223,6 +223,8 @@ macro_rules! db {
 
 /// Base trait for operator nodes.
 pub trait Node {
+    fn is_zero(&self) -> logic::TFU { logic::TFU::Unknown }
+
     // TODO - replace NamedNode with explicit caching support. The idea would be
     // to add a "Write" trait that extends "Database" such that a "CachedNode"
     // could update the database and just read on the next pass.
@@ -445,6 +447,7 @@ pub use self::dual::Dual;
 mod sources;
 pub use self::sources::{Constant, Variable, VariableAdjoint, VariableError, ConstantAdjoint};
 
+pub mod logic;
 pub mod buffers;
 pub mod ops;
 

@@ -9,6 +9,7 @@ use crate::{
         OwnedOf,
         Scalar,
     },
+    logic::TFU,
     Contains,
     Database,
     Differentiable,
@@ -61,11 +62,14 @@ impl<ID: std::fmt::Debug> std::error::Error for VariableError<ID> {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Constant<B>(pub B);
 
-impl<B> Node for Constant<B> {}
+impl<B: Buffer> Node for Constant<B> {
+    fn is_zero(&self) -> TFU { self.0.is_zeroes().into() }
+}
 
 impl<T, B> Contains<T> for Constant<B>
 where
     T: Identifier,
+    B: Buffer,
 {
     fn contains(&self, _: T) -> bool { false }
 }
@@ -114,7 +118,9 @@ pub struct ConstantAdjoint<N, T> {
     pub target: T,
 }
 
-impl<N: Node, T> Node for ConstantAdjoint<N, T> {}
+impl<N: Node, T> Node for ConstantAdjoint<N, T> {
+    fn is_zero(&self) -> TFU { TFU::True }
+}
 
 impl<N, T, A> Contains<A> for ConstantAdjoint<N, T>
 where
@@ -190,7 +196,9 @@ impl<N, T> std::fmt::Display for ConstantAdjoint<N, T> {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Variable<I>(pub I);
 
-impl<I> Node for Variable<I> {}
+impl<I> Node for Variable<I> {
+    fn is_zero(&self) -> TFU { TFU::Unknown }
+}
 
 impl<T, I> Contains<T> for Variable<I>
 where
@@ -218,7 +226,7 @@ where
 
 impl<I, T> Differentiable<T> for Variable<I>
 where
-    I: Identifier,
+    I: Identifier + PartialEq<T>,
     T: Identifier,
 {
     type Adjoint = VariableAdjoint<I, T>;
@@ -251,11 +259,19 @@ pub struct VariableAdjoint<I, T> {
     pub target: T,
 }
 
-impl<I, T> Node for VariableAdjoint<I, T> {}
+impl<I: PartialEq<T>, T> Node for VariableAdjoint<I, T> {
+    fn is_zero(&self) -> TFU {
+        if self.value == self.target {
+            TFU::False
+        } else {
+            TFU::True
+        }
+    }
+}
 
 impl<I, T, A> Contains<A> for VariableAdjoint<I, T>
 where
-    I: Identifier + PartialEq<A>,
+    I: Identifier + PartialEq<A> + PartialEq<T>,
     T: Identifier + PartialEq<A>,
     A: Identifier,
 {
@@ -314,6 +330,7 @@ where
 
 impl<I, T, A> Differentiable<A> for VariableAdjoint<I, T>
 where
+    I: PartialEq<T>,
     A: Identifier,
 
     Self: Clone,

@@ -7,8 +7,12 @@ use num_traits::real::Real;
 
 macro_rules! impl_trig {
     ($name:ident[$str:tt], $eval:expr, $grad:expr) => {
-        #[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
+        #[derive(Clone, Copy, Debug, PartialEq, Contains)]
         pub struct $name<N>(#[op] pub N);
+
+        impl<N: crate::Node> crate::Node for $name<N> {
+            fn is_zero(&self) -> crate::logic::TFU { crate::logic::TFU::Unknown }
+        }
 
         impl<D, N> crate::Function<D> for $name<N>
         where

@@ -1,26 +1,20 @@
 use crate::{
     buffers::{OwnedOf, Scalar},
     ops::{AddOne, Div, Mul},
+    Node,
     Contains,
     Database,
     Differentiable,
     Function,
     Identifier,
-    Node,
 };
 use std::fmt;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Ln<N>(pub N);
+#[derive(Copy, Clone, Debug, PartialEq, Contains)]
+pub struct Ln<N>(#[op] pub N);
 
-impl<N> Node for Ln<N> {}
-
-impl<T, N> Contains<T> for Ln<N>
-where
-    T: Identifier,
-    N: Contains<T>,
-{
-    fn contains(&self, target: T) -> bool { self.0.contains(target) }
+impl<N: Node> Node for Ln<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::False }
 }
 
 impl<F, D, N> Function<D> for Ln<N>
@@ -51,17 +45,11 @@ impl<N: fmt::Display> fmt::Display for Ln<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "ln({})", self.0) }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct SafeXlnX<N>(pub N);
+#[derive(Copy, Clone, Debug, PartialEq, Contains)]
+pub struct SafeXlnX<N>(#[op] pub N);
 
-impl<N> Node for SafeXlnX<N> {}
-
-impl<T, N> Contains<T> for SafeXlnX<N>
-where
-    T: Identifier,
-    N: Contains<T>,
-{
-    fn contains(&self, target: T) -> bool { self.0.contains(target) }
+impl<N: Node> Node for SafeXlnX<N> {
+    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
 }
 
 impl<F, D, N> Function<D> for SafeXlnX<N>

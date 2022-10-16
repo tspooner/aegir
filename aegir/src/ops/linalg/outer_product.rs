@@ -144,18 +144,19 @@ where
 // ///     [3.0, 3.0, 3.0]
 // /// ]);
 /// ```
-#[derive(PartialEq)]
-pub struct OuterProduct<N1, N2>(pub N1, pub N2);
+#[derive(Copy, Clone, Debug, PartialEq, Contains)]
+pub struct OuterProduct<N1, N2>(#[op] pub N1, #[op] pub N2);
 
-impl<N1, N2> Node for OuterProduct<N1, N2> {}
+impl<N1: Node, N2: Node> Node for OuterProduct<N1, N2> {
+    fn is_zero(&self) -> aegir::logic::TFU {
+        use aegir::logic::TFU;
 
-impl<T, N1, N2> Contains<T> for OuterProduct<N1, N2>
-where
-    T: Identifier,
-    N1: Contains<T>,
-    N2: Contains<T>,
-{
-    fn contains(&self, target: T) -> bool { self.0.contains(target) || self.1.contains(target) }
+        match (self.0.is_zero(), self.1.is_zero()) {
+            (TFU::True, _) | (_, TFU::True) => TFU::True,
+            (TFU::False, TFU::False) => TFU::False,
+            _ => TFU::Unknown,
+        }
+    }
 }
 
 impl<D, N1, N2> Function<D> for OuterProduct<N1, N2>

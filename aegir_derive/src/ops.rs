@@ -77,60 +77,53 @@ impl TryFrom<&syn::Data> for OpFields {
     type Error = Error;
 
     fn try_from(data: &syn::Data) -> Result<OpFields, Error> {
-        fn parse_fields(fields: &syn::Fields) -> Result<OpFields, Error> {
-            match fields {
-                syn::Fields::Named(fields) => fields
-                    .named
-                    .iter()
-                    .map(|f| {
-                        OpAttributes::try_from(f).map(|oas| OpField {
-                            ty: f.ty.clone(),
-                            accessor: f.ident.to_token_stream(),
-                            attributes: oas,
-                        })
+        fn parse_fields_named(fields: &syn::FieldsNamed) -> Result<OpFields, Error> {
+            fields
+                .named
+                .iter()
+                .map(|f| {
+                    OpAttributes::try_from(f).map(|oas| OpField {
+                        ty: f.ty.clone(),
+                        accessor: f.ident.to_token_stream(),
+                        attributes: oas,
                     })
-                    .collect(),
+                })
+                .collect()
+        }
 
-                syn::Fields::Unnamed(fields) => fields
-                    .unnamed
-                    .iter()
-                    .enumerate()
-                    .map(|(i, f)| {
-                        OpAttributes::try_from(f).map(|oas| OpField {
-                            ty: f.ty.clone(),
-                            accessor: syn::Index {
-                                index: i as u32,
-                                span: Span::call_site(),
-                            }
-                            .into_token_stream(),
-                            attributes: oas,
-                        })
+        fn parse_fields_unnamed(fields: &syn::FieldsUnnamed) -> Result<OpFields, Error> {
+            fields
+                .unnamed
+                .iter()
+                .enumerate()
+                .map(|(i, f)| {
+                    OpAttributes::try_from(f).map(|oas| OpField {
+                        ty: f.ty.clone(),
+                        accessor: syn::Index {
+                            index: i as u32,
+                            span: Span::call_site(),
+                        }
+                        .into_token_stream(),
+                        attributes: oas,
                     })
-                    .collect(),
-
-                _ => unimplemented!(),
-            }
+                })
+                .collect()
         }
 
         match data {
-            syn::Data::Struct(ds) => parse_fields(&ds.fields),
+            syn::Data::Struct(ds) => match &ds.fields {
+                syn::Fields::Named(fields) => parse_fields_named(fields),
+                syn::Fields::Unnamed(fields) => parse_fields_unnamed(fields),
+                _ => todo!(),
+            },
             _ => todo!(),
         }
     }
 }
 
-pub fn expand_node(ast: &syn::DeriveInput) -> TokenStream {
-    let name = &ast.ident;
-    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
-
-    quote! {
-        impl #impl_generics ::aegir::Node for #name #ty_generics #where_clause {}
-    }
-}
-
 pub fn expand_contains(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
-    let op_fields = OpFields::try_from(&ast.data).expect("No successor nodes found");
+    let op_fields = OpFields::try_from(&ast.data).expect("struct should have #[op] annotated successor nodes");
 
     let mut trait_generics = op_fields.extend_generics(
         ast.generics.clone(),

@@ -21,13 +21,6 @@ pub fn derive_db(tokens: TokenStream) -> TokenStream {
     db::expand(&ast).into()
 }
 
-#[proc_macro_derive(Node, attributes(op))]
-pub fn derive_node(tokens: TokenStream) -> TokenStream {
-    let ast = syn::parse2(tokens.into()).unwrap();
-
-    ops::expand_node(&ast).into()
-}
-
 #[proc_macro_derive(Contains, attributes(op))]
 pub fn derive_contains(tokens: TokenStream) -> TokenStream {
     let ast = syn::parse2(tokens.into()).unwrap();
