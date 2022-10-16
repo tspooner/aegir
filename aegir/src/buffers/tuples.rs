@@ -1,4 +1,4 @@
-use super::{shapes::S1, Buffer, Class, Hadamard, IncompatibleShapes, OwnedOf, Scalar, ZipFold};
+use super::{shapes::S1, Buffer, Class, ZipMap, IncompatibleShapes, OwnedOf, Scalar, ZipFold};
 
 /// Tuple buffer class.
 pub struct Tuples;
@@ -72,16 +72,26 @@ impl<F: Scalar> ZipFold for (F, F) {
     }
 }
 
-impl<F: Scalar> Hadamard for (F, F) {
-    type Output = (F, F);
+impl<F: Scalar> ZipMap for (F, F) {
+    fn zip_map(
+        self,
+        rhs: &(F, F),
+        f: impl Fn(F, F) -> F,
+    ) -> Result<(F, F), IncompatibleShapes<S1<2>>> {
+        Ok((f(self.0, rhs.0), f(self.1, rhs.1)))
+    }
 
-    fn hadamard(
+    fn zip_map_ref(
         &self,
         rhs: &(F, F),
         f: impl Fn(F, F) -> F,
     ) -> Result<(F, F), IncompatibleShapes<S1<2>>> {
         Ok((f(self.0, rhs.0), f(self.1, rhs.1)))
     }
+
+    fn take_left(lhs: Self) -> (F, F) { lhs }
+
+    fn take_right(rhs: Self) -> (F, F) { rhs }
 }
 
 impl<F: Scalar> Buffer for &(F, F) {

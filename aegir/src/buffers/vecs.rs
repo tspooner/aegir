@@ -1,4 +1,4 @@
-use super::{shapes::SDynamic, Buffer, Class, Hadamard, IncompatibleShapes, Scalar, ZipFold};
+use super::{shapes::SDynamic, Buffer, Class, ZipMap, IncompatibleShapes, Scalar, ZipFold};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Vecs
@@ -84,10 +84,30 @@ impl<F: Scalar> ZipFold for Vec<F> {
     }
 }
 
-impl<F: Scalar> Hadamard for Vec<F> {
-    type Output = Vec<F>;
+impl<F: Scalar> ZipMap for Vec<F> {
+    fn zip_map(
+        mut self,
+        rhs: &Vec<F>,
+        f: impl Fn(F, F) -> F,
+    ) -> Result<Vec<F>, IncompatibleShapes<SDynamic<1>>> {
+        match (self.len(), rhs.len()) {
+            (nx, ny) if nx == ny => {
+                for i in 0..nx {
+                    self[i] = f(self[i], rhs[i]);
+                }
 
-    fn hadamard(
+                Ok(self)
+            },
+            (nx, ny) => {
+                let dx = SDynamic([nx]);
+                let dy = SDynamic([ny]);
+
+                Err(IncompatibleShapes(dx, dy))
+            },
+        }
+    }
+
+    fn zip_map_ref(
         &self,
         rhs: &Vec<F>,
         f: impl Fn(F, F) -> F,
@@ -110,6 +130,10 @@ impl<F: Scalar> Hadamard for Vec<F> {
             },
         }
     }
+
+    fn take_left(lhs: Self) -> Vec<F> { lhs }
+
+    fn take_right(rhs: Self) -> Vec<F> { rhs }
 }
 
 impl<F: Scalar> Buffer for &Vec<F> {

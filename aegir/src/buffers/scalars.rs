@@ -1,4 +1,4 @@
-use super::{shapes::S0, Buffer, Class, Hadamard, IncompatibleShapes, ZipFold};
+use super::{shapes::S0, Buffer, Class, ZipMap, IncompatibleShapes, ZipFold};
 use num_traits::Num;
 
 /// Scalar buffer class.
@@ -27,7 +27,7 @@ impl<F: Scalar> Class<S0, F> for Scalars {
 
 /// Trait for numeric types implementing basic scalar operations.
 pub trait Scalar:
-    Copy + Num + Buffer<Class = Scalars, Shape = S0, Field = Self> + Hadamard<Self> + ZipFold<Self>
+    Copy + Num + Buffer<Class = Scalars, Shape = S0, Field = Self> + ZipMap<Self> + ZipFold<Self>
 {
 }
 
@@ -86,16 +86,26 @@ macro_rules! impl_scalar {
             }
         }
 
-        impl Hadamard for $F {
-            type Output = $F;
+        impl ZipMap for $F {
+            fn zip_map(
+                self,
+                rhs: &$F,
+                f: impl Fn($F, $F) -> $F,
+            ) -> Result<$F, IncompatibleShapes<S0>> {
+                Ok(f(self, *rhs))
+            }
 
-            fn hadamard(
+            fn zip_map_ref(
                 &self,
                 rhs: &$F,
                 f: impl Fn($F, $F) -> $F,
             ) -> Result<$F, IncompatibleShapes<S0>> {
                 Ok(f(*self, *rhs))
             }
+
+            fn take_left(lhs: $F) -> $F { lhs }
+
+            fn take_right(rhs: $F) -> $F { rhs }
         }
 
         impl Scalar for $F {}

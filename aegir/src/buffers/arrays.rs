@@ -2,7 +2,7 @@ use super::{
     shapes::{S0, S1, S2, S3, S4, S5},
     Buffer,
     Class,
-    Hadamard,
+    ZipMap,
     IncompatibleShapes,
     Scalar,
     ZipFold,
@@ -69,29 +69,61 @@ impl<F: Scalar, const D1: usize> Buffer for [F; D1] {
     fn into_owned(self) -> [F; D1] { self }
 }
 
-impl<F: Scalar, const D1: usize> Hadamard for [F; D1] {
-    type Output = Self;
+impl<F: Scalar, const D1: usize> ZipMap for [F; D1] {
+    fn zip_map(
+        mut self,
+        rhs: &Self,
+        f: impl Fn(F, F) -> F,
+    ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
+        for i in 0..D1 {
+            self[i] = unsafe {
+                self[i].zip_map(&rhs[i], &f).unwrap_unchecked()
+            };
+        }
 
-    fn hadamard(
+        Ok(self)
+    }
+
+    fn zip_map_ref(
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
     ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
-        Ok(array_init::array_init(|i| f(self[i], rhs[i])))
+        Ok(array_init::array_init(|i| unsafe { self[i].zip_map_ref(&rhs[i], &f).unwrap_unchecked() }))
     }
+
+    fn take_left(lhs: Self) -> Self { lhs }
+
+    fn take_right(rhs: Self) -> Self { rhs }
 }
 
-impl<F: Scalar, const D1: usize> Hadamard<F> for [F; D1] {
-    type Output = Self;
+// impl<F: Scalar, const D1: usize> ZipMap<F> for [F; D1] {
+    // type Output = Self;
 
-    fn hadamard(
-        &self,
-        rhs: &F,
-        f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
-        Ok(array_init::array_init(|i| f(self[i], *rhs)))
-    }
-}
+    // fn zip_map(
+        // mut self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
+        // for i in 0..D1 {
+            // self[i] = f(self[i], *rhs);
+        // }
+
+        // Ok(self)
+    // }
+
+    // fn zip_map_ref(
+        // &self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
+        // Ok(array_init::array_init(|i| f(self[i], *rhs)))
+    // }
+
+    // fn take_left(lhs: Self, _: F::Shape) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> { Ok(lhs) }
+
+    // fn take_right(_: Self::Shape, rhs: F) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> { Ok([rhs; D1]) }
+// }
 
 impl<F: Scalar, const D1: usize> ZipFold for [F; D1] {
     fn zip_fold(
@@ -155,29 +187,35 @@ impl<F: Scalar, const D1: usize> Buffer for &[F; D1] {
     fn into_owned(self) -> [F; D1] { self.clone() }
 }
 
-impl<F: Scalar, const D1: usize> Hadamard for &[F; D1] {
-    type Output = [F; D1];
-
-    fn hadamard(
+impl<F: Scalar, const D1: usize> ZipMap for &[F; D1] {
+    fn zip_map_ref(
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
     ) -> Result<[F; D1], IncompatibleShapes<Self::Shape>> {
-        Ok(array_init::array_init(|i| f(self[i], rhs[i])))
+        Ok(array_init::array_init(|i| unsafe { self[i].zip_map(&rhs[i], &f).unwrap_unchecked() }))
     }
+
+    fn take_left(lhs: Self) -> [F; D1] { lhs.into_owned() }
+
+    fn take_right(rhs: Self) -> [F; D1] { rhs.into_owned() }
 }
 
-impl<F: Scalar, const D1: usize> Hadamard<F> for &[F; D1] {
-    type Output = [F; D1];
+// impl<F: Scalar, const D1: usize> ZipMap<F> for &[F; D1] {
+    // type Output = [F; D1];
 
-    fn hadamard(
-        &self,
-        rhs: &F,
-        f: impl Fn(F, F) -> F,
-    ) -> Result<[F; D1], IncompatibleShapes<Self::Shape, S0>> {
-        Ok(array_init::array_init(|i| f(self[i], *rhs)))
-    }
-}
+    // fn zip_map_ref(
+        // &self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> {
+        // Ok(array_init::array_init(|i| unsafe { self[i].zip_map(rhs, &f).unwrap_unchecked() }))
+    // }
+
+    // fn take_left(lhs: Self, _: F::Shape) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> { Ok(lhs.into_owned()) }
+
+    // fn take_right(_: Self::Shape, rhs: F) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> { Ok([rhs; D1]) }
+// }
 
 impl<F: Scalar, const D1: usize> ZipFold for &[F; D1] {
     fn zip_fold(
@@ -271,33 +309,63 @@ impl<F: Scalar, const D1: usize, const D2: usize> Buffer for [[F; D2]; D1] {
     fn into_owned(self) -> Self { self }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize> Hadamard for [[F; D2]; D1] {
-    type Output = Self;
+impl<F: Scalar, const D1: usize, const D2: usize> ZipMap for [[F; D2]; D1] {
+    fn zip_map(
+        mut self,
+        rhs: &Self,
+        f: impl Fn(F, F) -> F,
+    ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
+        for i in 0..D1 {
+            self[i] = unsafe {
+                self[i].zip_map(&rhs[i], &f).unwrap_unchecked()
+            };
+        }
 
-    fn hadamard(
+        Ok(self)
+    }
+
+    fn zip_map_ref(
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
     ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| f(self[i][j], rhs[i][j]))
-        }))
+        Ok(array_init::array_init(|i| unsafe { self[i].zip_map_ref(&rhs[i], &f).unwrap_unchecked() }))
     }
+
+    fn take_left(lhs: Self) -> Self { lhs }
+
+    fn take_right(rhs: Self) -> Self { rhs }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize> Hadamard<F> for [[F; D2]; D1] {
-    type Output = Self;
+// impl<F: Scalar, const D1: usize, const D2: usize> ZipMap<F> for [[F; D2]; D1] {
+    // type Output = Self;
 
-    fn hadamard(
-        &self,
-        rhs: &F,
-        f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| f(self[i][j], *rhs))
-        }))
-    }
-}
+    // fn zip_map(
+        // mut self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
+        // for i in 0..D1 {
+            // self[i] = unsafe {
+                // self[i].zip_map(rhs, &f).unwrap_unchecked()
+            // };
+        // }
+
+        // Ok(self)
+    // }
+
+    // fn zip_map_ref(
+        // &self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
+        // Ok(array_init::array_init(|i| unsafe { self[i].zip_map_ref(rhs, &f).unwrap_unchecked() }))
+    // }
+
+    // fn take_left(lhs: Self, _: F::Shape) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> { Ok(lhs) }
+
+    // fn take_right(_: Self::Shape, rhs: F) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> { Ok([[rhs; D2]; D1]) }
+// }
 
 impl<F: Scalar, const D1: usize, const D2: usize> ZipFold for [[F; D2]; D1] {
     fn zip_fold(
@@ -369,33 +437,35 @@ impl<F: Scalar, const D1: usize, const D2: usize> Buffer for &[[F; D2]; D1] {
     fn into_owned(self) -> [[F; D2]; D1] { self.clone() }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize> Hadamard for &[[F; D2]; D1] {
-    type Output = [[F; D2]; D1];
-
-    fn hadamard(
+impl<F: Scalar, const D1: usize, const D2: usize> ZipMap for &[[F; D2]; D1] {
+    fn zip_map_ref(
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
     ) -> Result<[[F; D2]; D1], IncompatibleShapes<Self::Shape>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| f(self[i][j], rhs[i][j]))
-        }))
+        Ok(array_init::array_init(|i| unsafe { self[i].zip_map(&rhs[i], &f).unwrap_unchecked() }))
     }
+
+    fn take_left(lhs: Self) -> [[F; D2]; D1] { lhs.into_owned() }
+
+    fn take_right(rhs: Self) -> [[F; D2]; D1] { rhs.into_owned() }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize> Hadamard<F> for &[[F; D2]; D1] {
-    type Output = [[F; D2]; D1];
+// impl<F: Scalar, const D1: usize, const D2: usize> ZipMap<F> for &[[F; D2]; D1] {
+    // type Output = [[F; D2]; D1];
 
-    fn hadamard(
-        &self,
-        rhs: &F,
-        f: impl Fn(F, F) -> F,
-    ) -> Result<[[F; D2]; D1], IncompatibleShapes<Self::Shape, S0>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| f(self[i][j], *rhs))
-        }))
-    }
-}
+    // fn zip_map_ref(
+        // &self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> {
+        // Ok(array_init::array_init(|i| unsafe { self[i].zip_map(rhs, &f).unwrap_unchecked() }))
+    // }
+
+    // fn take_left(lhs: Self, _: F::Shape) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> { Ok(lhs.into_owned()) }
+
+    // fn take_right(_: Self::Shape, rhs: F) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> { Ok([[rhs; D2]; D1]) }
+// }
 
 impl<F: Scalar, const D1: usize, const D2: usize> ZipFold for &[[F; D2]; D1] {
     fn zip_fold(
@@ -501,37 +571,67 @@ where
     fn into_owned(self) -> Self { self }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Hadamard
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> ZipMap
     for [[[F; D3]; D2]; D1]
 {
-    type Output = Self;
+    fn zip_map(
+        mut self,
+        rhs: &Self,
+        f: impl Fn(F, F) -> F,
+    ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
+        for i in 0..D1 {
+            self[i] = unsafe {
+                self[i].zip_map(&rhs[i], &f).unwrap_unchecked()
+            };
+        }
 
-    fn hadamard(
+        Ok(self)
+    }
+
+    fn zip_map_ref(
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
     ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| array_init::array_init(|k| f(self[i][j][k], rhs[i][j][k])))
-        }))
+        Ok(array_init::array_init(|i| unsafe { self[i].zip_map_ref(&rhs[i], &f).unwrap_unchecked() }))
     }
+
+    fn take_left(lhs: Self) -> Self { lhs }
+
+    fn take_right(rhs: Self) -> Self { rhs }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Hadamard<F>
-    for [[[F; D3]; D2]; D1]
-{
-    type Output = Self;
+// impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> ZipMap<F>
+    // for [[[F; D3]; D2]; D1]
+// {
+    // type Output = Self;
 
-    fn hadamard(
-        &self,
-        rhs: &F,
-        f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| array_init::array_init(|k| f(self[i][j][k], *rhs)))
-        }))
-    }
-}
+    // fn zip_map(
+        // mut self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
+        // for i in 0..D1 {
+            // self[i] = unsafe {
+                // self[i].zip_map(rhs, &f).unwrap_unchecked()
+            // };
+        // }
+
+        // Ok(self)
+    // }
+
+    // fn zip_map_ref(
+        // &self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
+        // Ok(array_init::array_init(|i| unsafe { self[i].zip_map_ref(rhs, &f).unwrap_unchecked() }))
+    // }
+
+    // fn take_left(lhs: Self, _: F::Shape) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> { Ok(lhs) }
+
+    // fn take_right(_: Self::Shape, rhs: F) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> { Ok([[[rhs; D3]; D2]; D1]) }
+// }
 
 impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> ZipFold
     for [[[F; D3]; D2]; D1]
@@ -614,37 +714,39 @@ where
     fn into_owned(self) -> [[[F; D3]; D2]; D1] { self.clone() }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Hadamard
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> ZipMap
     for &[[[F; D3]; D2]; D1]
 {
-    type Output = [[[F; D3]; D2]; D1];
-
-    fn hadamard(
+    fn zip_map_ref(
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
     ) -> Result<[[[F; D3]; D2]; D1], IncompatibleShapes<Self::Shape>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| array_init::array_init(|k| f(self[i][j][k], rhs[i][j][k])))
-        }))
+        Ok(array_init::array_init(|i| unsafe { self[i].zip_map(&rhs[i], &f).unwrap_unchecked() }))
     }
+
+    fn take_left(lhs: Self) -> [[[F; D3]; D2]; D1] { lhs.into_owned() }
+
+    fn take_right(rhs: Self) -> [[[F; D3]; D2]; D1] { rhs.into_owned() }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> Hadamard<F>
-    for &[[[F; D3]; D2]; D1]
-{
-    type Output = [[[F; D3]; D2]; D1];
+// impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> ZipMap<F>
+    // for &[[[F; D3]; D2]; D1]
+// {
+    // type Output = [[[F; D3]; D2]; D1];
 
-    fn hadamard(
-        &self,
-        rhs: &F,
-        f: impl Fn(F, F) -> F,
-    ) -> Result<[[[F; D3]; D2]; D1], IncompatibleShapes<Self::Shape, S0>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| array_init::array_init(|k| f(self[i][j][k], *rhs)))
-        }))
-    }
-}
+    // fn zip_map_ref(
+        // &self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> {
+        // Ok(array_init::array_init(|i| unsafe { self[i].zip_map(rhs, &f).unwrap_unchecked() }))
+    // }
+
+    // fn take_left(lhs: Self, _: F::Shape) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> { Ok(lhs.into_owned()) }
+
+    // fn take_right(_: Self::Shape, rhs: F) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> { Ok([[[rhs; D3]; D2]; D1]) }
+// }
 
 impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> ZipFold
     for &[[[F; D3]; D2]; D1]
@@ -762,43 +864,71 @@ where
     fn into_owned(self) -> Self { self }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> Hadamard
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> ZipMap
     for [[[[F; D4]; D3]; D2]; D1]
 {
-    type Output = Self;
+    fn zip_map(
+        mut self,
+        rhs: &Self,
+        f: impl Fn(F, F) -> F,
+    ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
+        for i in 0..D1 {
+            self[i] = unsafe {
+                self[i].zip_map(&rhs[i], &f).unwrap_unchecked()
+            };
+        }
 
-    fn hadamard(
+        Ok(self)
+    }
+
+    fn zip_map_ref(
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
     ) -> Result<Self, IncompatibleShapes<Self::Shape>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| {
-                array_init::array_init(|k| {
-                    array_init::array_init(|u| f(self[i][j][k][u], rhs[i][j][k][u]))
-                })
-            })
+        Ok(array_init::array_init(|i| unsafe {
+            self[i].zip_map(&rhs[i], &f).unwrap_unchecked()
         }))
     }
+
+    fn take_left(lhs: Self) -> Self { lhs }
+
+    fn take_right(rhs: Self) -> Self { rhs }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> Hadamard<F>
-    for [[[[F; D4]; D3]; D2]; D1]
-{
-    type Output = Self;
+// impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> ZipMap<F>
+    // for [[[[F; D4]; D3]; D2]; D1]
+// {
+    // type Output = Self;
 
-    fn hadamard(
-        &self,
-        rhs: &F,
-        f: impl Fn(F, F) -> F,
-    ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| {
-                array_init::array_init(|k| array_init::array_init(|u| f(self[i][j][k][u], *rhs)))
-            })
-        }))
-    }
-}
+    // fn zip_map(
+        // mut self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
+        // for i in 0..D1 {
+            // self[i] = unsafe {
+                // self[i].zip_map(rhs, &f).unwrap_unchecked()
+            // };
+        // }
+
+        // Ok(self)
+    // }
+
+    // fn zip_map_ref(
+        // &self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> {
+        // Ok(array_init::array_init(|i| unsafe {
+            // self[i].zip_map(rhs, &f).unwrap_unchecked()
+        // }))
+    // }
+
+    // fn take_left(lhs: Self, _: F::Shape) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> { Ok(lhs) }
+
+    // fn take_right(_: Self::Shape, rhs: F) -> Result<Self, IncompatibleShapes<Self::Shape, S0>> { Ok([[[[rhs; D4]; D3]; D2]; D1]) }
+// }
 
 impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> ZipFold
     for [[[[F; D4]; D3]; D2]; D1]
@@ -888,43 +1018,43 @@ where
     fn into_owned(self) -> [[[[F; D4]; D3]; D2]; D1] { self.clone() }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> Hadamard
+impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> ZipMap
     for &[[[[F; D4]; D3]; D2]; D1]
 {
-    type Output = [[[[F; D4]; D3]; D2]; D1];
-
-    fn hadamard(
+    fn zip_map_ref(
         &self,
         rhs: &Self,
         f: impl Fn(F, F) -> F,
     ) -> Result<[[[[F; D4]; D3]; D2]; D1], IncompatibleShapes<Self::Shape>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| {
-                array_init::array_init(|k| {
-                    array_init::array_init(|u| f(self[i][j][k][u], rhs[i][j][k][u]))
-                })
-            })
+        Ok(array_init::array_init(|i| unsafe {
+            self[i].zip_map(&rhs[i], &f).unwrap_unchecked()
         }))
     }
+
+    fn take_left(lhs: Self) -> [[[[F; D4]; D3]; D2]; D1] { lhs.into_owned() }
+
+    fn take_right(rhs: Self) -> [[[[F; D4]; D3]; D2]; D1] { rhs.into_owned() }
 }
 
-impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> Hadamard<F>
-    for &[[[[F; D4]; D3]; D2]; D1]
-{
-    type Output = [[[[F; D4]; D3]; D2]; D1];
+// impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> ZipMap<F>
+    // for &[[[[F; D4]; D3]; D2]; D1]
+// {
+    // type Output = [[[[F; D4]; D3]; D2]; D1];
 
-    fn hadamard(
-        &self,
-        rhs: &F,
-        f: impl Fn(F, F) -> F,
-    ) -> Result<[[[[F; D4]; D3]; D2]; D1], IncompatibleShapes<Self::Shape, S0>> {
-        Ok(array_init::array_init(|i| {
-            array_init::array_init(|j| {
-                array_init::array_init(|k| array_init::array_init(|u| f(self[i][j][k][u], *rhs)))
-            })
-        }))
-    }
-}
+    // fn zip_map_ref(
+        // &self,
+        // rhs: &F,
+        // f: impl Fn(F, F) -> F,
+    // ) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> {
+        // Ok(array_init::array_init(|i| unsafe {
+            // self[i].zip_map(rhs, &f).unwrap_unchecked()
+        // }))
+    // }
+
+    // fn take_left(lhs: Self, _: F::Shape) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> { Ok(lhs.into_owned()) }
+
+    // fn take_right(_: Self::Shape, rhs: F) -> Result<Self::Output, IncompatibleShapes<Self::Shape, S0>> { Ok([[[[rhs; D4]; D3]; D2]; D1]) }
+// }
 
 impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usize> ZipFold
     for &[[[[F; D4]; D3]; D2]; D1]

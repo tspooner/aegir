@@ -1,13 +1,12 @@
 use crate::{
     buffers::{
         shapes::{Concat, Indices, Shape},
+        precedence,
         Buffer,
         Class,
+        BufferOf,
         FieldOf,
         OwnedOf,
-        Precedence,
-        PrecedenceMapping,
-        PrecedenceOf,
         Scalar,
     },
     Contains,
@@ -134,9 +133,8 @@ where
     ST: Shape,
     SA: Shape,
 
-    CN: Class<SN, F>,
+    CN: Class<SN, F> + precedence::Precedence<CT, <SN as Concat<ST>>::Shape, F>,
     CT: Class<ST, F>,
-    Precedence: PrecedenceMapping<F, SN, CN, ST, CT>,
 
     N: Function<D>,
     N::Value: Buffer<Field = F, Shape = SN, Class = CN>,
@@ -147,7 +145,7 @@ where
     D::Buffer: Buffer<Field = F, Shape = ST, Class = CT>,
 {
     type Error = crate::BinaryError<N::Error, VariableError<T>, crate::NoError>;
-    type Value = <PrecedenceOf<F, SN, CN, ST, CT> as Class<SA, F>>::Buffer;
+    type Value = precedence::PBufferOf<CN, CT, SA, F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         let shape_value = self
@@ -159,10 +157,7 @@ where
         )?;
         let shape_adjoint = shape_value.concat(shape_target);
 
-        Ok(<PrecedenceOf<F, SN, CN, ST, CT> as Class<SA, F>>::full(
-            shape_adjoint,
-            num_traits::zero(),
-        ))
+        Ok(precedence::full::<CN, CT, SA, F>(shape_adjoint, num_traits::zero()))
     }
 }
 
@@ -280,21 +275,20 @@ where
 
     F: Scalar,
 
-    CI: Class<SI, F>,
+    CI: Class<SI, F> + precedence::Precedence<CT, <SI as Concat<ST>>::Shape, F>,
     CT: Class<ST, F>,
-    Precedence: PrecedenceMapping<F, SI, CI, ST, CT>,
 
     <D as Read<I>>::Buffer: Buffer<Class = CI, Shape = SI, Field = F>,
     <D as Read<T>>::Buffer: Buffer<Class = CT, Shape = ST, Field = F>,
 {
     type Error = crate::BinaryError<VariableError<I>, VariableError<T>, crate::NoError>;
-    type Value = <PrecedenceOf<F, SI, CI, ST, CT> as Class<SA, F>>::Buffer;
+    type Value = precedence::PBufferOf<CI, CT, SA, F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let shape_value = db.as_ref().read(self.value).map(|buf| buf.shape()).ok_or(
+        let shape_value = db.as_ref().read_shape(self.value).ok_or(
             crate::BinaryError::Left(VariableError::Undefined(self.value)),
         )?;
-        let shape_target = db.as_ref().read(self.target).map(|buf| buf.shape()).ok_or(
+        let shape_target = db.as_ref().read_shape(self.target).ok_or(
             crate::BinaryError::Right(VariableError::Undefined(self.target)),
         )?;
         let shape_adjoint = shape_value.concat(shape_target);
@@ -303,18 +297,14 @@ where
             // In this case, we also know that shape_value == shape_target.
             // This further implies that shape_adjoint.split() is exactly equal
             // to (shape_value, shape_adjoint). We exploit this below:
+            let one = num_traits::one();
             let ixs = shape_value
                 .indices()
                 .zip(shape_target.indices())
                 .map(|ixs| <SI as Concat<ST>>::concat_indices(ixs.0, ixs.1));
 
-            let one: F = num_traits::one();
-
-            <PrecedenceOf<F, SI, CI, ST, CT> as Class<SA, F>>::build_subset(
-                shape_adjoint,
-                num_traits::zero(),
-                ixs,
-                |_| one,
+            precedence::build_subset::<CI, CT, SA, F, _, _>(
+                shape_adjoint, num_traits::zero(), ixs, |_| one
             )
         } else {
             <Self::Value as Buffer>::Class::full(shape_adjoint, num_traits::zero())
