@@ -85,7 +85,7 @@ where
     type Error = N::Error;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.loggamma()))
+        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.factorial()))
     }
 }
 
