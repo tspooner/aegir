@@ -50,7 +50,7 @@ impl<F: Scalar> Buffer for Vec<F> {
 
     fn map_ref<Func: Fn(F) -> F>(&self, f: Func) -> Self { self.iter().map(|x| f(*x)).collect() }
 
-    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> Self::Field {
+    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A {
         self.into_iter().fold(init, f)
     }
 
@@ -135,7 +135,7 @@ impl<F: Scalar> Buffer for &Vec<F> {
 
     fn map_ref<Func: Fn(F) -> F>(&self, f: Func) -> Vec<F> { self.iter().map(|x| f(*x)).collect() }
 
-    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> Self::Field {
+    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A {
         self.into_iter().fold(init, f)
     }
 }
@@ -239,7 +239,7 @@ impl<F: Scalar> Buffer for &[F] {
 
     fn map_ref<Func: Fn(F) -> F>(&self, f: Func) -> Vec<F> { self.iter().map(|x| f(*x)).collect() }
 
-    fn fold<Func: Fn(F, &F) -> F>(&self, init: F, f: Func) -> Self::Field {
+    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A {
         self.into_iter().fold(init, f)
     }
 

@@ -47,6 +47,7 @@
 pub mod shapes;
 
 use shapes::{Concat, Ix, Shape};
+use num_traits::{One, Zero};
 
 /// Marker trait for class subscriptions of [Buffer] types.
 ///
@@ -307,9 +308,9 @@ pub trait Buffer: std::fmt::Debug {
     ///
     /// assert_eq!(buffer.fold(0.0, |init, &el| init + 2.0 * el), 12.0);
     /// ```
-    fn fold<F>(&self, init: Self::Field, f: F) -> Self::Field
+    fn fold<A, F>(&self, init: A, f: F) -> A
     where
-        F: Fn(Self::Field, &Self::Field) -> Self::Field;
+        F: Fn(A, &Self::Field) -> A;
 
     /// Sum over the elements of the buffer.
     ///

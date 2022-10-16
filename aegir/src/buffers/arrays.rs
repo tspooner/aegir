@@ -56,7 +56,7 @@ impl<F: Scalar, const D1: usize> Buffer for [F; D1] {
 
     fn map_ref<M: Fn(F) -> F>(&self, f: M) -> Self { array_init::array_init(|i| f(self[i])) }
 
-    fn fold<M: Fn(F, &F) -> F>(&self, mut init: F, f: M) -> F {
+    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -142,7 +142,7 @@ impl<F: Scalar, const D1: usize> Buffer for &[F; D1] {
 
     fn map_ref<M: Fn(F) -> F>(&self, f: M) -> [F; D1] { array_init::array_init(|i| f(self[i])) }
 
-    fn fold<M: Fn(F, &F) -> F>(&self, mut init: F, f: M) -> F {
+    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -258,7 +258,7 @@ impl<F: Scalar, const D1: usize, const D2: usize> Buffer for [[F; D2]; D1] {
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<M: Fn(F, &F) -> F>(&self, mut init: F, f: M) -> F {
+    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -356,7 +356,7 @@ impl<F: Scalar, const D1: usize, const D2: usize> Buffer for &[[F; D2]; D1] {
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<M: Fn(F, &F) -> F>(&self, mut init: F, f: M) -> F {
+    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -488,7 +488,7 @@ where
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<M: Fn(F, &F) -> F>(&self, mut init: F, f: M) -> F {
+    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -601,7 +601,7 @@ where
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<M: Fn(F, &F) -> F>(&self, mut init: F, f: M) -> F {
+    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -749,7 +749,7 @@ where
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<M: Fn(F, &F) -> F>(&self, mut init: F, f: M) -> F {
+    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -873,7 +873,7 @@ where
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<M: Fn(F, &F) -> F>(&self, mut init: F, f: M) -> F {
+    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -1040,7 +1040,7 @@ where
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<M: Fn(F, &F) -> F>(&self, mut init: F, f: M) -> F {
+    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }

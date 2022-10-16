@@ -46,7 +46,7 @@ macro_rules! impl_scalar {
 
             fn map_ref<F: Fn($F) -> Self::Field>(&self, f: F) -> Self { f(*self) }
 
-            fn fold<F: Fn($F, &$F) -> $F>(&self, init: $F, f: F) -> $F { f(init, self) }
+            fn fold<A, F: Fn(A, &$F) -> A>(&self, init: A, f: F) -> A { f(init, self) }
 
             fn to_owned(&self) -> $F { *self }
 
@@ -66,7 +66,7 @@ macro_rules! impl_scalar {
 
             fn map_ref<F: Fn($F) -> Self::Field>(&self, f: F) -> $F { f(**self) }
 
-            fn fold<F: Fn($F, &$F) -> $F>(&self, init: $F, f: F) -> $F { f(init, self) }
+            fn fold<A, F: Fn(A, &$F) -> A>(&self, init: A, f: F) -> A { f(init, self) }
 
             fn to_owned(&self) -> $F { **self }
 
