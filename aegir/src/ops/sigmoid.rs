@@ -1,12 +1,12 @@
 use crate::{
     buffers::{Buffer, FieldOf, OwnedOf},
     ops::TensorMul,
-    Node,
     Contains,
     Database,
     Differentiable,
     Function,
     Identifier,
+    Node,
 };
 use num_traits::{one, real::Real, zero};
 use std::fmt;
@@ -15,7 +15,9 @@ use std::fmt;
 pub struct Rabbit<N>(#[op] pub N);
 
 impl<N: Node> Node for Rabbit<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+    fn is_zero(stage: crate::Stage<&'_ Self>) -> aegir::logic::TFU {
+        N::is_zero(stage.map(|node| &node.0))
+    }
 }
 
 impl<D, N> Function<D> for Rabbit<N>
@@ -73,7 +75,7 @@ fn sigmoid<F: Real>(x: F) -> F {
 pub struct Sigmoid<N>(#[op] pub N);
 
 impl<N: Node> Node for Sigmoid<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
+    fn is_zero(_: crate::Stage<&'_ Self>) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
 }
 
 impl<D, N> Function<D> for Sigmoid<N>

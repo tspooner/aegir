@@ -1,4 +1,4 @@
-use super::{shapes::S1, Buffer, Class, ZipMap, IncompatibleShapes, OwnedOf, Scalar, ZipFold};
+use super::{shapes::S1, Buffer, Class, IncompatibleShapes, OwnedOf, Scalar, ZipFold, ZipMap};
 
 /// Tuple buffer class.
 pub struct Tuples;
@@ -53,9 +53,7 @@ impl<F: Scalar> Buffer for (F, F) {
 
     fn map_ref<Func: Fn(F) -> Self::Field>(&self, f: Func) -> Self { (f(self.0), f(self.1)) }
 
-    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A {
-        f(f(init, &self.0), &self.1)
-    }
+    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A { f(f(init, &self.0), &self.1) }
 }
 
 impl<F: Scalar> ZipFold for (F, F) {
@@ -115,9 +113,7 @@ impl<F: Scalar> Buffer for &(F, F) {
         (f(self.0), f(self.1))
     }
 
-    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A {
-        f(f(init, &self.0), &self.1)
-    }
+    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A { f(f(init, &self.0), &self.1) }
 
     fn to_owned(&self) -> OwnedOf<Self> { **self }
 

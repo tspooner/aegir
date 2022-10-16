@@ -1,5 +1,6 @@
 use crate::{
     buffers::{Compatible, FieldOf, IncompatibleShapes, ShapeOf, ZipFold},
+    logic::TFU,
     ops::{Add, TensorMul},
     BinaryError,
     Contains,
@@ -8,6 +9,7 @@ use crate::{
     Function,
     Identifier,
     Node,
+    Stage,
 };
 
 /// Computes the inner product of two vector [Buffers](Buffer).
@@ -31,10 +33,11 @@ use crate::{
 pub struct InnerProduct<N1, N2>(#[op] pub N1, #[op] pub N2);
 
 impl<N1: Node, N2: Node> Node for InnerProduct<N1, N2> {
-    fn is_zero(&self) -> aegir::logic::TFU {
-        use aegir::logic::TFU;
-
-        match (self.0.is_zero(), self.1.is_zero()) {
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
+        match (
+            stage.map(|node| &node.0).is_zero(),
+            stage.map(|node| &node.1).is_zero(),
+        ) {
             (TFU::True, _) | (_, TFU::True) => TFU::True,
             (TFU::False, TFU::False) => TFU::False,
             _ => TFU::Unknown,

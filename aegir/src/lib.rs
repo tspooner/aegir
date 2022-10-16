@@ -221,9 +221,37 @@ macro_rules! db {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum Stage<N> {
+    Type,
+    Instance(N),
+    Evaluation(N),
+}
+
+impl<N> Stage<N> {
+    pub fn map<U>(self, f: impl Fn(N) -> U) -> Stage<U> {
+        match self {
+            Stage::Type => Stage::Type,
+            Stage::Instance(node) => Stage::Instance(f(node)),
+            Stage::Evaluation(node) => Stage::Evaluation(f(node)),
+        }
+    }
+
+    pub fn split<O>(self, f_ct: impl Fn() -> O, f_rt: impl Fn(N) -> O) -> O {
+        match self {
+            Stage::Type => f_ct(),
+            Stage::Instance(node) | Stage::Evaluation(node) => f_rt(node),
+        }
+    }
+}
+
+impl<'a, N: Node> Stage<&'a N> {
+    pub fn is_zero(self) -> logic::TFU { N::is_zero(self) }
+}
+
 /// Base trait for operator nodes.
 pub trait Node {
-    fn is_zero(&self) -> logic::TFU { logic::TFU::Unknown }
+    fn is_zero(_: Stage<&'_ Self>) -> logic::TFU { logic::TFU::Unknown }
 
     // TODO - replace NamedNode with explicit caching support. The idea would be
     // to add a "Write" trait that extends "Database" such that a "CachedNode"
@@ -445,10 +473,10 @@ mod dual;
 pub use self::dual::Dual;
 
 mod sources;
-pub use self::sources::{Constant, Variable, VariableAdjoint, VariableError, ConstantAdjoint};
+pub use self::sources::{Constant, ConstantAdjoint, Variable, VariableAdjoint, VariableError};
 
-pub mod logic;
 pub mod buffers;
+pub mod logic;
 pub mod ops;
 
 // mod named;

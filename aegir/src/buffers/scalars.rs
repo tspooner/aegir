@@ -1,4 +1,4 @@
-use super::{shapes::S0, Buffer, Class, ZipMap, IncompatibleShapes, ZipFold};
+use super::{shapes::S0, Buffer, Class, IncompatibleShapes, ZipFold, ZipMap};
 use num_traits::Num;
 
 /// Scalar buffer class.

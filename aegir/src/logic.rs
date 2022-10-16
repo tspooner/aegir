@@ -4,7 +4,7 @@ pub type TF = bool;
 pub enum TernaryTruthValue {
     True,
     False,
-    Unknown
+    Unknown,
 }
 
 pub type TFU = TernaryTruthValue;

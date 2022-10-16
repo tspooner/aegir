@@ -1,4 +1,4 @@
-use super::{shapes::SDynamic, Buffer, Class, ZipMap, IncompatibleShapes, Scalar, ZipFold};
+use super::{shapes::SDynamic, Buffer, Class, IncompatibleShapes, Scalar, ZipFold, ZipMap};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Vecs

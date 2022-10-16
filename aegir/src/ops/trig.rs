@@ -10,9 +10,7 @@ macro_rules! impl_trig {
         #[derive(Clone, Copy, Debug, PartialEq, Contains)]
         pub struct $name<N>(#[op] pub N);
 
-        impl<N: crate::Node> crate::Node for $name<N> {
-            fn is_zero(&self) -> crate::logic::TFU { crate::logic::TFU::Unknown }
-        }
+        impl<N: crate::Node> crate::Node for $name<N> {}
 
         impl<D, N> crate::Function<D> for $name<N>
         where

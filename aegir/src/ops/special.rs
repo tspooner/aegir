@@ -1,9 +1,11 @@
 use crate::{
-    buffers::{Buffer, FieldOf, OwnedOf},
-    Node,
+    buffers::{Buffer, Class, ClassOf, FieldOf, OwnedOf, ShapeOf},
+    logic::TFU,
     Contains,
     Database,
     Function,
+    Node,
+    Stage,
 };
 use special_fun::FloatSpecial;
 use std::fmt;
@@ -13,7 +15,7 @@ use std::fmt;
 pub struct Gamma<N>(#[op] pub N);
 
 impl<N: Node> Node for Gamma<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::False }
+    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::False }
 }
 
 impl<D, N> Function<D> for Gamma<N>
@@ -23,8 +25,8 @@ where
 
     FieldOf<N::Value>: special_fun::FloatSpecial,
 {
-    type Value = OwnedOf<N::Value>;
     type Error = N::Error;
+    type Value = OwnedOf<N::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         self.0.evaluate(db).map(|buffer| buffer.map(|x| x.gamma()))
@@ -32,9 +34,7 @@ where
 }
 
 impl<N: fmt::Display> fmt::Display for Gamma<N> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\u{0393}({})", self.0)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "\u{0393}({})", self.0) }
 }
 
 // Deriv = x.digamma()
@@ -42,7 +42,7 @@ impl<N: fmt::Display> fmt::Display for Gamma<N> {
 pub struct LogGamma<N>(#[op] pub N);
 
 impl<N: Node> Node for LogGamma<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::False }
+    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::False }
 }
 
 impl<D, N> Function<D> for LogGamma<N>
@@ -52,11 +52,13 @@ where
 
     FieldOf<N::Value>: special_fun::FloatSpecial,
 {
-    type Value = OwnedOf<N::Value>;
     type Error = N::Error;
+    type Value = OwnedOf<N::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.loggamma()))
+        self.0
+            .evaluate(db)
+            .map(|buffer| buffer.map(|x| x.loggamma()))
     }
 }
 
@@ -71,7 +73,7 @@ impl<N: fmt::Display> fmt::Display for LogGamma<N> {
 pub struct Factorial<N>(#[op] pub N);
 
 impl<N: Node> Node for Factorial<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::False }
+    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::False }
 }
 
 impl<D, N> Function<D> for Factorial<N>
@@ -81,11 +83,24 @@ where
 
     FieldOf<N::Value>: special_fun::FloatSpecial,
 {
-    type Value = OwnedOf<N::Value>;
     type Error = N::Error;
+    type Value = OwnedOf<N::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.factorial()))
+        let stage = crate::Stage::Evaluation(&self.0);
+
+        if N::is_zero(stage) == crate::logic::TFU::True {
+            self.0.evaluate_shape(db).map(|shape| {
+                <ClassOf<Self::Value> as Class<ShapeOf<N::Value>, FieldOf<N::Value>>>::full(
+                    shape,
+                    num_traits::one(),
+                )
+            })
+        } else {
+            self.0
+                .evaluate(db)
+                .map(|buffer| buffer.map(|x| x.factorial()))
+        }
     }
 }
 
@@ -101,7 +116,7 @@ impl<N> Erf<N> {
 }
 
 impl<N: Node> Node for Erf<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<D, N> Function<D> for Erf<N>
@@ -115,7 +130,18 @@ where
     type Value = crate::buffers::OwnedOf<N::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.erf()))
+        let stage = crate::Stage::Evaluation(&self.0);
+
+        if N::is_zero(stage) == crate::logic::TFU::True {
+            self.0.evaluate_shape(db).map(|shape| {
+                <ClassOf<Self::Value> as Class<ShapeOf<N::Value>, FieldOf<N::Value>>>::full(
+                    shape,
+                    num_traits::zero(),
+                )
+            })
+        } else {
+            self.0.evaluate(db).map(|buffer| buffer.map(|x| x.erf()))
+        }
     }
 }
 

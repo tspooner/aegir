@@ -1,10 +1,10 @@
 use crate::{
     buffers::{
-        shapes::{Concat, Indices, Shape},
         precedence,
+        shapes::{Concat, Indices, Shape},
         Buffer,
-        Class,
         BufferOf,
+        Class,
         FieldOf,
         OwnedOf,
         Scalar,
@@ -18,6 +18,7 @@ use crate::{
     Node,
     Read,
 };
+use std::marker::PhantomData;
 
 /// Error type for variable/source nodes.
 #[derive(Copy, Clone, Debug)]
@@ -38,7 +39,50 @@ impl<ID: std::fmt::Debug> std::fmt::Display for VariableError<ID> {
 
 impl<ID: std::fmt::Debug> std::error::Error for VariableError<ID> {}
 
-/// Source node for numerical constants.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Zeroes<C, S, F> {
+    class: PhantomData<C>,
+    shape: S,
+    field: PhantomData<F>,
+}
+
+impl<C, S, F> Zeroes<C, S, F> {
+    pub fn new(shape: S) -> Self {
+        Zeroes {
+            class: PhantomData,
+            shape,
+            field: PhantomData,
+        }
+    }
+}
+
+impl<C, S, F> Node for Zeroes<C, S, F> {
+    fn is_zero(_: crate::Stage<&'_ Self>) -> TFU { true.into() }
+}
+
+impl<T, C, S, F> Contains<T> for Zeroes<C, S, F>
+where
+    T: Identifier,
+{
+    fn contains(&self, _: T) -> bool { false }
+}
+
+impl<D, C, S, F> Function<D> for Zeroes<C, S, F>
+where
+    D: Database,
+    C: Class<S, F>,
+    S: Shape,
+    F: Scalar,
+{
+    type Error = VariableError<()>;
+    type Value = C::Buffer;
+
+    fn evaluate<DR: AsRef<D>>(&self, _: DR) -> Result<Self::Value, Self::Error> {
+        Ok(C::full(self.shape, F::zero()))
+    }
+}
+
+/// Source node for (runtime) numerical constants.
 ///
 /// This node implements both [Function] and [Differentiable]. The former
 /// simply returns the wrapped value, and the latter returns an instance of
@@ -63,7 +107,9 @@ impl<ID: std::fmt::Debug> std::error::Error for VariableError<ID> {}
 pub struct Constant<B>(pub B);
 
 impl<B: Buffer> Node for Constant<B> {
-    fn is_zero(&self) -> TFU { self.0.is_zeroes().into() }
+    fn is_zero(stage: crate::Stage<&'_ Self>) -> TFU {
+        stage.split(|| false.into(), |node| node.0.is_zeroes().into())
+    }
 }
 
 impl<T, B> Contains<T> for Constant<B>
@@ -119,7 +165,7 @@ pub struct ConstantAdjoint<N, T> {
 }
 
 impl<N: Node, T> Node for ConstantAdjoint<N, T> {
-    fn is_zero(&self) -> TFU { TFU::True }
+    fn is_zero(_: crate::Stage<&'_ Self>) -> TFU { true.into() }
 }
 
 impl<N, T, A> Contains<A> for ConstantAdjoint<N, T>
@@ -163,7 +209,10 @@ where
         )?;
         let shape_adjoint = shape_value.concat(shape_target);
 
-        Ok(precedence::full::<CN, CT, SA, F>(shape_adjoint, num_traits::zero()))
+        Ok(precedence::full::<CN, CT, SA, F>(
+            shape_adjoint,
+            num_traits::zero(),
+        ))
     }
 }
 
@@ -173,10 +222,11 @@ impl<N, T> std::fmt::Display for ConstantAdjoint<N, T> {
 
 /// Source node for numerical variables.
 ///
-/// This node implements both [Function] and [Differentiable]. The former reads from the provided
-/// [Database] and returns the buffer assigned to `I`, and the latter returns an an instance of
-/// [VariableAdjoint]. You should use this type as the entry point for all "symbolic" entities in
-/// the constructed operator tree.
+/// This node implements both [Function] and [Differentiable]. The former reads
+/// from the provided [Database] and returns the buffer assigned to `I`, and the
+/// latter returns an an instance of [VariableAdjoint]. You should use this type
+/// as the entry point for all "symbolic" entities in the constructed operator
+/// tree.
 ///
 /// # Examples
 /// ```
@@ -197,7 +247,7 @@ impl<N, T> std::fmt::Display for ConstantAdjoint<N, T> {
 pub struct Variable<I>(pub I);
 
 impl<I> Node for Variable<I> {
-    fn is_zero(&self) -> TFU { TFU::Unknown }
+    fn is_zero(_: crate::Stage<&'_ Self>) -> TFU { TFU::Unknown }
 }
 
 impl<T, I> Contains<T> for Variable<I>
@@ -260,12 +310,17 @@ pub struct VariableAdjoint<I, T> {
 }
 
 impl<I: PartialEq<T>, T> Node for VariableAdjoint<I, T> {
-    fn is_zero(&self) -> TFU {
-        if self.value == self.target {
-            TFU::False
-        } else {
-            TFU::True
-        }
+    fn is_zero(stage: crate::Stage<&'_ Self>) -> TFU {
+        stage.split(
+            || TFU::Unknown,
+            |node| {
+                if node.value == node.target {
+                    TFU::False
+                } else {
+                    TFU::True
+                }
+            },
+        )
     }
 }
 
@@ -301,12 +356,18 @@ where
     type Value = precedence::PBufferOf<CI, CT, SA, F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let shape_value = db.as_ref().read_shape(self.value).ok_or(
-            crate::BinaryError::Left(VariableError::Undefined(self.value)),
-        )?;
-        let shape_target = db.as_ref().read_shape(self.target).ok_or(
-            crate::BinaryError::Right(VariableError::Undefined(self.target)),
-        )?;
+        let shape_value = db
+            .as_ref()
+            .read_shape(self.value)
+            .ok_or(crate::BinaryError::Left(VariableError::Undefined(
+                self.value,
+            )))?;
+        let shape_target =
+            db.as_ref()
+                .read_shape(self.target)
+                .ok_or(crate::BinaryError::Right(VariableError::Undefined(
+                    self.target,
+                )))?;
         let shape_adjoint = shape_value.concat(shape_target);
 
         Ok(if self.value == self.target {
@@ -320,7 +381,10 @@ where
                 .map(|ixs| <SI as Concat<ST>>::concat_indices(ixs.0, ixs.1));
 
             precedence::build_subset::<CI, CT, SA, F, _, _>(
-                shape_adjoint, num_traits::zero(), ixs, |_| one
+                shape_adjoint,
+                num_traits::zero(),
+                ixs,
+                |_| one,
             )
         } else {
             <Self::Value as Buffer>::Class::full(shape_adjoint, num_traits::zero())

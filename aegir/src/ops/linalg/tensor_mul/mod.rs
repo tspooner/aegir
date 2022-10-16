@@ -1,5 +1,6 @@
 use crate::{
     buffers::{Buffer, FieldOf, IncompatibleShapes, ShapeOf},
+    logic::TFU,
     ops::Add,
     BinaryError,
     Contains,
@@ -8,6 +9,7 @@ use crate::{
     Function,
     Identifier,
     Node,
+    Stage,
 };
 
 pub trait TensorMulTrait<T>: Buffer
@@ -66,10 +68,11 @@ mod impls;
 pub struct TensorMul<N1, N2>(#[op] pub N1, #[op] pub N2);
 
 impl<N1: Node, N2: Node> Node for TensorMul<N1, N2> {
-    fn is_zero(&self) -> aegir::logic::TFU {
-        use aegir::logic::TFU;
-
-        match (self.0.is_zero(), self.1.is_zero()) {
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
+        match (
+            stage.map(|node| &node.0).is_zero(),
+            stage.map(|node| &node.1).is_zero(),
+        ) {
             (TFU::True, _) | (_, TFU::True) => TFU::True,
             (TFU::False, TFU::False) => TFU::False,
             _ => TFU::Unknown,
@@ -124,9 +127,11 @@ where
     N2: Node + std::fmt::Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.0.is_zero() == aegir::logic::TFU::True {
+        use crate::Stage::Instance;
+
+        if Instance(&self.0).is_zero() == TFU::True {
             write!(f, "{}", self.1)
-        } else if self.1.is_zero() == aegir::logic::TFU::True {
+        } else if Instance(&self.1).is_zero() == TFU::True {
             write!(f, "{}", self.0)
         } else {
             write!(f, "({}) ({})", self.0, self.1)

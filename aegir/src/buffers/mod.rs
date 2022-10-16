@@ -46,8 +46,8 @@
 //! see e.g. [Precedence] and [PrecedenceMapping].
 pub mod shapes;
 
-use shapes::{Concat, Ix, Shape};
 use num_traits::{One, Zero};
+use shapes::{Concat, Ix, Shape};
 
 /// Marker trait for class subscriptions of [Buffer] types.
 ///
@@ -369,9 +369,7 @@ pub trait Buffer: std::fmt::Debug {
         self.into_filled(num_traits::identities::zero())
     }
 
-    fn is_zeroes(&self) -> bool {
-        self.fold(true, |acc, x| acc && x.is_zero())
-    }
+    fn is_zeroes(&self) -> bool { self.fold(true, |acc, x| acc && x.is_zero()) }
 
     /// Create an owned buffer of all ones with a given shape.
     fn ones(shape: Self::Shape) -> OwnedOf<Self> {
@@ -389,9 +387,7 @@ pub trait Buffer: std::fmt::Debug {
         self.into_filled(num_traits::identities::one())
     }
 
-    fn is_ones(&self) -> bool {
-        self.fold(true, |acc, x| acc && x.is_one())
-    }
+    fn is_ones(&self) -> bool { self.fold(true, |acc, x| acc && x.is_one()) }
 
     /// Create an owned buffer of a given value with the same shape as self.
     fn to_filled(&self, value: Self::Field) -> OwnedOf<Self> { self.to_owned().map(|_| value) }
@@ -494,7 +490,7 @@ where
         f: impl Fn(Self::Field, Self::Field) -> Self::Field,
     ) -> Result<
         precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
-        IncompatibleShapes<Self::Shape, RHS::Shape>
+        IncompatibleShapes<Self::Shape, RHS::Shape>,
     >
     where
         Self: Sized,
@@ -518,12 +514,16 @@ where
         f: impl Fn(Self::Field, Self::Field) -> Self::Field,
     ) -> Result<
         precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
-        IncompatibleShapes<Self::Shape, RHS::Shape>
+        IncompatibleShapes<Self::Shape, RHS::Shape>,
     >;
 
-    fn take_left(lhs: Self) -> precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
+    fn take_left(
+        lhs: Self,
+    ) -> precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
 
-    fn take_right(rhs: RHS) -> precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
+    fn take_right(
+        rhs: RHS,
+    ) -> precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
 }
 
 /// Helper trait for pair of compatible buffers.

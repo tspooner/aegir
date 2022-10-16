@@ -1,5 +1,6 @@
 use crate::{
-    buffers::{Buffer, Compatible, ZipMap, OwnedOf, Scalar, shapes::Shape, precedence},
+    buffers::{precedence, shapes::Shape, Buffer, OwnedOf, Scalar, ZipMap},
+    logic::TFU,
     ops::{HadOut, SafeXlnX},
     BinaryError,
     Contains,
@@ -8,6 +9,7 @@ use crate::{
     Function,
     Identifier,
     Node,
+    Stage,
 };
 use std::fmt;
 
@@ -71,7 +73,7 @@ use std::fmt;
 pub struct Power<N, E>(#[op] pub N, #[op] pub E);
 
 impl<N: Node, E: Node> Node for Power<N, E> {
-    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<F, D, N, E> Function<D> for Power<N, E>
@@ -149,10 +151,11 @@ impl<X: fmt::Display, E: fmt::Display> fmt::Display for Power<X, E> {
 pub struct Add<N1, N2>(#[op] pub N1, #[op] pub N2);
 
 impl<N1: Node, N2: Node> Node for Add<N1, N2> {
-    fn is_zero(&self) -> aegir::logic::TFU {
-        use aegir::logic::TFU;
-
-        match (self.0.is_zero(), self.1.is_zero()) {
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
+        match (
+            stage.map(|node| &node.0).is_zero(),
+            stage.map(|node| &node.1).is_zero(),
+        ) {
             (TFU::True, TFU::True) => TFU::True,
             _ => TFU::Unknown,
         }
@@ -181,22 +184,32 @@ where
     type Value = HadOut<N1::Value, N2::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        use crate::Stage::Evaluation;
+
         // First establish if either term is zero...
-        if self.0.is_zero() == crate::logic::TFU::True {
+        if Evaluation(&self.0).is_zero() == TFU::True {
             let rhs = self.1.evaluate(db).map_err(crate::BinaryError::Right)?;
 
             return Ok(<N1::Value as crate::buffers::ZipMap<N2::Value>>::take_right(rhs));
         }
 
         // If not, then maybe the second term is...
-        if self.1.is_zero() == crate::logic::TFU::True {
-            let lhs = self.0.evaluate(db.as_ref()).map_err(crate::BinaryError::Left)?;
+        if Evaluation(&self.1).is_zero() == TFU::True {
+            let lhs = self
+                .0
+                .evaluate(db.as_ref())
+                .map_err(crate::BinaryError::Left)?;
 
-            return Ok(<N1::Value as crate::buffers::ZipMap<N2::Value>>::take_left(lhs));
+            return Ok(<N1::Value as crate::buffers::ZipMap<N2::Value>>::take_left(
+                lhs,
+            ));
         }
 
         // Otherwise, we do the actual addition...
-        let x = self.0.evaluate(db.as_ref()).map_err(crate::BinaryError::Left)?;
+        let x = self
+            .0
+            .evaluate(db.as_ref())
+            .map_err(crate::BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(crate::BinaryError::Right)?;
 
         Ok(x.zip_map(&y, |xi, yi| xi + yi).unwrap())
@@ -219,11 +232,15 @@ where
     }
 }
 
-impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Display for Add<N1, N2> {
+impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Display
+    for Add<N1, N2>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.0.is_zero() == aegir::logic::TFU::True {
+        use crate::Stage::Evaluation;
+
+        if Evaluation(&self.0).is_zero() == TFU::True {
             write!(f, "{}", self.1)
-        } else if self.1.is_zero() == aegir::logic::TFU::True {
+        } else if Evaluation(&self.1).is_zero() == TFU::True {
             write!(f, "{}", self.0)
         } else {
             write!(f, "({}) + ({})", self.0, self.1)
@@ -261,10 +278,11 @@ impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Displ
 pub struct Sub<N1, N2>(#[op] pub N1, #[op] pub N2);
 
 impl<N1: Node, N2: Node> Node for Sub<N1, N2> {
-    fn is_zero(&self) -> aegir::logic::TFU {
-        use aegir::logic::TFU;
-
-        match (self.0.is_zero(), self.1.is_zero()) {
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
+        match (
+            stage.map(|node| &node.0).is_zero(),
+            stage.map(|node| &node.1).is_zero(),
+        ) {
             (TFU::True, TFU::True) => TFU::True,
             _ => TFU::Unknown,
         }
@@ -320,11 +338,15 @@ where
     }
 }
 
-impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Display for Sub<N1, N2> {
+impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Display
+    for Sub<N1, N2>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.0.is_zero() == aegir::logic::TFU::True {
+        use crate::Stage::Evaluation;
+
+        if Evaluation(&self.0).is_zero() == TFU::True {
             write!(f, "{}", self.1)
-        } else if self.1.is_zero() == aegir::logic::TFU::True {
+        } else if Evaluation(&self.1).is_zero() == TFU::True {
             write!(f, "{}", self.0)
         } else {
             write!(f, "({}) - ({})", self.0, self.1)
@@ -362,10 +384,11 @@ impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Displ
 pub struct Mul<N1, N2>(#[op] pub N1, #[op] pub N2);
 
 impl<N1: Node, N2: Node> Node for Mul<N1, N2> {
-    fn is_zero(&self) -> aegir::logic::TFU {
-        use aegir::logic::TFU;
-
-        match (self.0.is_zero(), self.1.is_zero()) {
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
+        match (
+            stage.map(|node| &node.0).is_zero(),
+            stage.map(|node| &node.1).is_zero(),
+        ) {
             (TFU::True, _) | (_, TFU::True) => TFU::True,
             (TFU::False, TFU::False) => TFU::False,
             _ => TFU::Unknown,
@@ -391,11 +414,13 @@ where
     type Value = HadOut<N1::Value, N2::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        use crate::Stage::Evaluation;
+
         // If either value is zero, we can just short-circuit...
-        if (self.0.is_zero() | self.1.is_zero()) == crate::logic::TFU::True {
+        if (Evaluation(&self.0).is_zero() | Evaluation(&self.1).is_zero()) == TFU::True {
             // TODO XXX - Replace calls to unwrap!
             return Ok(<Self::Value as Buffer>::zeroes(
-                self.0.evaluate_shape(db).unwrap()
+                self.0.evaluate_shape(db).unwrap(),
             ));
         }
 
@@ -429,9 +454,11 @@ where
 
 impl<N1: Node + fmt::Display, N2: Node + fmt::Display> fmt::Display for Mul<N1, N2> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0.is_zero() == aegir::logic::TFU::True {
+        use crate::Stage::Evaluation;
+
+        if Evaluation(&self.0).is_zero() == TFU::True {
             write!(f, "{}", self.1)
-        } else if self.1.is_zero() == aegir::logic::TFU::True {
+        } else if Evaluation(&self.1).is_zero() == TFU::True {
             write!(f, "{}", self.0)
         } else {
             write!(f, "({}) \u{2218} ({})", self.0, self.1)
@@ -444,7 +471,7 @@ impl<N1: Node + fmt::Display, N2: Node + fmt::Display> fmt::Display for Mul<N1, 
 pub struct Div<N1, N2>(#[op] pub N1, #[op] pub N2);
 
 impl<N1: Node, N2: Node> Node for Div<N1, N2> {
-    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<D, S, F, N1, C1, N2, C2> Function<D> for Div<N1, N2>

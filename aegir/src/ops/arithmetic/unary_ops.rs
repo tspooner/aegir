@@ -1,11 +1,13 @@
 use crate::{
     buffers::{Buffer, FieldOf, OwnedOf, Scalar},
+    logic::TFU,
     Contains,
     Database,
     Differentiable,
     Function,
     Identifier,
     Node,
+    Stage,
 };
 use num_traits::real::Real;
 use std::fmt;
@@ -31,7 +33,7 @@ impl_unary!(
 );
 
 impl<N: Node> Node for SubOne<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
+    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::Unknown }
 }
 
 impl<T, N> Differentiable<T> for SubOne<N>
@@ -62,7 +64,7 @@ where
 pub struct OneSub<N>(#[op] pub N);
 
 impl<N: Node> Node for OneSub<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
+    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::Unknown }
 }
 
 impl<D, N> crate::Function<D> for OneSub<N>
@@ -82,9 +84,13 @@ where
     }
 }
 
-impl<X: std::fmt::Display> std::fmt::Display for OneSub<X> {
+impl<X: Node + std::fmt::Display> std::fmt::Display for OneSub<X> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "1 - ({})", self.0)
+        if Stage::Instance(&self.0).is_zero() != TFU::True {
+            write!(f, "1 - ({})", self.0)
+        } else {
+            write!(f, "1")
+        }
     }
 }
 
@@ -119,7 +125,7 @@ impl_unary!(
 );
 
 impl<N: Node> Node for AddOne<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
+    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::Unknown }
 }
 
 impl<T, N> Differentiable<T> for AddOne<N>
@@ -151,7 +157,7 @@ where
 pub struct Square<N>(#[op] pub N);
 
 impl<N: Node> Node for Square<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<F, D, N> Function<D> for Square<N>
@@ -182,8 +188,14 @@ where
     }
 }
 
-impl<X: fmt::Display> fmt::Display for Square<X> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "({})^2", self.0) }
+impl<X: Node + fmt::Display> fmt::Display for Square<X> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if Stage::Instance(&self.0).is_zero() != TFU::True {
+            write!(f, "({})^2", self.0)
+        } else {
+            write!(f, "0")
+        }
+    }
 }
 
 /// Computes the double of a [Buffer].
@@ -204,7 +216,7 @@ impl<X: fmt::Display> fmt::Display for Square<X> {
 pub struct Double<N>(#[op] pub N);
 
 impl<N: Node> Node for Double<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<D, N> Function<D> for Double<N>
@@ -232,8 +244,14 @@ where
     fn adjoint(&self, target: T) -> Self::Adjoint { Double(self.0.adjoint(target)) }
 }
 
-impl<X: fmt::Display> fmt::Display for Double<X> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "2({})", self.0) }
+impl<X: Node + fmt::Display> fmt::Display for Double<X> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if Stage::Instance(&self.0).is_zero() != TFU::True {
+            write!(f, "2({})", self.0)
+        } else {
+            write!(f, "0")
+        }
+    }
 }
 
 /// Compute the sum over elements in a [Buffer].
@@ -259,11 +277,10 @@ impl<X: fmt::Display> fmt::Display for Double<X> {
 pub struct Sum<N>(#[op] pub N);
 
 impl<N: Node> Node for Sum<N> {
-    fn is_zero(&self) -> aegir::logic::TFU {
-        if self.0.is_zero() == aegir::logic::TFU::True {
-            aegir::logic::TFU::True
-        } else {
-            aegir::logic::TFU::Unknown
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
+        match stage.map(|node| &node.0).is_zero() {
+            TFU::True => TFU::True,
+            _ => TFU::Unknown,
         }
     }
 }
@@ -321,7 +338,7 @@ impl_unary!(
 );
 
 impl<N: Node> Node for Negate<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<T, N> Differentiable<T> for Negate<N>
@@ -363,7 +380,7 @@ impl_unary!(
 );
 
 impl<N: Node> Node for Dirac<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { TFU::Unknown }
 }
 
 /// Computes the sign of a [Buffer].
@@ -385,7 +402,7 @@ impl<N: Node> Node for Dirac<N> {
 pub struct Sign<N>(#[op] pub N);
 
 impl<N: Node> Node for Sign<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<D: Database, N: Function<D>> Function<D> for Sign<N>
@@ -442,7 +459,7 @@ impl<X: fmt::Display> fmt::Display for Sign<X> {
 pub struct Abs<N>(#[op] pub N);
 
 impl<N: Node> Node for Abs<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<D: Database, N: Function<D>> Function<D> for Abs<N>
@@ -469,6 +486,12 @@ where
     }
 }
 
-impl<N: fmt::Display> fmt::Display for Abs<N> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "|{}|", self.0) }
+impl<N: Node + fmt::Display> fmt::Display for Abs<N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if Stage::Instance(&self.0).is_zero() != TFU::True {
+            write!(f, "|{}|", self.0)
+        } else {
+            write!(f, "0")
+        }
+    }
 }

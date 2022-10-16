@@ -1,12 +1,14 @@
 use crate::{
     buffers::{OwnedOf, Scalar},
+    logic::TFU,
     ops::{AddOne, Div, Mul},
-    Node,
     Contains,
     Database,
     Differentiable,
     Function,
     Identifier,
+    Node,
+    Stage,
 };
 use std::fmt;
 
@@ -14,7 +16,7 @@ use std::fmt;
 pub struct Ln<N>(#[op] pub N);
 
 impl<N: Node> Node for Ln<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { aegir::logic::TFU::False }
+    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::False }
 }
 
 impl<F, D, N> Function<D> for Ln<N>
@@ -49,7 +51,7 @@ impl<N: fmt::Display> fmt::Display for Ln<N> {
 pub struct SafeXlnX<N>(#[op] pub N);
 
 impl<N: Node> Node for SafeXlnX<N> {
-    fn is_zero(&self) -> aegir::logic::TFU { self.0.is_zero() }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<F, D, N> Function<D> for SafeXlnX<N>
