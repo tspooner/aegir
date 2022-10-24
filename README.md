@@ -1,7 +1,7 @@
 # aegir
 
 [![Crates.io](https://img.shields.io/crates/v/aegir.svg)](https://crates.io/crates/aegir)
-[![Build Status](https://github.com/tspooner/aegir/actions/workflows/rust.yml/badge.svg)](https://github.com/tspooner/aegir)
+[![Build Status](https://github.com/tspooner/aegir/actions/workflows/rust.yml/badge.svg)](https://github.com/tspooner/aegir/actions/workflows/rust.yml)
 
 ## Overview
 
