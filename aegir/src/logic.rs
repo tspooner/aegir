@@ -44,9 +44,8 @@ impl std::ops::BitOr for TFU {
     fn bitor(self, rhs: TFU) -> TFU {
         match (self, rhs) {
             // Boolean logic:
-            (TFU::True, TFU::True) => TFU::True,
-            (TFU::True, TFU::False) => TFU::True,
-            (TFU::False, TFU::True) => TFU::True,
+            (TFU::True, _) => TFU::True,
+            (_, TFU::True) => TFU::True,
             (TFU::False, TFU::False) => TFU::False,
 
             // Ternary extension:
