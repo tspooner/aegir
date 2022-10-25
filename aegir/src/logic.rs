@@ -9,6 +9,43 @@ pub enum TernaryTruthValue {
 
 pub type TFU = TernaryTruthValue;
 
+impl TFU {
+    pub fn is_true(self) -> bool {
+        match self {
+            TFU::True => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_false(self) -> bool {
+        match self {
+            TFU::False => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_unknown(self) -> bool {
+        match self {
+            TFU::Unknown => true,
+            _ => false,
+        }
+    }
+
+    pub fn true_or(self, other: TFU) -> TFU {
+        match self {
+            TFU::True => TFU::True,
+            _ => other,
+        }
+    }
+
+    pub fn false_or(self, other: TFU) -> TFU {
+        match self {
+            TFU::False => TFU::True,
+            _ => other,
+        }
+    }
+}
+
 impl PartialEq<bool> for TFU {
     fn eq(&self, rhs: &bool) -> bool {
         match self {
@@ -51,6 +88,18 @@ impl std::ops::BitOr for TFU {
             // Ternary extension:
             (TFU::Unknown, _) => TFU::Unknown,
             (_, TFU::Unknown) => TFU::Unknown,
+        }
+    }
+}
+
+impl std::ops::Not for TFU {
+    type Output = TFU;
+
+    fn not(self) -> TFU {
+        match self {
+            TFU::True => TFU::False,
+            TFU::False => TFU::True,
+            TFU::Unknown => TFU::Unknown,
         }
     }
 }

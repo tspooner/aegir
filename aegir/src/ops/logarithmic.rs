@@ -16,7 +16,9 @@ use std::fmt;
 pub struct Ln<N>(#[op] pub N);
 
 impl<N: Node> Node for Ln<N> {
-    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::False }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_one() }
+
+    fn is_one(_: Stage<&'_ Self>) -> TFU { TFU::Unknown }
 }
 
 impl<F, D, N> Function<D> for Ln<N>
@@ -51,7 +53,9 @@ impl<N: fmt::Display> fmt::Display for Ln<N> {
 pub struct SafeXlnX<N>(#[op] pub N);
 
 impl<N: Node> Node for SafeXlnX<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
+        stage.map(|node| &node.0).is_zero() | stage.map(|node| &node.0).is_one()
+    }
 }
 
 impl<F, D, N> Function<D> for SafeXlnX<N>

@@ -69,14 +69,12 @@ pub struct TensorMul<N1, N2>(#[op] pub N1, #[op] pub N2);
 
 impl<N1: Node, N2: Node> Node for TensorMul<N1, N2> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU {
-        match (
-            stage.map(|node| &node.0).is_zero(),
-            stage.map(|node| &node.1).is_zero(),
-        ) {
-            (TFU::True, _) | (_, TFU::True) => TFU::True,
-            (TFU::False, TFU::False) => TFU::False,
-            _ => TFU::Unknown,
-        }
+        stage.map(|node| &node.0).is_zero() | stage.map(|node| &node.1).is_zero()
+    }
+
+    fn is_one(stage: Stage<&'_ Self>) -> TFU {
+        (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_one())
+            .true_or(TFU::Unknown)
     }
 }
 

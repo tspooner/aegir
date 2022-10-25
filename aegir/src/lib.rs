@@ -247,23 +247,26 @@ impl<N> Stage<N> {
 
 impl<'a, N: Node> Stage<&'a N> {
     pub fn is_zero(self) -> logic::TFU { N::is_zero(self) }
+
+    pub fn is_one(self) -> logic::TFU { N::is_one(self) }
 }
 
 /// Base trait for operator nodes.
 pub trait Node {
+    // Optimizer functions:
+    /// Checks if the node is zero-valued at a given stage.
+    ///
+    /// Note: this function returns a ternary truth value; i.e. it is possible
+    /// that the answer is unknown at the function call-site.
     fn is_zero(_: Stage<&'_ Self>) -> logic::TFU { logic::TFU::Unknown }
 
-    // TODO - replace NamedNode with explicit caching support. The idea would be
-    // to add a "Write" trait that extends "Database" such that a "CachedNode"
-    // could update the database and just read on the next pass.
+    /// Checks if the node is unity-valued at a given stage.
+    ///
+    /// Note: this function returns a ternary truth value; i.e. it is possible
+    /// that the answer is unknown at the function call-site.
+    fn is_one(_: Stage<&'_ Self>) -> logic::TFU { logic::TFU::Unknown }
 
-    // fn named<I: Identifier>(self, id: I) -> NamedNode<Self, I>
-    // where
-    // Self: Sized,
-    // {
-    // NamedNode(self, id)
-    // }
-
+    // Combinator functions:
     fn add<N: Node>(self, other: N) -> ops::Add<Self, N>
     where
         Self: Sized,

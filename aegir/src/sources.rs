@@ -3,7 +3,6 @@ use crate::{
         precedence,
         shapes::{Concat, Indices, Shape},
         Buffer,
-        BufferOf,
         Class,
         FieldOf,
         OwnedOf,

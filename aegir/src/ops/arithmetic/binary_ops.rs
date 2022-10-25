@@ -73,7 +73,7 @@ use std::fmt;
 pub struct Power<N, E>(#[op] pub N, #[op] pub E);
 
 impl<N: Node, E: Node> Node for Power<N, E> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
+    fn is_one(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_one() }
 }
 
 impl<F, D, N, E> Function<D> for Power<N, E>
@@ -152,13 +152,17 @@ pub struct Add<N1, N2>(#[op] pub N1, #[op] pub N2);
 
 impl<N1: Node, N2: Node> Node for Add<N1, N2> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU {
-        match (
-            stage.map(|node| &node.0).is_zero(),
-            stage.map(|node| &node.1).is_zero(),
-        ) {
-            (TFU::True, TFU::True) => TFU::True,
-            _ => TFU::Unknown,
-        }
+        (stage.map(|node| &node.0).is_zero() & stage.map(|node| &node.1).is_zero())
+            .true_or(TFU::Unknown)
+    }
+
+    fn is_one(stage: Stage<&'_ Self>) -> TFU {
+        let a = (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_zero())
+            .true_or(TFU::Unknown);
+        let b = (stage.map(|node| &node.0).is_zero() & stage.map(|node| &node.1).is_one())
+            .true_or(TFU::Unknown);
+
+        a | b
     }
 }
 
@@ -279,13 +283,17 @@ pub struct Sub<N1, N2>(#[op] pub N1, #[op] pub N2);
 
 impl<N1: Node, N2: Node> Node for Sub<N1, N2> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU {
-        match (
-            stage.map(|node| &node.0).is_zero(),
-            stage.map(|node| &node.1).is_zero(),
-        ) {
-            (TFU::True, TFU::True) => TFU::True,
-            _ => TFU::Unknown,
-        }
+        let a = (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_one())
+            .true_or(TFU::Unknown);
+        let b = (stage.map(|node| &node.0).is_zero() & stage.map(|node| &node.1).is_zero())
+            .true_or(TFU::Unknown);
+
+        a | b
+    }
+
+    fn is_one(stage: Stage<&'_ Self>) -> TFU {
+        (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_zero())
+            .true_or(TFU::Unknown)
     }
 }
 
@@ -385,14 +393,12 @@ pub struct Mul<N1, N2>(#[op] pub N1, #[op] pub N2);
 
 impl<N1: Node, N2: Node> Node for Mul<N1, N2> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU {
-        match (
-            stage.map(|node| &node.0).is_zero(),
-            stage.map(|node| &node.1).is_zero(),
-        ) {
-            (TFU::True, _) | (_, TFU::True) => TFU::True,
-            (TFU::False, TFU::False) => TFU::False,
-            _ => TFU::Unknown,
-        }
+        stage.map(|node| &node.0).is_zero() | stage.map(|node| &node.1).is_zero()
+    }
+
+    fn is_one(stage: Stage<&'_ Self>) -> TFU {
+        (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_one())
+            .true_or(TFU::Unknown)
     }
 }
 
@@ -416,12 +422,34 @@ where
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         use crate::Stage::Evaluation;
 
+        let s0 = Evaluation(&self.0);
+        let s1 = Evaluation(&self.1);
+
         // If either value is zero, we can just short-circuit...
-        if (Evaluation(&self.0).is_zero() | Evaluation(&self.1).is_zero()) == TFU::True {
+        if (s0.is_zero() | s1.is_zero()).is_true() {
             // TODO XXX - Replace calls to unwrap!
             return Ok(<Self::Value as Buffer>::zeroes(
                 self.0.evaluate_shape(db).unwrap(),
             ));
+        }
+
+        // If either value is unity, then we can also short-circuit...
+        if s0.is_one().is_true() {
+            // In this case, the left-hand value is one, i.e. we have 1 * x = x.
+            return self
+                .0
+                .evaluate(db.as_ref())
+                .map_err(BinaryError::Left)
+                .map(<N1::Value as ZipMap<N2::Value>>::take_left);
+        }
+
+        if s1.is_one().is_true() {
+            // In this case, the right-hand value is one, i.e. we have x * 1 = x.
+            return self
+                .1
+                .evaluate(db.as_ref())
+                .map_err(BinaryError::Right)
+                .map(<N1::Value as ZipMap<N2::Value>>::take_right);
         }
 
         // Otherwise we have to perform the multiplication...
@@ -472,6 +500,11 @@ pub struct Div<N1, N2>(#[op] pub N1, #[op] pub N2);
 
 impl<N1: Node, N2: Node> Node for Div<N1, N2> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
+
+    fn is_one(stage: Stage<&'_ Self>) -> TFU {
+        (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_one())
+            .true_or(TFU::Unknown)
+    }
 }
 
 impl<D, S, F, N1, C1, N2, C2> Function<D> for Div<N1, N2>
@@ -492,6 +525,17 @@ where
     type Value = HadOut<N1::Value, N2::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        use crate::Stage::Evaluation;
+
+        // If the denominator takes value one, then we can skip the operation...
+        if Evaluation(&self.1).is_one().is_true() {
+            return self
+                .0
+                .evaluate(db.as_ref())
+                .map_err(BinaryError::Left)
+                .map(<N1::Value as ZipMap<N2::Value>>::take_left);
+        }
+
         let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
 

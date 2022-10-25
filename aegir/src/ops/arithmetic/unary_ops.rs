@@ -33,7 +33,7 @@ impl_unary!(
 );
 
 impl<N: Node> Node for SubOne<N> {
-    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::Unknown }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_one() }
 }
 
 impl<T, N> Differentiable<T> for SubOne<N>
@@ -64,7 +64,9 @@ where
 pub struct OneSub<N>(#[op] pub N);
 
 impl<N: Node> Node for OneSub<N> {
-    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::Unknown }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_one() }
+
+    fn is_one(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<D, N> crate::Function<D> for OneSub<N>
@@ -125,7 +127,7 @@ impl_unary!(
 );
 
 impl<N: Node> Node for AddOne<N> {
-    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::Unknown }
+    fn is_one(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<T, N> Differentiable<T> for AddOne<N>
@@ -158,6 +160,10 @@ pub struct Square<N>(#[op] pub N);
 
 impl<N: Node> Node for Square<N> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
+
+    fn is_one(stage: Stage<&'_ Self>) -> TFU {
+        stage.map(|node| &node.0).is_one().true_or(TFU::Unknown)
+    }
 }
 
 impl<F, D, N> Function<D> for Square<N>
@@ -278,10 +284,7 @@ pub struct Sum<N>(#[op] pub N);
 
 impl<N: Node> Node for Sum<N> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU {
-        match stage.map(|node| &node.0).is_zero() {
-            TFU::True => TFU::True,
-            _ => TFU::Unknown,
-        }
+        stage.map(|node| &node.0).is_zero().true_or(TFU::Unknown)
     }
 }
 
@@ -379,9 +382,7 @@ impl_unary!(
     |_| { unimplemented!() }
 );
 
-impl<N: Node> Node for Dirac<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { TFU::Unknown }
-}
+impl<N: Node> Node for Dirac<N> {}
 
 /// Computes the sign of a [Buffer].
 ///
@@ -403,6 +404,8 @@ pub struct Sign<N>(#[op] pub N);
 
 impl<N: Node> Node for Sign<N> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
+
+    fn is_one(stage: Stage<&'_ Self>) -> TFU { !stage.map(|node| &node.0).is_zero() }
 }
 
 impl<D: Database, N: Function<D>> Function<D> for Sign<N>
@@ -460,6 +463,10 @@ pub struct Abs<N>(#[op] pub N);
 
 impl<N: Node> Node for Abs<N> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
+
+    fn is_one(stage: Stage<&'_ Self>) -> TFU {
+        stage.map(|node| &node.0).is_one().true_or(TFU::Unknown)
+    }
 }
 
 impl<D: Database, N: Function<D>> Function<D> for Abs<N>

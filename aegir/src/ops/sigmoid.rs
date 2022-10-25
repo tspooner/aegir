@@ -16,7 +16,7 @@ pub struct Rabbit<N>(#[op] pub N);
 
 impl<N: Node> Node for Rabbit<N> {
     fn is_zero(stage: crate::Stage<&'_ Self>) -> aegir::logic::TFU {
-        N::is_zero(stage.map(|node| &node.0))
+        stage.map(|node| &node.0).is_zero() | stage.map(|node| &node.0).is_one()
     }
 }
 

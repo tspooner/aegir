@@ -42,7 +42,9 @@ impl<N: fmt::Display> fmt::Display for Gamma<N> {
 pub struct LogGamma<N>(#[op] pub N);
 
 impl<N: Node> Node for LogGamma<N> {
-    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::False }
+    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
+        stage.map(|node| &node.0).is_one().true_or(TFU::Unknown)
+    }
 }
 
 impl<D, N> Function<D> for LogGamma<N>
@@ -74,6 +76,8 @@ pub struct Factorial<N>(#[op] pub N);
 
 impl<N: Node> Node for Factorial<N> {
     fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::False }
+
+    fn is_one(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 }
 
 impl<D, N> Function<D> for Factorial<N>
