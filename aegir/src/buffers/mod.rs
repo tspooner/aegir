@@ -402,6 +402,7 @@ pub trait Buffer: std::fmt::Debug {
 }
 
 pub mod precedence;
+use self::precedence::{Precedence, PBufferOf};
 
 /// Type shortcut for the [Class] associated with a [Buffer].
 pub type ClassOf<B> = <B as Buffer>::Class;
@@ -415,6 +416,8 @@ pub type FieldOf<B> = <B as Buffer>::Field;
 /// Type shortcut for the owned variant of a [Buffer].
 pub type OwnedOf<B> =
     <<B as Buffer>::Class as Class<<B as Buffer>::Shape, <B as Buffer>::Field>>::Buffer;
+
+pub type ConcatShapeOf<L, R> = <<L as Buffer>::Shape as Concat<<R as Buffer>::Shape>>::Shape;
 
 /// Error type for two incompatible buffers based on their shapes.
 #[derive(Copy, Clone, Debug)]
@@ -472,7 +475,7 @@ pub trait ZipMap<RHS = Self>: Buffer
 where
     RHS: Buffer<Shape = Self::Shape, Field = Self::Field>,
 
-    Self::Class: precedence::Precedence<RHS::Class, Self::Shape, Self::Field>,
+    Self::Class: Precedence<RHS::Class, Self::Shape, Self::Field>,
 {
     /// Combine two buffers in an elementwise fashion.
     ///
@@ -489,7 +492,7 @@ where
         rhs: &RHS,
         f: impl Fn(Self::Field, Self::Field) -> Self::Field,
     ) -> Result<
-        precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
+        PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
         IncompatibleShapes<Self::Shape, RHS::Shape>,
     >
     where
@@ -513,17 +516,17 @@ where
         rhs: &RHS,
         f: impl Fn(Self::Field, Self::Field) -> Self::Field,
     ) -> Result<
-        precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
+        PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
         IncompatibleShapes<Self::Shape, RHS::Shape>,
     >;
 
     fn take_left(
         lhs: Self,
-    ) -> precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
+    ) -> PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
 
     fn take_right(
         rhs: RHS,
-    ) -> precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
+    ) -> PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
 }
 
 /// Helper trait for pair of compatible buffers.

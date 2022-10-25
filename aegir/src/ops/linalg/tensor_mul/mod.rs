@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{Buffer, FieldOf, IncompatibleShapes, ShapeOf},
+    buffers::{Buffer, Scalar, BufferOf, FieldOf, IncompatibleShapes, ShapeOf, Class, shapes::{Shape, Concat}, precedence::{Precedence, PBufferOf}},
     logic::TFU,
     ops::Add,
     BinaryError,
@@ -15,13 +15,23 @@ use crate::{
 pub trait TensorMulTrait<T>: Buffer
 where
     T: Buffer<Field = Self::Field>,
+
+    Self::Class: Precedence<T::Class, Self::OutShape, Self::Field>
 {
-    type Output: Buffer<Field = Self::Field>;
+    type OutShape: Shape;
 
     fn tensor_mul(
         &self,
         rhs: &T,
-    ) -> Result<Self::Output, IncompatibleShapes<Self::Shape, T::Shape>>;
+    ) -> Result<
+        PBufferOf<Self::Class, T::Class, Self::OutShape, Self::Field>,
+        IncompatibleShapes<Self::Shape, T::Shape>
+    >;
+
+    fn tensor_mul_s(
+        shape_left: Self::Shape,
+        shape_right: T::Shape,
+    ) -> Result<Self::OutShape, IncompatibleShapes<Self::Shape, T::Shape>>;
 }
 
 mod impls;
@@ -78,24 +88,67 @@ impl<N1: Node, N2: Node> Node for TensorMul<N1, N2> {
     }
 }
 
-impl<D, N1, N2> Function<D> for TensorMul<N1, N2>
+impl<D, F, S1, S2, SO, C1, C2, B1, B2, N1, N2> Function<D> for TensorMul<N1, N2>
 where
     D: Database,
+    F: Scalar,
 
-    N1: Function<D>,
-    N2: Function<D>,
+    S1: Shape,
+    S2: Shape,
+    SO: Shape,
 
-    N1::Value: TensorMulTrait<N2::Value>,
-    N2::Value: Buffer<Field = FieldOf<N1::Value>>,
+    C1: Class<S1, F> + Precedence<C2, SO, F>,
+    C2: Class<S2, F>,
+
+    B1: Buffer<Class = C1, Shape = S1, Field = F> + TensorMulTrait<B2, OutShape = SO>,
+    B2: Buffer<Class = C2, Shape = S2, Field = F>,
+
+    N1: Function<D, Value = B1>,
+    N2: Function<D, Value = B2>,
 {
     type Error = BinaryError<
-        N1::Error,
-        N2::Error,
-        IncompatibleShapes<ShapeOf<N1::Value>, ShapeOf<N2::Value>>,
+        N1::Error, N2::Error,
+        IncompatibleShapes<S1, S2>,
     >;
-    type Value = <N1::Value as TensorMulTrait<N2::Value>>::Output;
+    type Value = PBufferOf<C1, C2, SO, F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        use crate::Stage::Evaluation;
+
+        let s0 = Evaluation(&self.0);
+        let s1 = Evaluation(&self.1);
+
+        // If either value is zero, we can just short-circuit...
+        if (s0.is_zero() | s1.is_zero()).is_true() {
+            // TODO XXX - Replace calls to unwrap!
+            let out_shape = <N1::Value as TensorMulTrait<N2::Value>>::tensor_mul_s(
+                self.0.evaluate_shape(db.as_ref()).map_err(BinaryError::Left)?,
+                self.1.evaluate_shape(db).map_err(BinaryError::Right)?
+            ).unwrap();
+
+            return Ok(<Self::Value as Buffer>::zeroes(out_shape));
+        }
+
+        // // If either value is unity, then we can also short-circuit...
+        // if s0.is_one().is_true() {
+            // // In this case, the left-hand value is one, i.e. we have 1 * x = x.
+            // return self
+                // .0
+                // .evaluate(db.as_ref())
+                // .map_err(BinaryError::Left)
+                // .map(<N1::Value as ZipMap<N2::Value>>::take_left);
+        // }
+
+        // if s1.is_one().is_true() {
+            // // In this case, the right-hand value is one, i.e. we have x * 1 = x.
+            // return self
+                // .1
+                // .evaluate(db.as_ref())
+                // .map_err(BinaryError::Right)
+                // .map(<N1::Value as ZipMap<N2::Value>>::take_right);
+        // }
+
+        // Otherwise we have to perform the multiplication...
         let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
 
