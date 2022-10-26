@@ -200,6 +200,12 @@ pub trait Read<I: Identifier>: Database {
     type Buffer: buffers::Buffer;
 
     fn read(&self, ident: I) -> Option<&Self::Buffer>;
+
+    fn read_shape(&self, ident: I) -> Option<buffers::ShapeOf<Self::Buffer>> {
+        use buffers::Buffer;
+
+        self.read(ident).map(|buf| buf.shape())
+    }
 }
 
 /// Helper macro for simple, auto-magical [Database] types.

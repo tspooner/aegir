@@ -47,6 +47,7 @@
 pub mod shapes;
 
 use shapes::{Concat, Ix, Shape};
+use num_traits::{One, Zero};
 
 /// Marker trait for class subscriptions of [Buffer] types.
 ///
@@ -231,6 +232,9 @@ pub trait Class<S: Shape, F: Scalar> {
     fn identity(shape: S) -> Self::Buffer { Self::diagonal(shape, num_traits::one()) }
 }
 
+/// Type shortcut for the [Class] associated with a [Buffer].
+pub type BufferOf<C, S, F> = <C as Class<S, F>>::Buffer;
+
 /// Trait for types defining a data buffer over a fixed [field](Buffer::Field)
 /// and [shape](Buffer::Shape).
 pub trait Buffer: std::fmt::Debug {
@@ -307,9 +311,9 @@ pub trait Buffer: std::fmt::Debug {
     ///
     /// assert_eq!(buffer.fold(0.0, |init, &el| init + 2.0 * el), 12.0);
     /// ```
-    fn fold<F>(&self, init: Self::Field, f: F) -> Self::Field
+    fn fold<A, F>(&self, init: A, f: F) -> A
     where
-        F: Fn(Self::Field, &Self::Field) -> Self::Field;
+        F: Fn(A, &Self::Field) -> A;
 
     /// Sum over the elements of the buffer.
     ///
@@ -365,6 +369,10 @@ pub trait Buffer: std::fmt::Debug {
         self.into_filled(num_traits::identities::zero())
     }
 
+    fn is_zeroes(&self) -> bool {
+        self.fold(true, |acc, x| acc && x.is_zero())
+    }
+
     /// Create an owned buffer of all ones with a given shape.
     fn ones(shape: Self::Shape) -> OwnedOf<Self> {
         Self::Class::full(shape, num_traits::identities::one())
@@ -381,6 +389,10 @@ pub trait Buffer: std::fmt::Debug {
         self.into_filled(num_traits::identities::one())
     }
 
+    fn is_ones(&self) -> bool {
+        self.fold(true, |acc, x| acc && x.is_one())
+    }
+
     /// Create an owned buffer of a given value with the same shape as self.
     fn to_filled(&self, value: Self::Field) -> OwnedOf<Self> { self.to_owned().map(|_| value) }
 
@@ -393,83 +405,8 @@ pub trait Buffer: std::fmt::Debug {
     }
 }
 
-/// Utility class for implementations of [PrecedenceMapping].
-pub struct Precedence;
-
-/// Trait used for defining precedence relations between [class](Class) pairs.
-///
-/// A precedence mapping is defined as a function from the set of
-/// class-class-shape triples to the set of types implementing `Class<S, F>`. In
-/// other words, take two class types, `C1` and `C2`, with the same field `F`
-/// and shapes `S1` and `S2`, respectively. Then, given a desired shape `S`, the
-/// associated type [PrecedenceMapping::Class] is given by `C1` or `C2` iff it
-/// implements [Class] for `F` and `S`.
-///
-/// __Note__: by default, [PrecedenceMapping] will assume that you intend to
-/// "outer join" the two data buffers and thus concatenate their shapes
-/// according to [shapes::Concat].
-///
-/// __Quirk__: this type does not technically enforce that the mapping forms a
-/// strict precedence relation since the user is free to choose
-/// [PrecedenceMapping::Class] however they like. Instead we'll just hope that
-/// you'll be well-behaved ;)
-pub trait PrecedenceMapping<F, S1, C1, S2, C2, S = <S1 as Concat<S2>>::Shape>
-where
-    F: Scalar,
-
-    S1: Concat<S2>,
-    C1: Class<S1, F>,
-    S2: Shape,
-    C2: Class<S2, F>,
-
-    S: Shape,
-{
-    /// Class with precedence over `C1` and `C2` and shape `S`.
-    type Class: Class<S, F>;
-}
-
-pub type PrecedenceOf<F, S1, C1, S2, C2, S = <S1 as Concat<S2>>::Shape> =
-    <Precedence as PrecedenceMapping<F, S1, C1, S2, C2, S>>::Class;
-
-macro_rules! impl_class_precedence {
-    (($cl1:ty, $cl2:ty) => $cl3:ty) => {
-        impl<F, S1, S2, S> PrecedenceMapping<F, S1, $cl1, S2, $cl2, S> for Precedence
-        where
-            F: Scalar,
-            S1: Concat<S2>,
-            S2: Shape,
-
-            $cl1: Class<S1, F>,
-            $cl2: Class<S2, F>,
-
-            S: Shape,
-
-            $cl3: Class<S, F>,
-        {
-            type Class = $cl3;
-        }
-    };
-}
-
-impl_class_precedence!((Scalars, Scalars) => Scalars);
-impl_class_precedence!((Scalars, Arrays) => Arrays);
-impl_class_precedence!((Scalars, Tuples) => Tuples);
-impl_class_precedence!((Scalars, Vecs) => Vecs);
-
-impl_class_precedence!((Arrays, Scalars) => Arrays);
-impl_class_precedence!((Arrays, Arrays) => Arrays);
-impl_class_precedence!((Arrays, Tuples) => Arrays);
-impl_class_precedence!((Arrays, Vecs) => Arrays);
-
-impl_class_precedence!((Tuples, Scalars) => Tuples);
-impl_class_precedence!((Tuples, Arrays) => Arrays);
-impl_class_precedence!((Tuples, Tuples) => Tuples);
-impl_class_precedence!((Tuples, Vecs) => Vecs);
-
-impl_class_precedence!((Vecs, Scalars) => Vecs);
-impl_class_precedence!((Vecs, Arrays) => Vecs);
-impl_class_precedence!((Vecs, Tuples) => Vecs);
-impl_class_precedence!((Vecs, Vecs) => Vecs);
+pub mod precedence;
+use self::precedence::{Precedence, PBufferOf};
 
 /// Type shortcut for the [Class] associated with a [Buffer].
 pub type ClassOf<B> = <B as Buffer>::Class;
@@ -536,42 +473,71 @@ where
 }
 
 /// Trait for combining two buffers in an elementwise fashion.
-pub trait Hadamard<RHS = Self>: Buffer
+pub trait ZipMap<RHS = Self>: Buffer
 where
-    RHS: Buffer<Field = Self::Field>,
+    RHS: Buffer<Shape = Self::Shape, Field = Self::Field>,
+
+    Self::Class: Precedence<RHS::Class, Self::Shape, Self::Field>,
 {
-    // TODO - replace this AT with precedence mapping.
-    /// The resulting buffer type.
-    type Output: Buffer<Field = Self::Field>;
+    /// Combine two buffers in an elementwise fashion.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::ZipMap;
+    /// let b1 = [1.0, 2.0, 3.0];
+    /// let b2 = [-1.0, 0.0, 1.0];
+    ///
+    /// assert_eq!(b1.zip_map(&b2, |l, r| l * r).unwrap(), [-1.0, 0.0, 3.0]);
+    /// ```
+    fn zip_map(
+        self,
+        rhs: &RHS,
+        f: impl Fn(Self::Field, Self::Field) -> Self::Field,
+    ) -> Result<
+        PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
+        IncompatibleShapes<Self::Shape, RHS::Shape>
+    >
+    where
+        Self: Sized,
+    {
+        self.zip_map_ref(rhs, f)
+    }
 
     /// Combine two buffers in an elementwise fashion.
     ///
     /// # Examples
     /// ```
-    /// # use aegir::buffers::Hadamard;
+    /// # use aegir::buffers::ZipMap;
     /// let b1 = [1.0, 2.0, 3.0];
     /// let b2 = [-1.0, 0.0, 1.0];
     ///
-    /// assert_eq!(b1.hadamard(&b2, |l, r| l * r).unwrap(), [-1.0, 0.0, 3.0]);
+    /// assert_eq!(b1.zip_map(&b2, |l, r| l * r).unwrap(), [-1.0, 0.0, 3.0]);
     /// ```
-    fn hadamard(
+    fn zip_map_ref(
         &self,
         rhs: &RHS,
         f: impl Fn(Self::Field, Self::Field) -> Self::Field,
-    ) -> Result<<Self as Hadamard<RHS>>::Output, IncompatibleShapes<Self::Shape, RHS::Shape>>;
+    ) -> Result<
+        PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
+        IncompatibleShapes<Self::Shape, RHS::Shape>
+    >;
+
+    fn take_left(lhs: Self) -> PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
+
+    fn take_right(rhs: RHS) -> PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
 }
 
 /// Helper trait for pair of compatible buffers.
 ///
 /// Two buffers are considered compatible if they have the same field,
-/// and if they support both [ZipFold] and [Hadamard]. The trait is
+/// and if they support both [ZipFold] and [ZipMap]. The trait is
 /// automatically implemented for all such pairs of buffer types.
-pub trait Compatible<B: Buffer>: Buffer<Field = B::Field> + ZipFold<B> + Hadamard<B> {}
+pub trait Compatible<B: Buffer>: Buffer<Field = B::Field, Shape = B::Shape> {}
 
 impl<B, T> Compatible<B> for T
 where
     B: Buffer,
-    T: Buffer<Field = FieldOf<B>> + ZipFold<B> + Hadamard<B>,
+    T: Buffer<Field = B::Field, Shape = B::Shape>,
 {
 }
 

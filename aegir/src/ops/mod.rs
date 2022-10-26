@@ -1,4 +1,6 @@
 //! Module for concrete operator implementations.
+use crate::buffers::{Buffer, Class, precedence::Precedence};
+
 macro_rules! impl_unary {
     ($(#[$attr:meta])* $name:ident[$str:tt]: $field_type:path, $eval:expr, $grad:expr) => {
         $(#[$attr])*
@@ -30,7 +32,13 @@ macro_rules! impl_unary {
     }
 }
 
-pub(crate) type HadOut<A, B> = <A as crate::buffers::Hadamard<B>>::Output;
+pub(crate) type HadOut<A, B> = <
+    <
+        <A as Buffer>::Class as Precedence<<B as Buffer>::Class, <A as Buffer>::Shape, <A as Buffer>::Field>
+    >::Class as Class<
+        <A as Buffer>::Shape, <A as Buffer>::Field
+    >
+>::Buffer;
 
 mod arithmetic;
 pub use self::arithmetic::{

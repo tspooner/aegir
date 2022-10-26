@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{Compatible, Hadamard, OwnedOf, Scalar},
+    buffers::{Buffer, Compatible, ZipMap, OwnedOf, Scalar, shapes::Shape, precedence},
     ops::{HadOut, SafeXlnX},
     BinaryError,
     Contains,
@@ -155,21 +155,26 @@ impl<X: fmt::Display, E: fmt::Display> fmt::Display for Power<X, E> {
 #[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
 pub struct Add<N1, N2>(#[op] pub N1, #[op] pub N2);
 
-impl<D, N1, N2> Function<D> for Add<N1, N2>
+impl<D, S, F, N1, C1, N2, C2> Function<D> for Add<N1, N2>
 where
-    D: crate::Database,
+    D: Database,
+    S: Shape,
+    F: Scalar,
 
-    N1: crate::Function<D>,
-    N2: crate::Function<D>,
+    N1: Function<D>,
+    N1::Value: Buffer<Class = C1, Shape = S, Field = F> + ZipMap<N2::Value>,
 
-    N1::Value: crate::buffers::Compatible<N2::Value>,
+    N2: Function<D>,
+    N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
+
+    C1: precedence::Precedence<C2, S, F>,
 {
     type Error = BinaryError<
         N1::Error,
         N2::Error,
         crate::NoError, // IncompatibleBuffers<Pattern<N1::Value>, Pattern<N2::Value>>
     >;
-    type Value = <N1::Value as crate::buffers::Hadamard<N2::Value>>::Output;
+    type Value = HadOut<N1::Value, N2::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         let x = self
@@ -178,8 +183,7 @@ where
             .map_err(crate::BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(crate::BinaryError::Right)?;
 
-        // x.hadamard(&y, $eval).map_err(BinaryError::Output)
-        Ok(x.hadamard(&y, |xi, yi| xi + yi).unwrap())
+        Ok(x.zip_map(&y, |xi, yi| xi + yi).unwrap())
     }
 }
 
@@ -234,21 +238,26 @@ impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for Add<N1,
 #[derive(Clone, Copy, Debug, PartialEq, Node, Contains)]
 pub struct Sub<N1, N2>(#[op] pub N1, #[op] pub N2);
 
-impl<D, N1, N2> Function<D> for Sub<N1, N2>
+impl<D, S, F, N1, C1, N2, C2> Function<D> for Sub<N1, N2>
 where
-    D: crate::Database,
+    D: Database,
+    S: Shape,
+    F: Scalar,
 
-    N1: crate::Function<D>,
-    N2: crate::Function<D>,
+    N1: Function<D>,
+    N1::Value: Buffer<Class = C1, Shape = S, Field = F> + ZipMap<N2::Value>,
 
-    N1::Value: crate::buffers::Compatible<N2::Value>,
+    N2: Function<D>,
+    N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
+
+    C1: precedence::Precedence<C2, S, F>,
 {
     type Error = BinaryError<
         N1::Error,
         N2::Error,
         crate::NoError, // IncompatibleBuffers<Pattern<N1::Value>, Pattern<N2::Value>>
     >;
-    type Value = <N1::Value as crate::buffers::Hadamard<N2::Value>>::Output;
+    type Value = HadOut<N1::Value, N2::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         let x = self
@@ -257,8 +266,8 @@ where
             .map_err(crate::BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(crate::BinaryError::Right)?;
 
-        // x.hadamard(&y, $eval).map_err(BinaryError::Output)
-        Ok(x.hadamard(&y, |xi, yi| xi - yi).unwrap())
+        // x.zip_map(&y, $eval).map_err(BinaryError::Output)
+        Ok(x.zip_map(&y, |xi, yi| xi - yi).unwrap())
     }
 }
 
@@ -313,13 +322,19 @@ impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for Sub<N1,
 #[derive(Copy, Clone, Debug, PartialEq, Node, Contains)]
 pub struct Mul<N1, N2>(#[op] pub N1, #[op] pub N2);
 
-impl<D, N1, N2> Function<D> for Mul<N1, N2>
+impl<D, S, F, N1, C1, N2, C2> Function<D> for Mul<N1, N2>
 where
     D: Database,
-    N1: Function<D>,
-    N2: Function<D>,
+    S: Shape,
+    F: Scalar,
 
-    N1::Value: Compatible<N2::Value>,
+    N1: Function<D>,
+    N1::Value: Buffer<Class = C1, Shape = S, Field = F> + ZipMap<N2::Value>,
+
+    N2: Function<D>,
+    N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
+
+    C1: precedence::Precedence<C2, S, F>,
 {
     type Error = BinaryError<N1::Error, N2::Error, crate::NoError>;
     type Value = HadOut<N1::Value, N2::Value>;
@@ -328,8 +343,8 @@ where
         let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
 
-        // x.hadamard(&y, |xi, yi| xi * yi).map_err(BinaryError::Output)
-        Ok(x.hadamard(&y, |xi, yi| xi * yi).unwrap())
+        // x.zip_map(&y, |xi, yi| xi * yi).map_err(BinaryError::Output)
+        Ok(x.zip_map(&y, |xi, yi| xi * yi).unwrap())
     }
 }
 
@@ -362,13 +377,19 @@ impl<N1: fmt::Display, N2: Node + fmt::Display> fmt::Display for Mul<N1, N2> {
 #[derive(Copy, Clone, Debug, PartialEq, Node, Contains)]
 pub struct Div<N1, N2>(#[op] pub N1, #[op] pub N2);
 
-impl<D, N1, N2> Function<D> for Div<N1, N2>
+impl<D, S, F, N1, C1, N2, C2> Function<D> for Div<N1, N2>
 where
     D: Database,
-    N1: Function<D>,
-    N2: Function<D>,
+    S: Shape,
+    F: Scalar,
 
-    N1::Value: Compatible<N2::Value>,
+    N1: Function<D>,
+    N1::Value: Buffer<Class = C1, Shape = S, Field = F> + ZipMap<N2::Value>,
+
+    N2: Function<D>,
+    N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
+
+    C1: precedence::Precedence<C2, S, F>,
 {
     type Error = BinaryError<N1::Error, N2::Error, crate::NoError>;
     type Value = HadOut<N1::Value, N2::Value>;
@@ -377,8 +398,8 @@ where
         let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
 
-        // x.hadamard(&y, |xi, yi| xi * yi).map_err(BinaryError::Output)
-        Ok(x.hadamard(&y, |xi, yi| xi / yi).unwrap())
+        // x.zip_map(&y, |xi, yi| xi * yi).map_err(BinaryError::Output)
+        Ok(x.zip_map(&y, |xi, yi| xi / yi).unwrap())
     }
 }
 
@@ -390,11 +411,11 @@ where
 // N1: Differentiable<D, T>,
 // N2: Differentiable<D, T>,
 
-// N1::Value: Buffer<Field = F> + Hadamard<N2::Value> + Hadamard<N2::Adjoint,
-// Output = N1::Value>, N2::Value: Buffer<Field = F> + Hadamard<N1::Adjoint,
+// N1::Value: Buffer<Field = F> + ZipMap<N2::Value> + ZipMap<N2::Adjoint,
+// Output = N1::Value>, N2::Value: Buffer<Field = F> + ZipMap<N1::Adjoint,
 // Output = N2::Value>,
 
-// HadOut<N1::Value, N2::Value>: Hadamard<N2::Value>,
+// HadOut<N1::Value, N2::Value>: ZipMap<N2::Value>,
 // {
 // type Adjoint = HadOut<HadOut<N1::Value, N2::Value>, N2::Value>;
 
@@ -402,17 +423,17 @@ where
 // let x = self.0.dual(db, target).map_err(BinaryError::Left)?;
 // let y = self.1.dual(db, target).map_err(BinaryError::Right)?;
 
-// let t1 = y.value.hadamard(&x.adjoint, |xi, yi| xi * yi)
+// let t1 = y.value.zip_map(&x.adjoint, |xi, yi| xi * yi)
 // .unwrap();
 // // .map_err(BinaryError::Output)?;
-// let t2 = x.value.hadamard(&y.adjoint, |xi, yi| xi * yi)
+// let t2 = x.value.zip_map(&y.adjoint, |xi, yi| xi * yi)
 // .unwrap();
 // // .map_err(BinaryError::Output)?;
 
-// let numerator = t2.hadamard(&t1, |yi, xi| xi - yi).unwrap();
+// let numerator = t2.zip_map(&t1, |yi, xi| xi - yi).unwrap();
 
-// // t1.hadamard(&t2, |t1i, t2i| t1i + t2i).map_err(BinaryError::Output)
-// Ok(numerator.hadamard(&y.value, |n, d| n / d).unwrap())
+// // t1.zip_map(&t2, |t1i, t2i| t1i + t2i).map_err(BinaryError::Output)
+// Ok(numerator.zip_map(&y.value, |n, d| n / d).unwrap())
 // }
 // }
 

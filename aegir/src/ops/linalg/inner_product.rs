@@ -47,7 +47,7 @@ where
     N1: Function<D>,
     N2: Function<D>,
 
-    N1::Value: Compatible<N2::Value>,
+    N1::Value: Compatible<N2::Value> + ZipFold<N2::Value>,
 {
     type Error = BinaryError<
         N1::Error,
