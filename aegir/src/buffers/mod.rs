@@ -406,6 +406,7 @@ pub trait Buffer: std::fmt::Debug {
 }
 
 pub mod precedence;
+use self::precedence::{Precedence, PBufferOf};
 
 /// Type shortcut for the [Class] associated with a [Buffer].
 pub type ClassOf<B> = <B as Buffer>::Class;
@@ -476,7 +477,7 @@ pub trait ZipMap<RHS = Self>: Buffer
 where
     RHS: Buffer<Shape = Self::Shape, Field = Self::Field>,
 
-    Self::Class: precedence::Precedence<RHS::Class, Self::Shape, Self::Field>,
+    Self::Class: Precedence<RHS::Class, Self::Shape, Self::Field>,
 {
     /// Combine two buffers in an elementwise fashion.
     ///
@@ -493,7 +494,7 @@ where
         rhs: &RHS,
         f: impl Fn(Self::Field, Self::Field) -> Self::Field,
     ) -> Result<
-        precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
+        PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
         IncompatibleShapes<Self::Shape, RHS::Shape>
     >
     where
@@ -517,13 +518,13 @@ where
         rhs: &RHS,
         f: impl Fn(Self::Field, Self::Field) -> Self::Field,
     ) -> Result<
-        precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
+        PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>,
         IncompatibleShapes<Self::Shape, RHS::Shape>
     >;
 
-    fn take_left(lhs: Self) -> precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
+    fn take_left(lhs: Self) -> PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
 
-    fn take_right(rhs: RHS) -> precedence::PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
+    fn take_right(rhs: RHS) -> PBufferOf<Self::Class, RHS::Class, Self::Shape, Self::Field>;
 }
 
 /// Helper trait for pair of compatible buffers.
