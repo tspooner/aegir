@@ -29,7 +29,7 @@ fn main() {
     let sse = aegir!((model - y) ^ 2);
     let adj = sse.adjoint(W);
 
-    for _ in 0..100000 {
+    for _ in 0..1_000_000 {
         let [x1, x2] = [rand::random::<f64>(), rand::random::<f64>()];
 
         let g = adj
