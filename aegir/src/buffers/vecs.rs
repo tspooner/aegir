@@ -6,19 +6,20 @@ use super::{shapes::SDynamic, Buffer, Class, ZipMap, IncompatibleShapes, Scalar,
 /// `Vec` buffer class.
 pub struct Vecs;
 
-impl<F: Scalar> Class<SDynamic<1>, F> for Vecs {
-    type Buffer = Vec<F>;
+impl Class<SDynamic<1>> for Vecs {
+    type Buffer<F: Scalar> = Vec<F>;
 
-    fn build(shape: SDynamic<1>, f: impl Fn([usize; 1]) -> F) -> Vec<F> {
+    fn build<F: Scalar>(shape: SDynamic<1>, f: impl Fn([usize; 1]) -> F) -> Vec<F> {
         (0..shape[0]).map(|i| f([i])).collect()
     }
 
-    fn build_subset(
+    fn build_subset<F: Scalar>(
         shape: SDynamic<1>,
         base: F,
         indices: impl Iterator<Item = [usize; 1]>,
         active: impl Fn([usize; 1]) -> F,
-    ) -> Self::Buffer {
+    ) -> Vec<F>
+    {
         let mut buf = Self::full(shape, base);
 
         for [ix] in indices {
@@ -28,7 +29,7 @@ impl<F: Scalar> Class<SDynamic<1>, F> for Vecs {
         buf
     }
 
-    fn full(shape: SDynamic<1>, value: F) -> Vec<F> { vec![value; shape[0]] }
+    fn full<F: Scalar>(shape: SDynamic<1>, value: F) -> Vec<F> { vec![value; shape[0]] }
 }
 
 impl<F: Scalar> Buffer for Vec<F> {
@@ -46,12 +47,12 @@ impl<F: Scalar> Buffer for Vec<F> {
         }
     }
 
-    fn map<Func: Fn(F) -> F>(self, f: Func) -> Self { self.into_iter().map(f).collect() }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> Vec<A> { self.into_iter().map(f).collect() }
 
-    fn map_ref<Func: Fn(F) -> F>(&self, f: Func) -> Self { self.iter().map(|x| f(*x)).collect() }
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> Vec<A> { self.iter().map(|x| f(*x)).collect() }
 
-    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A {
-        self.into_iter().fold(init, f)
+    fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
+        self.into_iter().copied().fold(init, f)
     }
 
     fn to_owned(&self) -> Vec<F> { self.clone() }
@@ -155,12 +156,12 @@ impl<F: Scalar> Buffer for &Vec<F> {
 
     fn into_owned(self) -> Vec<F> { self.to_vec() }
 
-    fn map<Func: Fn(F) -> F>(self, f: Func) -> Vec<F> { self.into_iter().map(|x| f(*x)).collect() }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> Vec<A> { self.into_iter().map(|x| f(*x)).collect() }
 
-    fn map_ref<Func: Fn(F) -> F>(&self, f: Func) -> Vec<F> { self.iter().map(|x| f(*x)).collect() }
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> Vec<A> { self.iter().map(|x| f(*x)).collect() }
 
-    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A {
-        self.into_iter().fold(init, f)
+    fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
+        self.into_iter().copied().fold(init, f)
     }
 }
 
@@ -259,12 +260,12 @@ impl<F: Scalar> Buffer for &[F] {
         }
     }
 
-    fn map<Func: Fn(F) -> F>(self, f: Func) -> Vec<F> { self.into_iter().map(|x| f(*x)).collect() }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> Vec<A> { self.into_iter().map(|x| f(*x)).collect() }
 
-    fn map_ref<Func: Fn(F) -> F>(&self, f: Func) -> Vec<F> { self.iter().map(|x| f(*x)).collect() }
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> Vec<A> { self.iter().map(|x| f(*x)).collect() }
 
-    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A {
-        self.into_iter().fold(init, f)
+    fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
+        self.into_iter().copied().fold(init, f)
     }
 
     fn to_owned(&self) -> Vec<F> { self.into_iter().copied().collect() }

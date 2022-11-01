@@ -8,28 +8,24 @@ use super::*;
 /// and shapes `S1` and `S2`, respectively. Then, given a desired shape `S`, the
 /// associated type [Precedence::Class] is given by `C1` or `C2` iff it
 /// implements [Class] for `F` and `S`.
-///
-/// __Quirk__: this type does not technically enforce that the mapping forms a
-/// strict precedence relation since the user is free to choose
-/// [Precedence::Class] however they like. Instead we'll just hope that
-/// you'll be well-behaved ;)
-pub trait Precedence<C, S: Shape, F: Scalar> {
+pub trait Precedence<C: Class<S>, S: Shape>: Class<S> {
     /// Class with precedence over `Self::Class` and `B::Class` and shape `S`.
-    type Class: Class<S, F>;
+    type Class: Class<S>;
 }
 
-pub type PClassOf<C1, C2, S, F> = <C1 as Precedence<C2, S, F>>::Class;
+pub type PClassOf<C1, C2, S> = <C1 as Precedence<C2, S>>::Class;
 
-pub type PBufferOf<C1, C2, S, F> = BufferOf<PClassOf<C1, C2, S, F>, S, F>;
+pub type PBufferOf<C1, C2, S, F> = BufferOf<PClassOf<C1, C2, S>, S, F>;
 
 pub fn build<C1, C2, S, F>(shape: S, f: impl Fn(S::Index) -> F) -> BufferOf<C1::Class, S, F>
 where
-    C1: Precedence<C2, S, F>,
+    C1: Precedence<C2, S>,
+    C2: Class<S>,
 
     S: Shape,
     F: Scalar,
 {
-    <PClassOf<C1, C2, S, F> as Class<S, F>>::build(shape, f)
+    <PClassOf<C1, C2, S> as Class<S>>::build(shape, f)
 }
 
 pub fn build_subset<C1, C2, S, F, Iter, Func>(
@@ -39,7 +35,8 @@ pub fn build_subset<C1, C2, S, F, Iter, Func>(
     active: Func,
 ) -> BufferOf<C1::Class, S, F>
 where
-    C1: Precedence<C2, S, F>,
+    C1: Precedence<C2, S>,
+    C2: Class<S>,
 
     S: Shape,
     F: Scalar,
@@ -47,47 +44,48 @@ where
     Iter: Iterator<Item = shapes::IndexOf<S>>,
     Func: Fn(S::Index) -> F,
 {
-    <PClassOf<C1, C2, S, F> as Class<S, F>>::build_subset(shape, base, subset, active)
+    <PClassOf<C1, C2, S> as Class<S>>::build_subset(shape, base, subset, active)
 }
 
 pub fn full<C1, C2, S, F>(shape: S, value: F) -> BufferOf<C1::Class, S, F>
 where
-    C1: Precedence<C2, S, F>,
+    C1: Precedence<C2, S>,
+    C2: Class<S>,
 
     S: Shape,
     F: Scalar,
 {
-    <PClassOf<C1, C2, S, F> as Class<S, F>>::full(shape, value)
+    <PClassOf<C1, C2, S> as Class<S>>::full(shape, value)
 }
 
 pub fn diagonal<C1, C2, S, F>(shape: S, value: F) -> BufferOf<C1::Class, S, F>
 where
-    C1: Precedence<C2, S, F>,
+    C1: Precedence<C2, S>,
+    C2: Class<S>,
 
     S: Shape,
     F: Scalar,
 {
-    <PClassOf<C1, C2, S, F> as Class<S, F>>::diagonal(shape, value)
+    <PClassOf<C1, C2, S> as Class<S>>::diagonal(shape, value)
 }
 
 pub fn identity<C1, C2, S, F>(shape: S) -> BufferOf<C1::Class, S, F>
 where
-    C1: Precedence<C2, S, F>,
+    C1: Precedence<C2, S>,
+    C2: Class<S>,
 
     S: Shape,
     F: Scalar,
 {
-    <PClassOf<C1, C2, S, F> as Class<S, F>>::identity(shape)
+    <PClassOf<C1, C2, S> as Class<S>>::identity(shape)
 }
 
 macro_rules! impl_class_precedence {
     (($cl1:ty, $cl2:ty) => $cl3:ty) => {
-        impl<S, F> Precedence<$cl2, S, F> for $cl1
+        impl<S: Shape> Precedence<$cl2, S> for $cl1
         where
-            S: Shape,
-            F: Scalar,
-
-            $cl3: Class<S, F>,
+            $cl1: Class<S>,
+            $cl2: Class<S>,
         {
             type Class = $cl3;
         }

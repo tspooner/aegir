@@ -81,13 +81,9 @@ use num_traits::{One, Zero};
 /// # use aegir::buffers::{Class, Arrays, shapes::{S1, S2}};
 /// assert_eq!(Arrays::full(S2, 1.0f64), [1.0, 1.0, 1.0]);
 /// ```
-pub trait Class<S: Shape, F: Scalar> {
-    // TODO - look into moving type arguments to AT when GATs drop. This would
-    // yield a single Class implementation per concrete type. Indeed, this would
-    // open up the possibility of Collection traits which would make some of this
-    // redundant.
+pub trait Class<S: Shape> {
     /// The associated buffer types.
-    type Buffer: Buffer<Class = Self, Shape = S, Field = F> + Sized;
+    type Buffer<F: Scalar>: Buffer<Class = Self, Shape = S, Field = F> + Sized;
 
     /// Construct a [Buffer](Class::Buffer) using a function over indices.
     ///
@@ -115,7 +111,7 @@ pub trait Class<S: Shape, F: Scalar> {
     ///     [6, 7, 8]
     /// ]);
     /// ```
-    fn build(shape: S, f: impl Fn(S::Index) -> F) -> Self::Buffer;
+    fn build<F: Scalar>(shape: S, f: impl Fn(S::Index) -> F) -> Self::Buffer<F>;
 
     /// Construct a [Buffer](Class::Buffer) with default value and subset
     /// assignment.
@@ -149,12 +145,12 @@ pub trait Class<S: Shape, F: Scalar> {
     ///     [2, 0, 4]
     /// ]);
     /// ```
-    fn build_subset(
+    fn build_subset<F: Scalar>(
         shape: S,
         base: F,
         subset: impl Iterator<Item = shapes::IndexOf<S>>,
         active: impl Fn(S::Index) -> F,
-    ) -> Self::Buffer;
+    ) -> Self::Buffer<F>;
 
     /// Construct a [Buffer](Class::Buffer) and populate with a given value.
     ///
@@ -173,7 +169,7 @@ pub trait Class<S: Shape, F: Scalar> {
     /// assert_eq!(Tuples::full(S1, 0.0), (0.0, 0.0));
     /// assert_eq!(Tuples::full(S1, 1.0), (1.0, 1.0));
     /// ```
-    fn full(shape: S, value: F) -> Self::Buffer { Self::build(shape, |_| value) }
+    fn full<F: Scalar>(shape: S, value: F) -> Self::Buffer<F> { Self::build(shape, |_| value) }
 
     /// Construct a zeroed [Buffer](Class::Buffer) with a given value along the
     /// diagonal.
@@ -198,7 +194,7 @@ pub trait Class<S: Shape, F: Scalar> {
     ///     [0.0, 5.0]
     /// ]);
     /// ```
-    fn diagonal(shape: S, value: F) -> Self::Buffer {
+    fn diagonal<F: Scalar>(shape: S, value: F) -> Self::Buffer<F> {
         Self::build(shape, |ijk: S::Index| {
             if ijk.is_diagonal() {
                 value
@@ -229,17 +225,20 @@ pub trait Class<S: Shape, F: Scalar> {
     ///     [0.0, 1.0]
     /// ]);
     /// ```
-    fn identity(shape: S) -> Self::Buffer { Self::diagonal(shape, num_traits::one()) }
+    fn identity<F: Scalar>(shape: S) -> Self::Buffer<F> { Self::diagonal(shape, num_traits::one()) }
 }
 
+pub mod precedence;
+use self::precedence::{Precedence, PBufferOf};
+
 /// Type shortcut for the [Class] associated with a [Buffer].
-pub type BufferOf<C, S, F> = <C as Class<S, F>>::Buffer;
+pub type BufferOf<C, S, F> = <C as Class<S>>::Buffer<F>;
 
 /// Trait for types defining a data buffer over a fixed [field](Buffer::Field)
 /// and [shape](Buffer::Shape).
 pub trait Buffer: std::fmt::Debug {
     /// [Class] associated with the buffer.
-    type Class: Class<Self::Shape, Self::Field>;
+    type Class: Class<Self::Shape>;
 
     /// [Shape](shapes::Shape) associated with the buffer.
     type Shape: Shape;
@@ -293,14 +292,10 @@ pub trait Buffer: std::fmt::Debug {
     /// assert_eq!(new_buffer[2], 4.0);
     /// assert_eq!(new_buffer[3], 6.0);
     /// ```
-    fn map<F>(self, f: F) -> OwnedOf<Self>
-    where
-        F: Fn(Self::Field) -> Self::Field;
+    fn map<F: Scalar, M: Fn(Self::Field) -> F>(self, f: M) -> BufferOf<Self::Class, Self::Shape, F>;
 
     /// Perform an element-wise transformation of the buffer (reference).
-    fn map_ref<F>(&self, f: F) -> OwnedOf<Self>
-    where
-        F: Fn(Self::Field) -> Self::Field;
+    fn map_ref<F: Scalar, M: Fn(Self::Field) -> F>(&self, f: M) -> BufferOf<Self::Class, Self::Shape, F>;
 
     /// Perform a fold over the elements of the buffer.
     ///
@@ -311,9 +306,7 @@ pub trait Buffer: std::fmt::Debug {
     ///
     /// assert_eq!(buffer.fold(0.0, |init, &el| init + 2.0 * el), 12.0);
     /// ```
-    fn fold<A, F>(&self, init: A, f: F) -> A
-    where
-        F: Fn(A, &Self::Field) -> A;
+    fn fold<F, M: Fn(F, Self::Field) -> F>(&self, init: F, f: M) -> F;
 
     /// Sum over the elements of the buffer.
     ///
@@ -325,12 +318,7 @@ pub trait Buffer: std::fmt::Debug {
     /// assert_eq!(buffer.sum(), 6.0);
     /// assert_eq!(buffer.map(|el| 2.0 * el).sum(), 12.0);
     /// ```
-    fn sum(&self) -> Self::Field
-    where
-        Self::Field: num_traits::Zero,
-    {
-        self.fold(num_traits::zero(), |init, &el| init + el)
-    }
+    fn sum(&self) -> Self::Field { self.fold(num_traits::zero(), |init, el| init + el) }
 
     /// Create an owned instance from a borrowed buffer, usually by cloning.
     fn to_owned(&self) -> OwnedOf<Self>;
@@ -405,10 +393,7 @@ pub trait Buffer: std::fmt::Debug {
     }
 }
 
-pub mod precedence;
-use self::precedence::{Precedence, PBufferOf};
-
-/// Type shortcut for the [Class] associated with a [Buffer].
+/// Type shortcut for the [Class] associated with a [Classed].
 pub type ClassOf<B> = <B as Buffer>::Class;
 
 /// Type shortcut for the [Shape] associated with a [Buffer].
@@ -418,8 +403,7 @@ pub type ShapeOf<B> = <B as Buffer>::Shape;
 pub type FieldOf<B> = <B as Buffer>::Field;
 
 /// Type shortcut for the owned variant of a [Buffer].
-pub type OwnedOf<B> =
-    <<B as Buffer>::Class as Class<<B as Buffer>::Shape, <B as Buffer>::Field>>::Buffer;
+pub type OwnedOf<B, S = <B as Buffer>::Shape, F = <B as Buffer>::Field> = BufferOf<<B as Buffer>::Class, S, F>;
 
 /// Error type for two incompatible buffers based on their shapes.
 #[derive(Copy, Clone, Debug)]
@@ -477,7 +461,7 @@ pub trait ZipMap<RHS = Self>: Buffer
 where
     RHS: Buffer<Shape = Self::Shape, Field = Self::Field>,
 
-    Self::Class: Precedence<RHS::Class, Self::Shape, Self::Field>,
+    Self::Class: Precedence<RHS::Class, Self::Shape>,
 {
     /// Combine two buffers in an elementwise fashion.
     ///

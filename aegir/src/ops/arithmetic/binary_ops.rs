@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{Buffer, Compatible, ZipMap, OwnedOf, Scalar, shapes::Shape, precedence},
+    buffers::{Buffer, Class, ZipMap, OwnedOf, Scalar, shapes::Shape, precedence},
     ops::{HadOut, SafeXlnX},
     BinaryError,
     Contains,
@@ -167,7 +167,8 @@ where
     N2: Function<D>,
     N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
 
-    C1: precedence::Precedence<C2, S, F>,
+    C1: precedence::Precedence<C2, S>,
+    C2: Class<S>,
 {
     type Error = BinaryError<
         N1::Error,
@@ -250,7 +251,8 @@ where
     N2: Function<D>,
     N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
 
-    C1: precedence::Precedence<C2, S, F>,
+    C1: precedence::Precedence<C2, S>,
+    C2: Class<S>,
 {
     type Error = BinaryError<
         N1::Error,
@@ -334,7 +336,8 @@ where
     N2: Function<D>,
     N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
 
-    C1: precedence::Precedence<C2, S, F>,
+    C1: precedence::Precedence<C2, S>,
+    C2: Class<S>,
 {
     type Error = BinaryError<N1::Error, N2::Error, crate::NoError>;
     type Value = HadOut<N1::Value, N2::Value>;
@@ -389,7 +392,8 @@ where
     N2: Function<D>,
     N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
 
-    C1: precedence::Precedence<C2, S, F>,
+    C1: precedence::Precedence<C2, S>,
+    C2: Class<S>,
 {
     type Error = BinaryError<N1::Error, N2::Error, crate::NoError>;
     type Value = HadOut<N1::Value, N2::Value>;

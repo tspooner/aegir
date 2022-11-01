@@ -14,17 +14,17 @@ pub struct Arrays;
 // S1 ---------------------------------------------------------------------- S1
 // S1 ---------------------------------------------------------------------- S1
 // S1 ---------------------------------------------------------------------- S1
-impl<F: Scalar, const D1: usize> Class<S1<D1>, F> for Arrays {
-    type Buffer = [F; D1];
+impl<const D1: usize> Class<S1<D1>> for Arrays {
+    type Buffer<F: Scalar> = [F; D1];
 
-    fn build(_: S1<D1>, f: impl Fn(usize) -> F) -> [F; D1] { array_init::array_init(f) }
+    fn build<F: Scalar>(_: S1<D1>, f: impl Fn(usize) -> F) -> [F; D1] { array_init::array_init(f) }
 
-    fn build_subset(
+    fn build_subset<F: Scalar>(
         shape: S1<D1>,
         base: F,
         indices: impl Iterator<Item = usize>,
         active: impl Fn(usize) -> F,
-    ) -> Self::Buffer {
+    ) -> Self::Buffer<F> {
         let mut buf = Self::full(shape, base);
 
         for ix in indices {
@@ -34,7 +34,7 @@ impl<F: Scalar, const D1: usize> Class<S1<D1>, F> for Arrays {
         buf
     }
 
-    fn full(_: S1<D1>, value: F) -> Self::Buffer { [value; D1] }
+    fn full<F: Scalar>(_: S1<D1>, value: F) -> Self::Buffer<F> { [value; D1] }
 }
 
 impl<F: Scalar, const D1: usize> Buffer for [F; D1] {
@@ -52,11 +52,11 @@ impl<F: Scalar, const D1: usize> Buffer for [F; D1] {
         }
     }
 
-    fn map<M: Fn(F) -> F>(self, f: M) -> Self { <[F; D1]>::map(self, |x| x.map(&f)) }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> [A; D1] { <[F; D1]>::map(self, |x| x.map(&f)) }
 
-    fn map_ref<M: Fn(F) -> F>(&self, f: M) -> Self { array_init::array_init(|i| f(self[i])) }
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> [A; D1] { array_init::array_init(|i| f(self[i])) }
 
-    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
+    fn fold<A, M: Fn(A, F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -170,11 +170,11 @@ impl<F: Scalar, const D1: usize> Buffer for &[F; D1] {
         }
     }
 
-    fn map<M: Fn(F) -> F>(self, f: M) -> [F; D1] { <[F; D1]>::map_ref(self, |x| x.map(&f)) }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> [A; D1] { <[F; D1]>::map_ref(self, |x| x.map(&f)) }
 
-    fn map_ref<M: Fn(F) -> F>(&self, f: M) -> [F; D1] { array_init::array_init(|i| f(self[i])) }
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> [A; D1] { array_init::array_init(|i| f(self[i])) }
 
-    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
+    fn fold<A, M: Fn(A, F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -250,19 +250,19 @@ impl<F: Scalar, const D1: usize> ZipFold<F> for &[F; D1] {
 // S2 ---------------------------------------------------------------------- S2
 // S2 ---------------------------------------------------------------------- S2
 // S2 ---------------------------------------------------------------------- S2
-impl<F: Scalar, const D1: usize, const D2: usize> Class<S2<D1, D2>, F> for Arrays {
-    type Buffer = [[F; D2]; D1];
+impl<const D1: usize, const D2: usize> Class<S2<D1, D2>> for Arrays {
+    type Buffer<F: Scalar> = [[F; D2]; D1];
 
-    fn build(_: S2<D1, D2>, f: impl Fn([usize; 2]) -> F) -> [[F; D2]; D1] {
+    fn build<F: Scalar>(_: S2<D1, D2>, f: impl Fn([usize; 2]) -> F) -> Self::Buffer<F> {
         array_init::array_init(|i| array_init::array_init(|j| f([i, j])))
     }
 
-    fn build_subset(
+    fn build_subset<F: Scalar>(
         shape: S2<D1, D2>,
         base: F,
         indices: impl Iterator<Item = [usize; 2]>,
         active: impl Fn([usize; 2]) -> F,
-    ) -> Self::Buffer {
+    ) -> Self::Buffer<F> {
         let mut buf = Self::full(shape, base);
 
         for [i1, i2] in indices {
@@ -272,7 +272,7 @@ impl<F: Scalar, const D1: usize, const D2: usize> Class<S2<D1, D2>, F> for Array
         buf
     }
 
-    fn full(_: S2<D1, D2>, value: F) -> Self::Buffer { [[value; D2]; D1] }
+    fn full<F: Scalar>(_: S2<D1, D2>, value: F) -> Self::Buffer<F> { [[value; D2]; D1] }
 }
 
 impl<F: Scalar, const D1: usize, const D2: usize> Buffer for [[F; D2]; D1] {
@@ -290,13 +290,13 @@ impl<F: Scalar, const D1: usize, const D2: usize> Buffer for [[F; D2]; D1] {
         }
     }
 
-    fn map<M: Fn(F) -> F>(self, f: M) -> Self { Self::map(self, |x| x.map(&f)) }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> [[A; D2]; D1] { Self::map(self, |x| x.map(&f)) }
 
-    fn map_ref<M: Fn(F) -> F>(&self, f: M) -> Self {
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> [[A; D2]; D1] {
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
+    fn fold<A, M: Fn(A, F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -416,15 +416,15 @@ impl<F: Scalar, const D1: usize, const D2: usize> Buffer for &[[F; D2]; D1] {
         }
     }
 
-    fn map<M: Fn(F) -> F>(self, f: M) -> [[F; D2]; D1] {
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> [[A; D2]; D1] {
         <[[F; D2]; D1]>::map_ref(self, |x| x.map(&f))
     }
 
-    fn map_ref<M: Fn(F) -> F>(&self, f: M) -> [[F; D2]; D1] {
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> [[A; D2]; D1] {
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
+    fn fold<A, M: Fn(A, F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -504,24 +504,21 @@ impl<F: Scalar, const D1: usize, const D2: usize> ZipFold<F> for &[[F; D2]; D1] 
 // S3 ---------------------------------------------------------------------- S3
 // S3 ---------------------------------------------------------------------- S3
 // S3 ---------------------------------------------------------------------- S3
-impl<F, const D1: usize, const D2: usize, const D3: usize> Class<S3<D1, D2, D3>, F> for Arrays
-where
-    F: Scalar,
-{
-    type Buffer = [[[F; D3]; D2]; D1];
+impl<const D1: usize, const D2: usize, const D3: usize> Class<S3<D1, D2, D3>> for Arrays {
+    type Buffer<F: Scalar> = [[[F; D3]; D2]; D1];
 
-    fn build(_: S3<D1, D2, D3>, f: impl Fn([usize; 3]) -> F) -> [[[F; D3]; D2]; D1] {
+    fn build<F: Scalar>(_: S3<D1, D2, D3>, f: impl Fn([usize; 3]) -> F) -> Self::Buffer<F> {
         array_init::array_init(|i| {
             array_init::array_init(|j| array_init::array_init(|k| f([i, j, k])))
         })
     }
 
-    fn build_subset(
+    fn build_subset<F: Scalar>(
         shape: S3<D1, D2, D3>,
         base: F,
         indices: impl Iterator<Item = [usize; 3]>,
         active: impl Fn([usize; 3]) -> F,
-    ) -> Self::Buffer {
+    ) -> Self::Buffer<F> {
         let mut buf = Self::full(shape, base);
 
         for [i1, i2, i3] in indices {
@@ -531,7 +528,7 @@ where
         buf
     }
 
-    fn full(_: S3<D1, D2, D3>, value: F) -> Self::Buffer { [[[value; D3]; D2]; D1] }
+    fn full<F: Scalar>(_: S3<D1, D2, D3>, value: F) -> Self::Buffer<F> { [[[value; D3]; D2]; D1] }
 }
 
 impl<F, const D1: usize, const D2: usize, const D3: usize> Buffer for [[[F; D3]; D2]; D1]
@@ -552,13 +549,13 @@ where
         }
     }
 
-    fn map<M: Fn(F) -> F>(self, f: M) -> Self { Self::map(self, |x| Buffer::map(x, &f)) }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> [[[A; D3]; D2]; D1] { Self::map(self, |x| Buffer::map(x, &f)) }
 
-    fn map_ref<M: Fn(F) -> F>(&self, f: M) -> Self {
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> [[[A; D3]; D2]; D1] {
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
+    fn fold<A, M: Fn(A, F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -693,15 +690,15 @@ where
         }
     }
 
-    fn map<M: Fn(F) -> F>(self, f: M) -> [[[F; D3]; D2]; D1] {
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> [[[A; D3]; D2]; D1] {
         <[[[F; D3]; D2]; D1]>::map_ref(self, f)
     }
 
-    fn map_ref<M: Fn(F) -> F>(&self, f: M) -> [[[F; D3]; D2]; D1] {
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> [[[A; D3]; D2]; D1] {
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
+    fn fold<A, M: Fn(A, F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -793,14 +790,12 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize> ZipFold<F>
 // S4 ---------------------------------------------------------------------- S4
 // S4 ---------------------------------------------------------------------- S4
 // S4 ---------------------------------------------------------------------- S4
-impl<F, const D1: usize, const D2: usize, const D3: usize, const D4: usize>
-    Class<S4<D1, D2, D3, D4>, F> for Arrays
-where
-    F: Scalar,
+impl<const D1: usize, const D2: usize, const D3: usize, const D4: usize>
+    Class<S4<D1, D2, D3, D4>> for Arrays
 {
-    type Buffer = [[[[F; D4]; D3]; D2]; D1];
+    type Buffer<F: Scalar> = [[[[F; D4]; D3]; D2]; D1];
 
-    fn build(_: S4<D1, D2, D3, D4>, f: impl Fn([usize; 4]) -> F) -> [[[[F; D4]; D3]; D2]; D1] {
+    fn build<F: Scalar>(_: S4<D1, D2, D3, D4>, f: impl Fn([usize; 4]) -> F) -> Self::Buffer<F> {
         array_init::array_init(|i| {
             array_init::array_init(|j| {
                 array_init::array_init(|k| array_init::array_init(|u| f([i, j, k, u])))
@@ -808,12 +803,12 @@ where
         })
     }
 
-    fn build_subset(
+    fn build_subset<F: Scalar>(
         shape: S4<D1, D2, D3, D4>,
         base: F,
         indices: impl Iterator<Item = [usize; 4]>,
         active: impl Fn([usize; 4]) -> F,
-    ) -> Self::Buffer {
+    ) -> Self::Buffer<F> {
         let mut buf = Self::full(shape, base);
 
         for [i1, i2, i3, i4] in indices {
@@ -823,7 +818,7 @@ where
         buf
     }
 
-    fn full(_: S4<D1, D2, D3, D4>, value: F) -> Self::Buffer { [[[[value; D4]; D3]; D2]; D1] }
+    fn full<F: Scalar>(_: S4<D1, D2, D3, D4>, value: F) -> Self::Buffer<F> { [[[[value; D4]; D3]; D2]; D1] }
 }
 
 impl<F, const D1: usize, const D2: usize, const D3: usize, const D4: usize> Buffer
@@ -845,13 +840,15 @@ where
         }
     }
 
-    fn map<M: Fn(F) -> F>(self, f: M) -> Self { Self::map(self, |x| Buffer::map(x, &f)) }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> [[[[A; D4]; D3]; D2]; D1] {
+        Self::map(self, |x| Buffer::map(x, &f))
+    }
 
-    fn map_ref<M: Fn(F) -> F>(&self, f: M) -> Self {
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> [[[[A; D4]; D3]; D2]; D1] {
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
+    fn fold<A, M: Fn(A, F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -995,15 +992,15 @@ where
         }
     }
 
-    fn map<M: Fn(F) -> F>(self, f: M) -> [[[[F; D4]; D3]; D2]; D1] {
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> [[[[A; D4]; D3]; D2]; D1] {
         <[[[[F; D4]; D3]; D2]; D1]>::map_ref(self, f)
     }
 
-    fn map_ref<M: Fn(F) -> F>(&self, f: M) -> [[[[F; D4]; D3]; D2]; D1] {
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> [[[[A; D4]; D3]; D2]; D1] {
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
+    fn fold<A, M: Fn(A, F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }
@@ -1105,17 +1102,16 @@ impl<F: Scalar, const D1: usize, const D2: usize, const D3: usize, const D4: usi
 // S5 ---------------------------------------------------------------------- S5
 // S5 ---------------------------------------------------------------------- S5
 // S5 ---------------------------------------------------------------------- S5
-impl<F, const D1: usize, const D2: usize, const D3: usize, const D4: usize, const D5: usize>
-    Class<S5<D1, D2, D3, D4, D5>, F> for Arrays
-where
-    F: Scalar,
+impl<const D1: usize, const D2: usize, const D3: usize, const D4: usize, const D5: usize>
+    Class<S5<D1, D2, D3, D4, D5>> for Arrays
 {
-    type Buffer = [[[[[F; D5]; D4]; D3]; D2]; D1];
+    type Buffer<F: Scalar> = [[[[[F; D5]; D4]; D3]; D2]; D1];
 
-    fn build(
+    fn build<F: Scalar>(
         _: S5<D1, D2, D3, D4, D5>,
         f: impl Fn([usize; 5]) -> F,
-    ) -> [[[[[F; D5]; D4]; D3]; D2]; D1] {
+    ) -> Self::Buffer<F>
+    {
         array_init::array_init(|i| {
             array_init::array_init(|j| {
                 array_init::array_init(|k| {
@@ -1125,12 +1121,12 @@ where
         })
     }
 
-    fn build_subset(
+    fn build_subset<F: Scalar>(
         shape: S5<D1, D2, D3, D4, D5>,
         base: F,
         indices: impl Iterator<Item = [usize; 5]>,
         active: impl Fn([usize; 5]) -> F,
-    ) -> Self::Buffer {
+    ) -> Self::Buffer<F> {
         let mut buf = Self::full(shape, base);
 
         for [i1, i2, i3, i4, i5] in indices {
@@ -1140,7 +1136,7 @@ where
         buf
     }
 
-    fn full(_: S5<D1, D2, D3, D4, D5>, value: F) -> Self::Buffer {
+    fn full<F: Scalar>(_: S5<D1, D2, D3, D4, D5>, value: F) -> Self::Buffer<F> {
         [[[[[value; D5]; D4]; D3]; D2]; D1]
     }
 }
@@ -1164,13 +1160,15 @@ where
         }
     }
 
-    fn map<M: Fn(F) -> F>(self, f: M) -> Self { Self::map(self, |x| Buffer::map(x, &f)) }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> [[[[[A; D5]; D4]; D3]; D2]; D1] {
+        Self::map(self, |x| Buffer::map(x, &f))
+    }
 
-    fn map_ref<M: Fn(F) -> F>(&self, f: M) -> Self {
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> [[[[[A; D5]; D4]; D3]; D2]; D1] {
         array_init::array_init(|i| self[i].map_ref(&f))
     }
 
-    fn fold<A, M: Fn(A, &F) -> A>(&self, mut init: A, f: M) -> A {
+    fn fold<A, M: Fn(A, F) -> A>(&self, mut init: A, f: M) -> A {
         for i in 0..D1 {
             init = self[i].fold(init, &f)
         }

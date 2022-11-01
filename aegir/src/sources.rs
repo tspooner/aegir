@@ -4,7 +4,6 @@ use crate::{
         precedence,
         Buffer,
         Class,
-        BufferOf,
         FieldOf,
         OwnedOf,
         Scalar,
@@ -133,8 +132,8 @@ where
     ST: Shape,
     SA: Shape,
 
-    CN: Class<SN, F> + precedence::Precedence<CT, <SN as Concat<ST>>::Shape, F>,
-    CT: Class<ST, F>,
+    CN: Class<SN> + precedence::Precedence<CT, <SN as Concat<ST>>::Shape>,
+    CT: Class<ST> + Class<SA>,
 
     N: Function<D>,
     N::Value: Buffer<Field = F, Shape = SN, Class = CN>,
@@ -275,8 +274,8 @@ where
 
     F: Scalar,
 
-    CI: Class<SI, F> + precedence::Precedence<CT, <SI as Concat<ST>>::Shape, F>,
-    CT: Class<ST, F>,
+    CI: Class<SI> + precedence::Precedence<CT, <SI as Concat<ST>>::Shape>,
+    CT: Class<ST> + Class<SA>,
 
     <D as Read<I>>::Buffer: Buffer<Class = CI, Shape = SI, Field = F>,
     <D as Read<T>>::Buffer: Buffer<Class = CT, Shape = ST, Field = F>,

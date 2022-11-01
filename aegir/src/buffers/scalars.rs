@@ -4,17 +4,18 @@ use num_traits::Num;
 /// Scalar buffer class.
 pub struct Scalars;
 
-impl<F: Scalar> Class<S0, F> for Scalars {
-    type Buffer = F;
+impl Class<S0> for Scalars {
+    type Buffer<F: Scalar> = F;
 
-    fn build(_: S0, f: impl Fn(()) -> F) -> F { f(()) }
+    fn build<F: Scalar>(_: S0, f: impl Fn(()) -> F) -> F { f(()) }
 
-    fn build_subset(
+    fn build_subset<F: Scalar>(
         shape: S0,
         base: F,
         mut indices: impl Iterator<Item = ()>,
         active: impl Fn(()) -> F,
-    ) -> Self::Buffer {
+    ) -> F
+    {
         let next = indices.next();
 
         if next.is_some() {
@@ -42,11 +43,11 @@ macro_rules! impl_scalar {
 
             fn get(&self, _: ()) -> Option<$F> { Some(*self) }
 
-            fn map<F: Fn($F) -> Self::Field>(self, f: F) -> $F { f(self) }
+            fn map<F: Scalar, M: Fn($F) -> F>(self, f: M) -> F { f(self) }
 
-            fn map_ref<F: Fn($F) -> Self::Field>(&self, f: F) -> Self { f(*self) }
+            fn map_ref<F: Scalar, M: Fn($F) -> F>(&self, f: M) -> F { f(*self) }
 
-            fn fold<A, F: Fn(A, &$F) -> A>(&self, init: A, f: F) -> A { f(init, self) }
+            fn fold<F, M: Fn(F, $F) -> F>(&self, init: F, f: M) -> F { f(init, *self) }
 
             fn to_owned(&self) -> $F { *self }
 
@@ -62,11 +63,11 @@ macro_rules! impl_scalar {
 
             fn get(&self, _: ()) -> Option<$F> { Some(**self) }
 
-            fn map<F: Fn($F) -> Self::Field>(self, f: F) -> $F { f(*self) }
+            fn map<F: Scalar, M: Fn($F) -> F>(self, f: M) -> F { f(*self) }
 
-            fn map_ref<F: Fn($F) -> Self::Field>(&self, f: F) -> $F { f(**self) }
+            fn map_ref<F: Scalar, M: Fn($F) -> F>(&self, f: M) -> F { f(**self) }
 
-            fn fold<A, F: Fn(A, &$F) -> A>(&self, init: A, f: F) -> A { f(init, self) }
+            fn fold<F, M: Fn(F, $F) -> F>(&self, init: F, f: M) -> F { f(init, **self) }
 
             fn to_owned(&self) -> $F { **self }
 

@@ -3,17 +3,18 @@ use super::{shapes::S1, Buffer, Class, ZipMap, IncompatibleShapes, OwnedOf, Scal
 /// Tuple buffer class.
 pub struct Tuples;
 
-impl<F: Scalar> Class<S1<2>, F> for Tuples {
-    type Buffer = (F, F);
+impl Class<S1<2>> for Tuples {
+    type Buffer<F: Scalar> = (F, F);
 
-    fn build(_: S1<2>, f: impl Fn(usize) -> F) -> (F, F) { (f(0), f(1)) }
+    fn build<F: Scalar>(_: S1<2>, f: impl Fn(usize) -> F) -> Self::Buffer<F> { (f(0), f(1)) }
 
-    fn build_subset(
+    fn build_subset<F: Scalar>(
         shape: S1<2>,
         base: F,
         indices: impl Iterator<Item = usize>,
         active: impl Fn(usize) -> F,
-    ) -> Self::Buffer {
+    ) -> Self::Buffer<F>
+    {
         let mut buf = Self::full(shape, base);
 
         for ix in indices {
@@ -27,7 +28,7 @@ impl<F: Scalar> Class<S1<2>, F> for Tuples {
         buf
     }
 
-    fn full(_: S1<2>, value: F) -> Self::Buffer { (value, value) }
+    fn full<F: Scalar>(_: S1<2>, value: F) -> Self::Buffer<F> { (value, value) }
 }
 
 impl<F: Scalar> Buffer for (F, F) {
@@ -49,12 +50,12 @@ impl<F: Scalar> Buffer for (F, F) {
 
     fn into_owned(self) -> Self { self }
 
-    fn map<Func: Fn(F) -> Self::Field>(self, f: Func) -> Self { (f(self.0), f(self.1)) }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> (A, A) { (f(self.0), f(self.1)) }
 
-    fn map_ref<Func: Fn(F) -> Self::Field>(&self, f: Func) -> Self { (f(self.0), f(self.1)) }
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> (A, A) { (f(self.0), f(self.1)) }
 
-    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A {
-        f(f(init, &self.0), &self.1)
+    fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
+        f(f(init, self.0), self.1)
     }
 }
 
@@ -109,14 +110,14 @@ impl<F: Scalar> Buffer for &(F, F) {
         }
     }
 
-    fn map<Func: Fn(F) -> Self::Field>(self, f: Func) -> OwnedOf<Self> { (f(self.0), f(self.1)) }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> (A, A) { (f(self.0), f(self.1)) }
 
-    fn map_ref<Func: Fn(F) -> Self::Field>(&self, f: Func) -> OwnedOf<Self> {
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> (A, A) {
         (f(self.0), f(self.1))
     }
 
-    fn fold<A, Func: Fn(A, &F) -> A>(&self, init: A, f: Func) -> A {
-        f(f(init, &self.0), &self.1)
+    fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
+        f(f(init, self.0), self.1)
     }
 
     fn to_owned(&self) -> OwnedOf<Self> { **self }

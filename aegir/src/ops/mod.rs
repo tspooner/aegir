@@ -34,11 +34,11 @@ macro_rules! impl_unary {
 
 pub(crate) type HadOut<A, B> = <
     <
-        <A as Buffer>::Class as Precedence<<B as Buffer>::Class, <A as Buffer>::Shape, <A as Buffer>::Field>
+        <A as Buffer>::Class as Precedence<<B as Buffer>::Class, <A as Buffer>::Shape>
     >::Class as Class<
-        <A as Buffer>::Shape, <A as Buffer>::Field
+        <A as Buffer>::Shape
     >
->::Buffer;
+>::Buffer<<A as Buffer>::Field>;
 
 mod arithmetic;
 pub use self::arithmetic::{

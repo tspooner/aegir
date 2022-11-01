@@ -249,9 +249,7 @@ where
     type Value = FieldOf<N::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0
-            .evaluate(db)
-            .map(|buffer| buffer.fold(num_traits::zero(), |acc, &x| acc + x))
+        self.0.evaluate(db).map(|buf| buf.sum())
     }
 }
 
