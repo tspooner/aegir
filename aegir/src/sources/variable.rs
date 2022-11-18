@@ -1,168 +1,23 @@
 use crate::{
     buffers::{
-        shapes::{Concat, Indices, Shape},
-        precedence,
+        shapes::{Concat, Shape},
         Buffer,
         Class,
-        FieldOf,
         OwnedOf,
         Scalar,
+        Scalars,
+        Arrays,
+        Vecs,
+        Tuples,
     },
     Contains,
-    Database,
     Differentiable,
     Function,
     Identifier,
     Node,
     Read,
 };
-
-/// Error type for variable/source nodes.
-#[derive(Copy, Clone, Debug)]
-pub enum VariableError<ID> {
-    /// Error case when the `ID` variable is undefined.
-    Undefined(ID),
-}
-
-impl<ID: std::fmt::Debug> std::fmt::Display for VariableError<ID> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VariableError::Undefined(id) => {
-                write!(f, "No variable found with identifier {:?}.", id)
-            },
-        }
-    }
-}
-
-impl<ID: std::fmt::Debug> std::error::Error for VariableError<ID> {}
-
-/// Source node for numerical constants.
-///
-/// This node implements both [Function] and [Differentiable]. The former
-/// simply returns the wrapped value, and the latter returns an instance of
-/// [ConstantAdjoint] that handles (empty) buffer shaping.
-///
-/// # Examples
-/// ```
-/// # #[macro_use] extern crate aegir;
-/// # use aegir::{Constant, Function, Differentiable, ids::X};
-/// db!(DB { x: X });
-///
-/// let cns = Constant([10.0, 10.0]);
-/// let jac = cns.adjoint(X);
-///
-/// assert_eq!(cns.evaluate(DB { x: [1.0, 2.0] }).unwrap(), [10.0, 10.0]);
-/// assert_eq!(jac.evaluate(DB { x: [1.0, 2.0] }).unwrap(), [
-///     [0.0, 0.0],
-///     [0.0, 0.0]
-/// ]);
-/// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Constant<B>(pub B);
-
-impl<B> Node for Constant<B> {}
-
-impl<T, B> Contains<T> for Constant<B>
-where
-    T: Identifier,
-{
-    fn contains(&self, _: T) -> bool { false }
-}
-
-impl<D, B> Function<D> for Constant<B>
-where
-    D: Database,
-    B: Buffer,
-{
-    type Error = VariableError<()>;
-    type Value = OwnedOf<B>;
-
-    fn evaluate<DR: AsRef<D>>(&self, _: DR) -> Result<Self::Value, Self::Error> {
-        Ok(self.0.to_owned())
-    }
-}
-
-impl<T, B> Differentiable<T> for Constant<B>
-where
-    T: Identifier,
-    B: Buffer,
-
-    FieldOf<B>: num_traits::Zero,
-{
-    type Adjoint = ConstantAdjoint<Constant<OwnedOf<B>>, T>;
-
-    fn adjoint(&self, ident: T) -> Self::Adjoint {
-        ConstantAdjoint {
-            node: Constant(self.0.to_owned()),
-            target: ident,
-        }
-    }
-}
-
-impl<B: std::fmt::Display> std::fmt::Display for Constant<B> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { self.0.fmt(f) }
-}
-
-/// Source node for the adjoint of [constants](Constant).
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct ConstantAdjoint<N, T> {
-    /// The original source [Node].
-    pub node: N,
-
-    /// The [Identifier] associated with the adjoint target.
-    pub target: T,
-}
-
-impl<N: Node, T> Node for ConstantAdjoint<N, T> {}
-
-impl<N, T, A> Contains<A> for ConstantAdjoint<N, T>
-where
-    N: Contains<A>,
-    T: Identifier + PartialEq<A>,
-    A: Identifier,
-{
-    fn contains(&self, ident: A) -> bool { self.node.contains(ident) || self.target == ident }
-}
-
-impl<N, T, D, F, SN, CN, ST, CT, SA> Function<D> for ConstantAdjoint<N, T>
-where
-    F: Scalar,
-
-    SN: Concat<ST, Shape = SA>,
-    ST: Shape,
-    SA: Shape,
-
-    CN: Class<SN> + precedence::Precedence<CT, <SN as Concat<ST>>::Shape>,
-    CT: Class<ST> + Class<SA>,
-
-    N: Function<D>,
-    N::Value: Buffer<Field = F, Shape = SN, Class = CN>,
-
-    T: Identifier,
-
-    D: Read<T>,
-    D::Buffer: Buffer<Field = F, Shape = ST, Class = CT>,
-{
-    type Error = crate::BinaryError<N::Error, VariableError<T>, crate::NoError>;
-    type Value = precedence::PBufferOf<CN, CT, SA, F>;
-
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let shape_value = self
-            .node
-            .evaluate_shape(db.as_ref())
-            .map_err(crate::BinaryError::Left)?;
-        let shape_target = db.as_ref().read(self.target).map(|buf| buf.shape()).ok_or(
-            crate::BinaryError::Right(VariableError::Undefined(self.target)),
-        )?;
-        let shape_adjoint = shape_value.concat(shape_target);
-
-        Ok(precedence::full::<CN, CT, SA, F>(shape_adjoint, num_traits::zero()))
-    }
-}
-
-impl<N, T> std::fmt::Display for ConstantAdjoint<N, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, "0") }
-}
+use super::SourceError;
 
 /// Source node for numerical variables.
 ///
@@ -204,14 +59,14 @@ where
     D: Read<I>,
     I: Identifier,
 {
-    type Error = VariableError<I>;
+    type Error = SourceError<I>;
     type Value = OwnedOf<D::Buffer>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         db.as_ref()
             .read(self.0)
             .map(|v| v.to_owned())
-            .ok_or_else(|| VariableError::Undefined(self.0))
+            .ok_or_else(|| SourceError::Undefined(self.0))
     }
 }
 
@@ -261,34 +116,36 @@ where
     fn contains(&self, ident: A) -> bool { self.value == ident || self.target == ident }
 }
 
-impl<I, T, D, SI, CI, ST, CT, SA, F> Function<D> for VariableAdjoint<I, T>
+impl<I, T, D, F, SI, CI, ST, CT, SA, CA> Function<D> for VariableAdjoint<I, T>
 where
     I: Identifier + PartialEq<T>,
     T: Identifier,
 
     D: Read<I> + Read<T>,
-
-    SI: Concat<SI> + Concat<ST, Shape = SA> + Indices,
-    ST: Shape + Indices,
-    SA: Shape,
-
     F: Scalar,
 
-    CI: Class<SI> + precedence::Precedence<CT, <SI as Concat<ST>>::Shape>,
-    CT: Class<ST> + Class<SA>,
+    SI: Concat<SI> + Concat<ST, Shape = SA>,
+    ST: Shape,
+    SA: Shape,
+
+    CI: Class<SI>,
+    CT: Class<ST>,
+    CA: Class<SA>,
+
+    super::Prec: super::Precedence<CI, CT, Class = CA>,
 
     <D as Read<I>>::Buffer: Buffer<Class = CI, Shape = SI, Field = F>,
     <D as Read<T>>::Buffer: Buffer<Class = CT, Shape = ST, Field = F>,
 {
-    type Error = crate::BinaryError<VariableError<I>, VariableError<T>, crate::NoError>;
-    type Value = precedence::PBufferOf<CI, CT, SA, F>;
+    type Error = crate::BinaryError<SourceError<I>, SourceError<T>, crate::NoError>;
+    type Value = <CA as Class<SA>>::Buffer<F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         let shape_value = db.as_ref().read_shape(self.value).ok_or(
-            crate::BinaryError::Left(VariableError::Undefined(self.value)),
+            crate::BinaryError::Left(SourceError::Undefined(self.value)),
         )?;
         let shape_target = db.as_ref().read_shape(self.target).ok_or(
-            crate::BinaryError::Right(VariableError::Undefined(self.target)),
+            crate::BinaryError::Right(SourceError::Undefined(self.target)),
         )?;
         let shape_adjoint = shape_value.concat(shape_target);
 
@@ -302,7 +159,7 @@ where
                 .zip(shape_target.indices())
                 .map(|ixs| <SI as Concat<ST>>::concat_indices(ixs.0, ixs.1));
 
-            precedence::build_subset::<CI, CT, SA, F, _, _>(
+            CA::build_subset(
                 shape_adjoint, num_traits::zero(), ixs, |_| one
             )
         } else {
@@ -317,10 +174,10 @@ where
 
     Self: Clone,
 {
-    type Adjoint = ConstantAdjoint<Self, A>;
+    type Adjoint = super::ConstantAdjoint<Self, A>;
 
     fn adjoint(&self, ident: A) -> Self::Adjoint {
-        ConstantAdjoint {
+        super::ConstantAdjoint {
             node: self.clone(),
             target: ident,
         }
@@ -388,37 +245,6 @@ mod tests {
             })
             .unwrap(),
             vec![1.0, 2.0]
-        );
-    }
-
-    #[test]
-    fn test_constant() {
-        let c = 2.0f64.into_constant();
-
-        assert_eq!(c.evaluate(&DB { x: 1.0, y: 0.0 }).unwrap(), 2.0);
-        assert_eq!(
-            c.evaluate(&DB {
-                x: [-10.0, 5.0],
-                y: 0.0
-            })
-            .unwrap(),
-            2.0
-        );
-        assert_eq!(
-            c.evaluate(&DB {
-                x: (-1.0, 50.0),
-                y: 0.0
-            })
-            .unwrap(),
-            2.0
-        );
-        assert_eq!(
-            c.evaluate(&DB {
-                x: vec![1.0, 2.0],
-                y: 0.0
-            })
-            .unwrap(),
-            2.0
         );
     }
 

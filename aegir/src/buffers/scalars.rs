@@ -36,12 +36,14 @@ macro_rules! impl_scalar {
     ($F:ty) => {
         impl Buffer for $F {
             type Class = Scalars;
-            type Field = $F;
             type Shape = S0;
+            type Field = $F;
 
-            fn shape(&self) -> Self::Shape { S0 }
+            fn shape(&self) -> S0 { S0 }
 
             fn get(&self, _: ()) -> Option<$F> { Some(*self) }
+
+            fn get_unchecked(&self, _: ()) -> $F { *self }
 
             fn map<F: Scalar, M: Fn($F) -> F>(self, f: M) -> F { f(self) }
 
@@ -56,12 +58,14 @@ macro_rules! impl_scalar {
 
         impl Buffer for &$F {
             type Class = Scalars;
-            type Field = $F;
             type Shape = S0;
+            type Field = $F;
 
-            fn shape(&self) -> Self::Shape { S0 }
+            fn shape(&self) -> S0 { S0 }
 
             fn get(&self, _: ()) -> Option<$F> { Some(**self) }
+
+            fn get_unchecked(&self, _: ()) -> $F { **self }
 
             fn map<F: Scalar, M: Fn($F) -> F>(self, f: M) -> F { f(*self) }
 
@@ -75,12 +79,12 @@ macro_rules! impl_scalar {
         }
 
         impl ZipFold for $F {
-            fn zip_fold(
+            fn zip_fold<A: Scalar, M: Fn(A, ($F, $F)) -> A>(
                 &self,
                 rhs: &$F,
-                init: $F,
-                f: impl Fn($F, ($F, $F)) -> $F,
-            ) -> Result<$F, IncompatibleShapes<S0>> {
+                init: A,
+                f: M
+            ) -> Result<A, IncompatibleShapes<S0>> {
                 let out = f(init, (*self, *rhs));
 
                 Ok(out)
@@ -88,25 +92,27 @@ macro_rules! impl_scalar {
         }
 
         impl ZipMap for $F {
-            fn zip_map(
+            type Output<A: Scalar> = A;
+
+            fn zip_map<A: Scalar, M: Fn($F, $F) -> A>(
                 self,
                 rhs: &$F,
-                f: impl Fn($F, $F) -> $F,
-            ) -> Result<$F, IncompatibleShapes<S0>> {
+                f: M
+            ) -> Result<A, IncompatibleShapes<S0>> {
                 Ok(f(self, *rhs))
             }
 
-            fn zip_map_ref(
+            fn zip_map_ref<A: Scalar, M: Fn($F, $F) -> A>(
                 &self,
                 rhs: &$F,
-                f: impl Fn($F, $F) -> $F,
-            ) -> Result<$F, IncompatibleShapes<S0>> {
+                f: M
+            ) -> Result<A, IncompatibleShapes<S0>> {
                 Ok(f(*self, *rhs))
             }
 
-            fn take_left(lhs: $F) -> $F { lhs }
+            // fn take_left(lhs: $F) -> $F { lhs }
 
-            fn take_right(rhs: $F) -> $F { rhs }
+            // fn take_right(rhs: $F) -> $F { rhs }
         }
 
         impl Scalar for $F {}

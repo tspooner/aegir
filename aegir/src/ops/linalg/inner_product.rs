@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{Compatible, FieldOf, IncompatibleShapes, ShapeOf, ZipFold},
+    buffers::{Buffer, FieldOf, IncompatibleShapes, ShapeOf, ZipFold},
     ops::{Add, TensorMul},
     BinaryError,
     Contains,
@@ -47,7 +47,8 @@ where
     N1: Function<D>,
     N2: Function<D>,
 
-    N1::Value: Compatible<N2::Value> + ZipFold<N2::Value>,
+    N1::Value: ZipFold<N2::Value>,
+    N2::Value: Buffer<Field = FieldOf<N1::Value>>,
 {
     type Error = BinaryError<
         N1::Error,

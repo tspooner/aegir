@@ -1,15 +1,9 @@
 use super::*;
 use std::ops::{Index, IndexMut};
 
-/// Variable `DIM`-dimensional shape.
+/// Fixed rank, variable `DIM`-dimensional shape.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SDynamic<const DIM: usize>(pub [usize; DIM]);
-
-impl<const DIM: usize> Indices for SDynamic<DIM> {
-    type Iter = multi_product::MultiProduct<DIM>;
-
-    fn indices(&self) -> Self::Iter { multi_product::MultiProduct::new(self.0) }
-}
 
 impl<const DIM: usize> Index<usize> for SDynamic<DIM> {
     type Output = usize;
@@ -22,9 +16,17 @@ impl<const DIM: usize> IndexMut<usize> for SDynamic<DIM> {
 }
 
 impl<const DIM: usize> Shape for SDynamic<DIM> {
+    const DIM: usize = DIM;
+
     type Index = [usize; DIM];
 
-    const DIM: usize = DIM;
+    type IndexIter = multi_product::MultiProduct<DIM>;
+
+    fn contains(&self, ix: [usize; DIM]) -> bool {
+        ix.iter().zip(self.0.iter()).all(|(l, r)| l < r)
+    }
+
+    fn indices(&self) -> Self::IndexIter { multi_product::MultiProduct::new(self.0) }
 }
 
 impl<const DIM: usize> std::fmt::Display for SDynamic<DIM> {

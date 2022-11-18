@@ -3,7 +3,7 @@ use concat_arrays::concat_arrays;
 use std::fmt::{Debug, Display};
 
 /// Trait for index types that can be used to access buffer elements.
-pub trait Ix: Eq + Clone + Debug {
+pub trait Ix: Eq + Copy + Debug {
     /// Returns true if the index is a diagonal element.
     ///
     /// A diagonal element is defined here as an index where all components are
@@ -45,6 +45,22 @@ pub trait Shape: Copy + Debug + Display {
     /// Corresponding index type.
     type Index: Ix;
 
+    type IndexIter: Iterator<Item = Self::Index>;
+
+    fn contains(&self, ix: Self::Index) -> bool;
+
+    /// Return an iterator over the indices of the shape.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::shapes::{Indices, S1};
+    /// let shape: S1<5> = S1;
+    /// let indices: Vec<usize> = shape.indices().collect();
+    ///
+    /// assert_eq!(indices, vec![0, 1, 2, 3, 4]);
+    /// ```
+    fn indices(&self) -> Self::IndexIter;
+
     /// Returns true if the shape corresponds to a scalar (DIM = 0).
     fn is_scalar(&self) -> bool { Self::DIM == 0 }
 
@@ -57,23 +73,6 @@ pub trait Shape: Copy + Debug + Display {
 
 /// Type alies for index type associated with a shape.
 pub type IndexOf<S> = <S as Shape>::Index;
-
-/// Trait for iterating over all indices of a shape.
-pub trait Indices: Shape {
-    type Iter: Iterator<Item = Self::Index>;
-
-    /// Return an iterator over the indices of the shape.
-    ///
-    /// # Examples
-    /// ```
-    /// # use aegir::buffers::shapes::{Indices, S1};
-    /// let shape: S1<5> = S1;
-    /// let indices: Vec<usize> = shape.indices().collect();
-    ///
-    /// assert_eq!(indices, vec![0, 1, 2, 3, 4]);
-    /// ```
-    fn indices(&self) -> Self::Iter;
-}
 
 /// Trait for splitting a shape into two symmetric parts.
 ///

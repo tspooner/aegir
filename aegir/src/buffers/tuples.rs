@@ -1,4 +1,4 @@
-use super::{shapes::S1, Buffer, Class, ZipMap, IncompatibleShapes, OwnedOf, Scalar, ZipFold};
+use super::{shapes::S1, Buffer, Class, ZipMap, IncompatibleShapes, Scalar, ZipFold, OwnedOf};
 
 /// Tuple buffer class.
 pub struct Tuples;
@@ -46,6 +46,14 @@ impl<F: Scalar> Buffer for (F, F) {
         }
     }
 
+    fn get_unchecked(&self, ix: usize) -> F {
+        match ix {
+            0 => self.0,
+            1 => self.1,
+            _ => panic!("Invalid index for tuple."),
+        }
+    }
+
     fn to_owned(&self) -> Self { *self }
 
     fn into_owned(self) -> Self { self }
@@ -60,12 +68,12 @@ impl<F: Scalar> Buffer for (F, F) {
 }
 
 impl<F: Scalar> ZipFold for (F, F) {
-    fn zip_fold(
+    fn zip_fold<A: Scalar, M: Fn(A, (F, F)) -> A>(
         &self,
         rhs: &(F, F),
-        init: F,
-        f: impl Fn(F, (F, F)) -> F,
-    ) -> Result<F, IncompatibleShapes<S1<2>>> {
+        init: A,
+        f: M
+    ) -> Result<A, IncompatibleShapes<S1<2>>> {
         let x = f(init, (self.0, rhs.0));
         let y = f(x, (self.1, rhs.1));
 
@@ -74,25 +82,27 @@ impl<F: Scalar> ZipFold for (F, F) {
 }
 
 impl<F: Scalar> ZipMap for (F, F) {
-    fn zip_map(
+    type Output<A: Scalar> = (A, A);
+
+    fn zip_map<A: Scalar, M: Fn(F, F) -> A>(
         self,
         rhs: &(F, F),
-        f: impl Fn(F, F) -> F,
-    ) -> Result<(F, F), IncompatibleShapes<S1<2>>> {
+        f: M
+    ) -> Result<(A, A), IncompatibleShapes<S1<2>>> {
         Ok((f(self.0, rhs.0), f(self.1, rhs.1)))
     }
 
-    fn zip_map_ref(
+    fn zip_map_ref<A: Scalar, M: Fn(F, F) -> A>(
         &self,
         rhs: &(F, F),
-        f: impl Fn(F, F) -> F,
-    ) -> Result<(F, F), IncompatibleShapes<S1<2>>> {
+        f: M
+    ) -> Result<(A, A), IncompatibleShapes<S1<2>>> {
         Ok((f(self.0, rhs.0), f(self.1, rhs.1)))
     }
 
-    fn take_left(lhs: Self) -> (F, F) { lhs }
+    // fn take_left(lhs: Self) -> (F, F) { lhs }
 
-    fn take_right(rhs: Self) -> (F, F) { rhs }
+    // fn take_right(rhs: Self) -> (F, F) { rhs }
 }
 
 impl<F: Scalar> Buffer for &(F, F) {
@@ -107,6 +117,14 @@ impl<F: Scalar> Buffer for &(F, F) {
             0 => Some(self.0),
             1 => Some(self.1),
             _ => None,
+        }
+    }
+
+    fn get_unchecked(&self, ix: usize) -> F {
+        match ix {
+            0 => self.0,
+            1 => self.1,
+            _ => panic!("Invalid index for tuple."),
         }
     }
 
