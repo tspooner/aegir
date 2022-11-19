@@ -13,7 +13,7 @@ pub struct Arrays;
 
 mod buffer;
 mod zip_ops;
-mod dot_ops;
+mod contraction_ops;
 
 #[cfg(test)]
 mod tests {
