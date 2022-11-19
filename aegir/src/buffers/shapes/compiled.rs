@@ -5,13 +5,12 @@ use super::*;
 pub struct S0;
 
 impl Shape for S0 {
-    type Index = ();
-
     const DIM: usize = 0;
-}
 
-impl Indices for S0 {
-    type Iter = std::iter::Once<()>;
+    type Index = ();
+    type IndexIter = std::iter::Once<()>;
+
+    fn contains(&self, _: ()) -> bool { true }
 
     fn indices(&self) -> std::iter::Once<()> { std::iter::once(()) }
 }
@@ -25,13 +24,13 @@ impl std::fmt::Display for S0 {
 pub struct S1<const A: usize>;
 
 impl<const A: usize> Shape for S1<A> {
+    const DIM: usize = 1;
+
     type Index = usize;
 
-    const DIM: usize = 1;
-}
+    type IndexIter = std::ops::Range<usize>;
 
-impl<const A: usize> Indices for S1<A> {
-    type Iter = std::ops::Range<usize>;
+    fn contains(&self, ix: usize) -> bool { ix < A }
 
     fn indices(&self) -> std::ops::Range<usize> { 0..A }
 }
@@ -55,12 +54,15 @@ macro_rules! impl_fixed {
             const DIM: usize = $dim;
 
             type Index = [usize; $dim];
-        }
+            type IndexIter = Box<dyn Iterator<Item = Self::Index>>;
 
-        impl<$(const $tp: usize),+> Indices for $name<$($tp),+> {
-            type Iter = Box<dyn Iterator<Item = Self::Index>>;
+            fn contains(&self, ix: [usize; $dim]) -> bool {
+                IntoIterator::into_iter(ix)
+                    .zip(IntoIterator::into_iter([$($tp),+]))
+                    .all(|(l, r)| l < r)
+            }
 
-            fn indices(&self) -> Self::Iter {
+            fn indices(&self) -> Self::IndexIter {
                 Box::new(iproduct!($(0..$tp),+).map($trans))
             }
         }
