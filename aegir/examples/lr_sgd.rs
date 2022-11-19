@@ -45,8 +45,8 @@ fn main() {
             })
             .unwrap();
 
-        weights[0] -= 0.01 * g[0][0];
-        weights[1] -= 0.01 * g[0][1];
+        weights[0] -= 0.01 * g[0];
+        weights[1] -= 0.01 * g[1];
     }
 
     println!("{:?}", weights.to_vec());

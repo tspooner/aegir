@@ -1,15 +1,4 @@
-use super::{
-    shapes::{IndexOf, Shape, S0, S1, S2, S3, S4, S5},
-    Buffer,
-    Class,
-    ZipMap,
-    IncompatibleShapes,
-    Scalar,
-    ZipFold,
-};
-
-/// Array buffer class.
-pub struct Arrays;
+use super::*;
 
 macro_rules! impl_buffer {
     (
@@ -105,87 +94,6 @@ macro_rules! impl_buffer {
     };
 }
 
-macro_rules! impl_zip {
-    (
-        @Type <$f:ident, $a:ident, $($d:ident),+> $arr:ty, $garr:ty;
-
-        @zm_self |$zms_self:ident, $zms_rhs:ident, $zms_func:ident| { $zms_impl:expr };
-        @zm_field |$zmf_self:ident, $zmf_rhs:ident, $zmf_func:ident| { $zmf_impl:expr };
-    ) => {
-        impl<$f: Scalar, $(const $d: usize),+> ZipMap for $arr {
-            type Output<$a: Scalar> = $garr;
-
-            fn zip_map_ref<$a: Scalar, M: Fn(F, F) -> $a>(
-                &$zms_self,
-                $zms_rhs: &Self,
-                $zms_func: M,
-            ) -> Result<$garr, IncompatibleShapes<Self::Shape>> {
-                $zms_impl
-            }
-        }
-
-        impl<$f: Scalar, $(const $d: usize),+> ZipMap<$f> for $arr {
-            type Output<$a: Scalar> = $garr;
-
-            fn zip_map_ref<$a: Scalar, M: Fn(F, F) -> $a>(
-                &$zmf_self,
-                $zmf_rhs: &$f,
-                $zmf_func: M,
-            ) -> Result<$garr, IncompatibleShapes<Self::Shape, S0>> {
-                $zmf_impl
-            }
-        }
-    };
-    (<$f:ident, $a:ident, $($d:ident),+> $arr:ty, $garr:ty) => {
-        impl_zip!(
-            @Type <$f, $a, $($d),+> $arr, $garr;
-
-            @zm_self |self, rhs, f| {
-                Ok(array_init::array_init(|i| unsafe {
-                    self[i].zip_map(&rhs[i], &f).unwrap_unchecked()
-                }))
-            };
-            @zm_field |self, rhs, f| {
-                Ok(array_init::array_init(|i| unsafe { self[i].zip_map(rhs, &f).unwrap_unchecked() }))
-            };
-        );
-    }
-}
-
-macro_rules! impl_fold {
-    (<$f:ident, $a:ident, $($d:ident),+> $arr:ty) => {
-        impl<$f: Scalar, $(const $d: usize),+> ZipFold for $arr {
-            fn zip_fold<$a: Scalar, M: Fn($a, (F, F)) -> $a>(
-                &self,
-                rhs: &Self,
-                mut acc: $a,
-                f: M,
-            ) -> Result<$a, IncompatibleShapes<Self::Shape>> {
-                for ijk in self.shape().indices() {
-                    acc = f(acc, (self.get_unchecked(ijk), rhs.get_unchecked(ijk)))
-                }
-
-                Ok(acc)
-            }
-        }
-
-        impl<$f: Scalar, $(const $d: usize),+> ZipFold<$f> for $arr {
-            fn zip_fold<$a: Scalar, M: Fn($a, (F, F)) -> $a>(
-                &self,
-                rhs: &$f,
-                mut acc: $a,
-                f: M,
-            ) -> Result<$a, IncompatibleShapes<Self::Shape, S0>> {
-                for ijk in self.shape().indices() {
-                    acc = f(acc, (self.get_unchecked(ijk), *rhs))
-                }
-
-                Ok(acc)
-            }
-        }
-    }
-}
-
 // Rank-1 Tensor:
 impl_buffer!(
     @Type <F, D1>(S1<D1>) [F; D1];
@@ -199,15 +107,6 @@ impl_buffer!(
     @map |self, f| { <[F; D1]>::map(self, f) };
 );
 
-impl_zip!(
-    @Type <F, A, D1> [F; D1], [A; D1];
-
-    @zm_self |self, rhs, f| { Ok(array_init::array_init(|i| f(self[i], rhs[i]))) };
-    @zm_field |self, rhs, f| { Ok(array_init::array_init(|i| f(self[i], *rhs))) };
-);
-
-impl_fold!(<F, A, D1> [F; D1]);
-
 // Rank-2 Tensor:
 impl_buffer!(
     @Type <F, D1, D2>(S2<D1, D2>) [[F; D2]; D1];
@@ -220,9 +119,6 @@ impl_buffer!(
     @get_unchecked |self, ix| { self[ix[0]][ix[1]] };
     @map |self, f| { <[[F; D2]; D1]>::map(self, |x| Buffer::map(x, &f)) };
 );
-
-impl_zip!(<F, A, D1, D2> [[F; D2]; D1], [[A; D2]; D1]);
-impl_fold!(<F, A, D1, D2> [[F; D2]; D1]);
 
 // Rank-3 Tensor:
 impl_buffer!(
@@ -242,9 +138,6 @@ impl_buffer!(
     @get_unchecked |self, ix| { self[ix[0]][ix[1]][ix[2]] };
     @map |self, f| { <[[[F; D3]; D2]; D1]>::map(self, |x| Buffer::map(x, &f)) };
 );
-
-impl_zip!(<F, A, D1, D2, D3> [[[F; D3]; D2]; D1], [[[A; D3]; D2]; D1]);
-impl_fold!(<F, A, D1, D2, D3> [[[F; D3]; D2]; D1]);
 
 // Rank-4 Tensor:
 impl_buffer!(
@@ -266,9 +159,6 @@ impl_buffer!(
     @get_unchecked |self, ix| { self[ix[0]][ix[1]][ix[2]][ix[3]] };
     @map |self, f| { <[[[[F; D4]; D3]; D2]; D1]>::map(self, |x| Buffer::map(x, &f)) };
 );
-
-impl_zip!(<F, A, D1, D2, D3, D4> [[[[F; D4]; D3]; D2]; D1], [[[[A; D4]; D3]; D2]; D1]);
-impl_fold!(<F, A, D1, D2, D3, D4> [[[[F; D4]; D3]; D2]; D1]);
 
 // Rank-5 Tensor:
 impl_buffer!(
@@ -292,53 +182,3 @@ impl_buffer!(
     @get_unchecked |self, ix| { self[ix[0]][ix[1]][ix[2]][ix[3]][ix[4]] };
     @map |self, f| { <[[[[[F; D5]; D4]; D3]; D2]; D1]>::map(self, |x| Buffer::map(x, &f)) };
 );
-
-impl_zip!(<F, A, D1, D2, D3, D4, D5> [[[[[F; D5]; D4]; D3]; D2]; D1], [[[[[A; D5]; D4]; D3]; D2]; D1]);
-impl_fold!(<F, A, D1, D2, D3, D4, D5> [[[[[F; D5]; D4]; D3]; D2]; D1]);
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    mod arr2 {
-        use super::*;
-
-        const V: [f64; 2] = [1.0, 2.0];
-
-        #[test]
-        fn test_ownership() {
-            assert_eq!(Buffer::to_owned(&V), V);
-            assert_eq!(Buffer::into_owned(V), V);
-        }
-
-        // #[test]
-        // fn test_replace() {
-            // assert_eq!(V.to_zeroes(), [0.0; 2]);
-            // assert_eq!(V.into_zeroes(), [0.0; 2]);
-
-            // assert_eq!(V.to_ones(), [1.0; 2]);
-            // assert_eq!(V.into_ones(), [1.0; 2]);
-
-            // assert_eq!(V.to_filled(5.0), [5.0; 2]);
-            // assert_eq!(V.to_filled(-1.0), [-1.0; 2]);
-
-            // assert_eq!(V.into_filled(5.0), [5.0; 2]);
-            // assert_eq!(V.into_filled(-1.0), [-1.0; 2]);
-        // }
-
-        #[test]
-        fn test_transforms() {
-            assert_eq!(V.map(|x| x * 2.0), [2.0, 4.0]);
-            assert_eq!(V.fold(0.0, |a, x| a + x * 2.0), 6.0);
-            assert_eq!(V.sum(), 3.0);
-        }
-
-        #[test]
-        fn test_linalg() {
-            assert_eq!(
-                V.zip_fold(&V, 0.0, |acc, (xi, yi)| acc + xi * yi).unwrap(),
-                5.0
-            );
-        }
-    }
-}

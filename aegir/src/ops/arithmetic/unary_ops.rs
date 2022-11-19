@@ -159,10 +159,10 @@ where
     T: Identifier,
     N: Differentiable<T> + Clone,
 {
-    type Adjoint = crate::ops::TensorMul<Double<N>, N::Adjoint>;
+    type Adjoint = crate::ops::Mul<Double<N>, N::Adjoint>;
 
     fn adjoint(&self, target: T) -> Self::Adjoint {
-        crate::ops::TensorMul(Double(self.0.clone()), self.0.adjoint(target))
+        crate::ops::Mul(Double(self.0.clone()), self.0.adjoint(target))
     }
 }
 

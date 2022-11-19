@@ -262,18 +262,11 @@ pub trait Node {
         ops::Div(self, other)
     }
 
-    fn dot<N: Node>(self, other: N) -> ops::InnerProduct<Self, N>
+    fn dot<N: Node>(self, other: N) -> ops::TensorDot<Self, N>
     where
         Self: Sized,
     {
-        ops::InnerProduct(self, other)
-    }
-
-    fn tensor_mul<N: Node>(self, other: N) -> ops::TensorMul<Self, N>
-    where
-        Self: Sized,
-    {
-        ops::TensorMul(self, other)
+        ops::Contract(self, other)
     }
 
     fn abs(self) -> ops::Abs<Self>

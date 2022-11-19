@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{OwnedOf, Scalar},
+    buffers::{OwnedOf, FieldOf, Buffer},
     ops::{AddOne, Div, Mul},
     Contains,
     Database,
@@ -8,6 +8,7 @@ use crate::{
     Identifier,
     Node,
 };
+use num_traits::real::Real;
 use std::fmt;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -23,11 +24,12 @@ where
     fn contains(&self, target: T) -> bool { self.0.contains(target) }
 }
 
-impl<F, D, N> Function<D> for Ln<N>
+impl<D, N> Function<D> for Ln<N>
 where
-    F: Scalar + num_traits::real::Real,
     D: Database,
-    N: Function<D, Value = F>,
+    N: Function<D>,
+
+    FieldOf<N::Value>: Real,
 {
     type Error = N::Error;
     type Value = OwnedOf<N::Value>;
@@ -64,11 +66,12 @@ where
     fn contains(&self, target: T) -> bool { self.0.contains(target) }
 }
 
-impl<F, D, N> Function<D> for SafeXlnX<N>
+impl<D, N> Function<D> for SafeXlnX<N>
 where
-    F: Scalar + num_traits::real::Real,
     D: Database,
-    N: Function<D, Value = F>,
+    N: Function<D>,
+
+    FieldOf<N::Value>: Real,
 {
     type Error = N::Error;
     type Value = OwnedOf<N::Value>;
