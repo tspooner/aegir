@@ -333,7 +333,7 @@ pub trait Buffer {
     /// # use aegir::buffers::Buffer;
     /// let buffer = vec![0.0, 1.0, 2.0, 3.0];
     ///
-    /// assert_eq!(buffer.fold(0.0, |init, &el| init + 2.0 * el), 12.0);
+    /// assert_eq!(buffer.fold(0.0, |init, el| init + 2.0 * el), 12.0);
     /// ```
     fn fold<F, M: Fn(F, Self::Field) -> F>(&self, init: F, f: M) -> F {
         self.shape().indices().fold(init, |acc, ix| f(acc, self.get_unchecked(ix)))
@@ -475,6 +475,12 @@ pub trait ZipMap<RHS: Buffer = Self>: Buffer {
         rhs: &RHS,
         f: M,
     ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
+}
+
+pub trait Contract<RHS: Buffer<Field = Self::Field>, const AXES: usize = 1>: Buffer {
+    type Output: Buffer<Field = Self::Field>;
+
+    fn contract(self, rhs: RHS) -> Result<Self::Output, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
 mod scalars;

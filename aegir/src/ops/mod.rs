@@ -55,7 +55,7 @@ pub use self::arithmetic::{
 };
 
 mod linalg;
-pub use self::linalg::{InnerProduct, OuterProduct, OuterProductTrait, TensorMul, TensorMulTrait};
+pub use self::linalg::{Contract, TensorDot, TensorProduct};
 
 mod logarithmic;
 pub use self::logarithmic::SafeXlnX;

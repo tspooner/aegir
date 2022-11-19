@@ -53,7 +53,7 @@ pub trait Shape: Copy + Debug + Display {
     ///
     /// # Examples
     /// ```
-    /// # use aegir::buffers::shapes::{Indices, S1};
+    /// # use aegir::buffers::shapes::{Shape, S1};
     /// let shape: S1<5> = S1;
     /// let indices: Vec<usize> = shape.indices().collect();
     ///
@@ -128,15 +128,17 @@ pub trait Concat<RHS: Shape = Self>: Shape {
     fn concat_indices(left: Self::Index, rhs: RHS::Index) -> IndexOf<Self::Shape>;
 }
 
-// /// Trait for dropping a chosen dimension of the shape.
-// pub trait DropDim: Shape + Sized {
-// type Lower: Shape;
+// TODO - Once impl-spec drops, we can implement this. It'd be useful for simplification code, much
+//        like with operator rewrites.
+// /// Trait for reducing a shape into its simplest form.
+// ///
+// /// This typically involves trimming either end of unitary values.
+// pub trait Reduce: Shape {
+    // type Reduced: Shape;
 
-// fn drop_dim(self, dim: usize) -> Self::Lower;
+    // /// Trim the shape.
+    // fn reduce(self) -> Self::Reduced;
 // }
-
-///// -----------------------------------------------------------------
-///// -----------------------------------------------------------------
 
 mod multi_product;
 

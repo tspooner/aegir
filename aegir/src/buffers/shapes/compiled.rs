@@ -133,29 +133,29 @@ impl<const A: usize, const B: usize, const C: usize, const D: usize> Split for S
 }
 
 macro_rules! impl_concat {
-    (S0 + $right:ident<$($rp:ident::$ri:literal),+> => $out:ident) => {
+    (S0 + $right:ident<$($rp:ident::$ri:literal),+>) => {
         impl<$(const $rp: usize),+> Concat<$right<$($rp),+>> for S0 {
-            type Shape = $out<1, $($rp),+>;
+            type Shape = $right<$($rp),+>;
 
-            fn concat(self, _: $right<$($rp),+>) -> Self::Shape { $out }
+            fn concat(self, _: $right<$($rp),+>) -> Self::Shape { $right }
 
             fn concat_indices(
                 _: Self::Index,
                 r: IndexOf<$right<$($rp),+>>
             ) -> IndexOf<Self::Shape>
             {
-                [1, $(r[$ri]),+]
+                [$(r[$ri]),+]
             }
         }
     };
-    ($left:ident<$($lp:ident::$li:literal),+> + S0 => $out:ident) => {
+    ($left:ident<$($lp:ident::$li:literal),+> + S0) => {
         impl<$(const $lp: usize),+> Concat<S0> for $left<$($lp),+> {
-            type Shape = $out<$($lp),+, 1>;
+            type Shape = $left<$($lp),+>;
 
-            fn concat(self, _: S0) -> Self::Shape { $out }
+            fn concat(self, _: S0) -> Self::Shape { $left }
 
             fn concat_indices(l: IndexOf<$left<$($lp),+>>, _: ()) -> IndexOf<Self::Shape> {
-                [$(l[$li]),+, 1]
+                [$(l[$li]),+]
             }
         }
     };
@@ -225,25 +225,25 @@ impl Concat<S0> for S0 {
 }
 
 impl<const R: usize> Concat<S1<R>> for S0 {
-    type Shape = S2<1, R>;
+    type Shape = S1<R>;
 
-    fn concat(self, _: S1<R>) -> Self::Shape { S2 }
+    fn concat(self, _: S1<R>) -> Self::Shape { S1 }
 
-    fn concat_indices(_: (), r: usize) -> IndexOf<Self::Shape> { [1, r] }
+    fn concat_indices(_: (), r: usize) -> IndexOf<Self::Shape> { r }
 }
 
-impl_concat!(S0 + S2<A1::0, B1::1> => S3);
-impl_concat!(S0 + S3<A1::0, B1::1, C1::2> => S4);
-impl_concat!(S0 + S4<A1::0, B1::1, C1::2, D1::3> => S5);
-impl_concat!(S0 + S5<A1::0, B1::1, C1::2, D1::3, E1::4> => S6);
+impl_concat!(S0 + S2<A1::0, B1::1>);
+impl_concat!(S0 + S3<A1::0, B1::1, C1::2>);
+impl_concat!(S0 + S4<A1::0, B1::1, C1::2, D1::3>);
+impl_concat!(S0 + S5<A1::0, B1::1, C1::2, D1::3, E1::4>);
 
 // S1 + ...
 impl<const L: usize> Concat<S0> for S1<L> {
-    type Shape = S2<L, 1>;
+    type Shape = S1<L>;
 
-    fn concat(self, _: S0) -> Self::Shape { S2 }
+    fn concat(self, _: S0) -> Self::Shape { S1 }
 
-    fn concat_indices(l: usize, _: ()) -> IndexOf<Self::Shape> { [l, 1] }
+    fn concat_indices(l: usize, _: ()) -> IndexOf<Self::Shape> { l }
 }
 
 impl<const L: usize, const R: usize> Concat<S1<R>> for S1<L> {
@@ -260,25 +260,25 @@ impl_concat!(S1<A1> + S4<A2::0, B2::1, C2::2, D2::3> => S5);
 impl_concat!(S1<A1> + S5<A2::0, B2::1, C2::2, D2::3, E2::4> => S6);
 
 // S2 + ...
-impl_concat!(S2<A1::0, B1::1> + S0 => S3);
+impl_concat!(S2<A1::0, B1::1> + S0);
 impl_concat!(S2<A1::0, B1::1> + S1<A2> => S3);
 impl_concat!(S2<A1::0, B1::1> + S2<A2::0, B2::1> => S4);
 impl_concat!(S2<A1::0, B1::1> + S3<A2::0, B2::1, C2::2> => S5);
 impl_concat!(S2<A1::0, B1::1> + S4<A2::0, B2::1, C2::2, D2::3> => S6);
 
 // S3 + ...
-impl_concat!(S3<A1::0, B1::1, C1::2> + S0 => S4);
+impl_concat!(S3<A1::0, B1::1, C1::2> + S0);
 impl_concat!(S3<A1::0, B1::1, C1::2> + S1<A2> => S4);
 impl_concat!(S3<A1::0, B1::1, C1::2> + S2<A2::0, B2::1> => S5);
 impl_concat!(S3<A1::0, B1::1, C1::2> + S3<A2::0, B2::1, C2::2> => S6);
 
 // S4 + ...
-impl_concat!(S4<A1::0, B1::1, C1::2, D1::3> + S0 => S5);
+impl_concat!(S4<A1::0, B1::1, C1::2, D1::3> + S0);
 impl_concat!(S4<A1::0, B1::1, C1::2, D1::3> + S1<A2> => S5);
 impl_concat!(S4<A1::0, B1::1, C1::2, D1::3> + S2<A2::0, B2::1> => S6);
 
 // S5 + ...
-impl_concat!(S5<A1::0, B1::1, C1::2, D1::3, E1::4> + S0 => S6);
+impl_concat!(S5<A1::0, B1::1, C1::2, D1::3, E1::4> + S0);
 impl_concat!(S5<A1::0, B1::1, C1::2, D1::3, E1::4> + S1<A2> => S6);
 
 // impl_concat!(S2<A1, B1> + S2<A2, B2> => S4);
