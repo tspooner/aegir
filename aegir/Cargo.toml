@@ -6,7 +6,7 @@ version = "1.0.0"
 authors = ["Tom Spooner <spooner10000@gmail.com>"]
 
 readme = "README.md"
-license-file = "LICENSE"
+license = "MIT"
 
 keywords = ["autodiff", "autograd", "compute", "dag", "math"]
 
