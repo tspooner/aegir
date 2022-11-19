@@ -1,4 +1,4 @@
-use super::{shapes::SDynamic, Buffer, Class, ZipMap, IncompatibleShapes, Scalar, ZipFold};
+use super::{shapes::SDynamic, Buffer, Class, IncompatibleShapes, Scalar, ZipFold, ZipMap};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Vecs
@@ -18,8 +18,7 @@ impl Class<SDynamic<1>> for Vecs {
         base: F,
         indices: impl Iterator<Item = [usize; 1]>,
         active: impl Fn([usize; 1]) -> F,
-    ) -> Vec<F>
-    {
+    ) -> Vec<F> {
         let mut buf = Self::full(shape, base);
 
         for [ix] in indices {
@@ -43,7 +42,9 @@ impl<F: Scalar> Buffer for Vec<F> {
 
     fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> Vec<A> { self.into_iter().map(f).collect() }
 
-    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> Vec<A> { self.iter().map(|x| f(*x)).collect() }
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> Vec<A> {
+        self.iter().map(|x| f(*x)).collect()
+    }
 
     fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
         self.into_iter().copied().fold(init, f)
@@ -59,7 +60,7 @@ impl<F: Scalar> ZipFold for Vec<F> {
         &self,
         rhs: &Vec<F>,
         mut init: A,
-        f: M
+        f: M,
     ) -> Result<A, IncompatibleShapes<SDynamic<1>>> {
         match (self.len(), rhs.len()) {
             (nx, ny) if nx == ny => {
@@ -85,9 +86,10 @@ impl<F: Scalar> ZipMap for Vec<F> {
     fn zip_map<A: Scalar, M: Fn(F, F) -> A>(
         self,
         rhs: &Vec<F>,
-        f: M
+        f: M,
     ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
-        let buf = self.into_iter()
+        let buf = self
+            .into_iter()
             .zip(rhs.iter())
             .map(|(x, y)| f(x, *y))
             .collect();
@@ -98,9 +100,10 @@ impl<F: Scalar> ZipMap for Vec<F> {
     fn zip_map_ref<A: Scalar, M: Fn(F, F) -> A>(
         &self,
         rhs: &Vec<F>,
-        f: M
+        f: M,
     ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
-        let buf = self.iter()
+        let buf = self
+            .iter()
             .zip(rhs.iter())
             .map(|(x, y)| f(*x, *y))
             .collect();
@@ -126,9 +129,13 @@ impl<F: Scalar> Buffer for &Vec<F> {
 
     fn into_owned(self) -> Vec<F> { self.to_vec() }
 
-    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> Vec<A> { self.into_iter().map(|x| f(*x)).collect() }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> Vec<A> {
+        self.into_iter().map(|x| f(*x)).collect()
+    }
 
-    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> Vec<A> { self.iter().map(|x| f(*x)).collect() }
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> Vec<A> {
+        self.iter().map(|x| f(*x)).collect()
+    }
 
     fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
         self.into_iter().copied().fold(init, f)
@@ -147,9 +154,13 @@ impl<F: Scalar> Buffer for &[F] {
 
     fn get_unchecked(&self, ix: [usize; 1]) -> F { self[ix[0]] }
 
-    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> Vec<A> { self.into_iter().map(|x| f(*x)).collect() }
+    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> Vec<A> {
+        self.into_iter().map(|x| f(*x)).collect()
+    }
 
-    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> Vec<A> { self.iter().map(|x| f(*x)).collect() }
+    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> Vec<A> {
+        self.iter().map(|x| f(*x)).collect()
+    }
 
     fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
         self.into_iter().copied().fold(init, f)

@@ -1,4 +1,4 @@
-use super::{shapes::S0, Buffer, Class, ZipMap, IncompatibleShapes, ZipFold};
+use super::{shapes::S0, Buffer, Class, IncompatibleShapes, ZipFold, ZipMap};
 use num_traits::Num;
 
 /// Scalar buffer class.
@@ -14,8 +14,7 @@ impl Class<S0> for Scalars {
         base: F,
         mut indices: impl Iterator<Item = ()>,
         active: impl Fn(()) -> F,
-    ) -> F
-    {
+    ) -> F {
         let next = indices.next();
 
         if next.is_some() {
@@ -36,8 +35,8 @@ macro_rules! impl_scalar {
     ($F:ty) => {
         impl Buffer for $F {
             type Class = Scalars;
-            type Shape = S0;
             type Field = $F;
+            type Shape = S0;
 
             fn shape(&self) -> S0 { S0 }
 
@@ -58,8 +57,8 @@ macro_rules! impl_scalar {
 
         impl Buffer for &$F {
             type Class = Scalars;
-            type Shape = S0;
             type Field = $F;
+            type Shape = S0;
 
             fn shape(&self) -> S0 { S0 }
 
@@ -83,7 +82,7 @@ macro_rules! impl_scalar {
                 &self,
                 rhs: &$F,
                 init: A,
-                f: M
+                f: M,
             ) -> Result<A, IncompatibleShapes<S0>> {
                 let out = f(init, (*self, *rhs));
 
@@ -97,7 +96,7 @@ macro_rules! impl_scalar {
             fn zip_map<A: Scalar, M: Fn($F, $F) -> A>(
                 self,
                 rhs: &$F,
-                f: M
+                f: M,
             ) -> Result<A, IncompatibleShapes<S0>> {
                 Ok(f(self, *rhs))
             }
@@ -105,7 +104,7 @@ macro_rules! impl_scalar {
             fn zip_map_ref<A: Scalar, M: Fn($F, $F) -> A>(
                 &self,
                 rhs: &$F,
-                f: M
+                f: M,
             ) -> Result<A, IncompatibleShapes<S0>> {
                 Ok(f(*self, *rhs))
             }

@@ -1,14 +1,15 @@
+use super::SourceError;
 use crate::{
     buffers::{
         shapes::{Concat, Shape},
+        Arrays,
         Buffer,
         Class,
         OwnedOf,
         Scalar,
         Scalars,
-        Arrays,
-        Vecs,
         Tuples,
+        Vecs,
     },
     Contains,
     Differentiable,
@@ -17,14 +18,14 @@ use crate::{
     Node,
     Read,
 };
-use super::SourceError;
 
 /// Source node for numerical variables.
 ///
-/// This node implements both [Function] and [Differentiable]. The former reads from the provided
-/// [Database] and returns the buffer assigned to `I`, and the latter returns an an instance of
-/// [VariableAdjoint]. You should use this type as the entry point for all "symbolic" entities in
-/// the constructed operator tree.
+/// This node implements both [Function] and [Differentiable]. The former reads
+/// from the provided [Database] and returns the buffer assigned to `I`, and the
+/// latter returns an an instance of [VariableAdjoint]. You should use this type
+/// as the entry point for all "symbolic" entities in the constructed operator
+/// tree.
 ///
 /// # Examples
 /// ```
@@ -141,12 +142,16 @@ where
     type Value = <CA as Class<SA>>::Buffer<F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let shape_value = db.as_ref().read_shape(self.value).ok_or(
-            crate::BinaryError::Left(SourceError::Undefined(self.value)),
-        )?;
-        let shape_target = db.as_ref().read_shape(self.target).ok_or(
-            crate::BinaryError::Right(SourceError::Undefined(self.target)),
-        )?;
+        let shape_value = db
+            .as_ref()
+            .read_shape(self.value)
+            .ok_or(crate::BinaryError::Left(SourceError::Undefined(self.value)))?;
+        let shape_target =
+            db.as_ref()
+                .read_shape(self.target)
+                .ok_or(crate::BinaryError::Right(SourceError::Undefined(
+                    self.target,
+                )))?;
         let shape_adjoint = shape_value.concat(shape_target);
 
         Ok(if self.value == self.target {
@@ -159,9 +164,7 @@ where
                 .zip(shape_target.indices())
                 .map(|ixs| <SI as Concat<ST>>::concat_indices(ixs.0, ixs.1));
 
-            CA::build_subset(
-                shape_adjoint, num_traits::zero(), ixs, |_| one
-            )
+            CA::build_subset(shape_adjoint, num_traits::zero(), ixs, |_| one)
         } else {
             <Self::Value as Buffer>::Class::full(shape_adjoint, num_traits::zero())
         })

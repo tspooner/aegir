@@ -1,15 +1,16 @@
+use super::SourceError;
 use crate::{
     buffers::{
         shapes::{Concat, Shape},
+        Arrays,
         Buffer,
         Class,
         FieldOf,
         OwnedOf,
         Scalar,
         Scalars,
-        Arrays,
-        Vecs,
         Tuples,
+        Vecs,
     },
     Contains,
     Database,
@@ -19,7 +20,6 @@ use crate::{
     Node,
     Read,
 };
-use super::SourceError;
 
 /// Source node for numerical constants.
 ///

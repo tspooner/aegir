@@ -1,4 +1,4 @@
-use crate::buffers::{Class, BufferOf, shapes::Shape, Scalars, Vecs, Tuples, Arrays};
+use crate::buffers::{shapes::Shape, Arrays, BufferOf, Class, Scalars, Tuples, Vecs};
 
 pub struct Prec;
 

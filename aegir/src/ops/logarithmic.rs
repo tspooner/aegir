@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{OwnedOf, FieldOf, Buffer},
+    buffers::{Buffer, FieldOf, OwnedOf},
     ops::{AddOne, Div, Mul},
     Contains,
     Database,

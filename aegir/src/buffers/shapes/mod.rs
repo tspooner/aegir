@@ -128,16 +128,16 @@ pub trait Concat<RHS: Shape = Self>: Shape {
     fn concat_indices(left: Self::Index, rhs: RHS::Index) -> IndexOf<Self::Shape>;
 }
 
-// TODO - Once impl-spec drops, we can implement this. It'd be useful for simplification code, much
-//        like with operator rewrites.
+// TODO - Once impl-spec drops, we can implement this. It'd be useful for
+// simplification code, much        like with operator rewrites.
 // /// Trait for reducing a shape into its simplest form.
 // ///
 // /// This typically involves trimming either end of unitary values.
 // pub trait Reduce: Shape {
-    // type Reduced: Shape;
+// type Reduced: Shape;
 
-    // /// Trim the shape.
-    // fn reduce(self) -> Self::Reduced;
+// /// Trim the shape.
+// fn reduce(self) -> Self::Reduced;
 // }
 
 mod multi_product;

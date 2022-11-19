@@ -1,6 +1,6 @@
 use crate::{
-    buffers::{Buffer, ZipMap, OwnedOf, Scalar},
-    ops::{ZipOut, SafeXlnX},
+    buffers::{Buffer, OwnedOf, Scalar, ZipMap},
+    ops::{SafeXlnX, ZipOut},
     BinaryError,
     Contains,
     Database,

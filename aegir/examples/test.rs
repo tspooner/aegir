@@ -23,9 +23,13 @@ fn main() {
     let sse = model.sub(y).squared();
     let adj = sse.adjoint(W);
 
-    println!("{:?}", adj.evaluate(Database {
-        x: [0.0, 1.0],
-        y: 5.0,
-        w: &weights,
-    }).unwrap());
+    println!(
+        "{:?}",
+        adj.evaluate(Database {
+            x: [0.0, 1.0],
+            y: 5.0,
+            w: &weights,
+        })
+        .unwrap()
+    );
 }

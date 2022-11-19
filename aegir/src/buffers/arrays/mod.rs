@@ -2,18 +2,18 @@ use super::{
     shapes::{IndexOf, Shape, S0, S1, S2, S3, S4, S5},
     Buffer,
     Class,
-    ZipMap,
     IncompatibleShapes,
     Scalar,
     ZipFold,
+    ZipMap,
 };
 
 /// Array buffer class.
 pub struct Arrays;
 
 mod buffer;
-mod zip_ops;
 mod contraction_ops;
+mod zip_ops;
 
 #[cfg(test)]
 mod tests {
@@ -32,17 +32,17 @@ mod tests {
 
         // #[test]
         // fn test_replace() {
-            // assert_eq!(V.to_zeroes(), [0.0; 2]);
-            // assert_eq!(V.into_zeroes(), [0.0; 2]);
+        // assert_eq!(V.to_zeroes(), [0.0; 2]);
+        // assert_eq!(V.into_zeroes(), [0.0; 2]);
 
-            // assert_eq!(V.to_ones(), [1.0; 2]);
-            // assert_eq!(V.into_ones(), [1.0; 2]);
+        // assert_eq!(V.to_ones(), [1.0; 2]);
+        // assert_eq!(V.into_ones(), [1.0; 2]);
 
-            // assert_eq!(V.to_filled(5.0), [5.0; 2]);
-            // assert_eq!(V.to_filled(-1.0), [-1.0; 2]);
+        // assert_eq!(V.to_filled(5.0), [5.0; 2]);
+        // assert_eq!(V.to_filled(-1.0), [-1.0; 2]);
 
-            // assert_eq!(V.into_filled(5.0), [5.0; 2]);
-            // assert_eq!(V.into_filled(-1.0), [-1.0; 2]);
+        // assert_eq!(V.into_filled(5.0), [5.0; 2]);
+        // assert_eq!(V.into_filled(-1.0), [-1.0; 2]);
         // }
 
         #[test]

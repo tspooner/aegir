@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{Buffer, FieldOf, IncompatibleShapes, ShapeOf, Contract as CTrait},
+    buffers::{Buffer, Contract as CTrait, FieldOf, IncompatibleShapes, ShapeOf},
     ops::Add,
     BinaryError,
     Contains,
@@ -26,7 +26,7 @@ where
     N2: Function<D>,
 
     N1::Value: CTrait<N2::Value, AXES>,
-    N2::Value: Buffer<Field = FieldOf<N1::Value>>
+    N2::Value: Buffer<Field = FieldOf<N1::Value>>,
 {
     type Error = BinaryError<
         N1::Error,

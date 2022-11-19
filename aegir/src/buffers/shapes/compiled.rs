@@ -5,10 +5,10 @@ use super::*;
 pub struct S0;
 
 impl Shape for S0 {
-    const DIM: usize = 0;
-
     type Index = ();
     type IndexIter = std::iter::Once<()>;
+
+    const DIM: usize = 0;
 
     fn contains(&self, _: ()) -> bool { true }
 
@@ -24,11 +24,10 @@ impl std::fmt::Display for S0 {
 pub struct S1<const A: usize>;
 
 impl<const A: usize> Shape for S1<A> {
-    const DIM: usize = 1;
-
     type Index = usize;
-
     type IndexIter = std::ops::Range<usize>;
+
+    const DIM: usize = 1;
 
     fn contains(&self, ix: usize) -> bool { ix < A }
 

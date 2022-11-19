@@ -16,11 +16,10 @@ impl<const DIM: usize> IndexMut<usize> for SDynamic<DIM> {
 }
 
 impl<const DIM: usize> Shape for SDynamic<DIM> {
-    const DIM: usize = DIM;
-
     type Index = [usize; DIM];
-
     type IndexIter = multi_product::MultiProduct<DIM>;
+
+    const DIM: usize = DIM;
 
     fn contains(&self, ix: [usize; DIM]) -> bool {
         ix.iter().zip(self.0.iter()).all(|(l, r)| l < r)

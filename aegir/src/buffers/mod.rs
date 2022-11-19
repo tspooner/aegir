@@ -45,8 +45,8 @@
 //! inner product between `[f64; 2]` and    `(f64, f64)`.
 pub mod shapes;
 
-use shapes::{Concat, Ix, Shape};
 use num_traits::{One, Zero};
+use shapes::{Concat, Ix, Shape};
 
 /// Marker trait for class subscriptions of [Buffer] types.
 ///
@@ -227,7 +227,9 @@ pub trait Class<S: Shape> {
     ///     [0.0, 1.0]
     /// ]);
     /// ```
-    fn identity<F: Scalar>(shape: S) -> Self::Buffer<F> { Self::diagonal(shape, num_traits::one()) }
+    fn identity<F: Scalar>(shape: S) -> Self::Buffer<F> {
+        Self::diagonal(shape, num_traits::one())
+    }
 }
 
 /// Type shortcut for the [Class] associated with a [Buffer].
@@ -336,7 +338,9 @@ pub trait Buffer {
     /// assert_eq!(buffer.fold(0.0, |init, el| init + 2.0 * el), 12.0);
     /// ```
     fn fold<F, M: Fn(F, Self::Field) -> F>(&self, init: F, f: M) -> F {
-        self.shape().indices().fold(init, |acc, ix| f(acc, self.get_unchecked(ix)))
+        self.shape()
+            .indices()
+            .fold(init, |acc, ix| f(acc, self.get_unchecked(ix)))
     }
 
     /// Sum over the elements of the buffer.
@@ -374,9 +378,8 @@ pub trait Buffer {
 }
 
 /// Type shortcut for the owned variant of a [Buffer].
-pub type OwnedOf<B, F = <B as Buffer>::Field> = <
-    <B as Buffer>::Class as Class<<B as Buffer>::Shape>
->::Buffer<F>;
+pub type OwnedOf<B, F = <B as Buffer>::Field> =
+    <<B as Buffer>::Class as Class<<B as Buffer>::Shape>>::Buffer<F>;
 
 /// Type shortcut for the [Shape] associated with a [Buffer].
 pub type ShapeOf<B> = <B as Buffer>::Shape;
@@ -452,7 +455,7 @@ pub trait ZipMap<RHS: Buffer = Self>: Buffer {
     fn zip_map<F: Scalar, M: Fn(Self::Field, RHS::Field) -> F>(
         self,
         rhs: &RHS,
-        f: M
+        f: M,
     ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>
     where
         Self: Sized,
@@ -480,7 +483,10 @@ pub trait ZipMap<RHS: Buffer = Self>: Buffer {
 pub trait Contract<RHS: Buffer<Field = Self::Field>, const AXES: usize = 1>: Buffer {
     type Output: Buffer<Field = Self::Field>;
 
-    fn contract(self, rhs: RHS) -> Result<Self::Output, IncompatibleShapes<Self::Shape, RHS::Shape>>;
+    fn contract(
+        self,
+        rhs: RHS,
+    ) -> Result<Self::Output, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
 mod scalars;

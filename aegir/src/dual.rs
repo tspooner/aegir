@@ -1,4 +1,4 @@
-use crate::buffers::{Buffer, FieldOf, OwnedOf, Class};
+use crate::buffers::{Buffer, Class, FieldOf, OwnedOf};
 use std::ops;
 
 type AddOut<A, B> = <A as std::ops::Add<B>>::Output;
@@ -18,12 +18,14 @@ macro_rules! dual {
     };
 }
 
-/// Dual variable for forward-mode autodifferentiation over aegir [buffers](Buffer).
+/// Dual variable for forward-mode autodifferentiation over aegir
+/// [buffers](Buffer).
 ///
-/// This struct can be used as a simple container for a value and its adjoint (as we do within
-/// this crate). Alternatively, it can be used as a lightweight implementation of the "augmented
-/// algebra" commonly found in autodifferentiation libraries. It is by no means exhaustive, but
-/// may come in handy for some applications.
+/// This struct can be used as a simple container for a value and its adjoint
+/// (as we do within this crate). Alternatively, it can be used as a lightweight
+/// implementation of the "augmented algebra" commonly found in
+/// autodifferentiation libraries. It is by no means exhaustive, but may come in
+/// handy for some applications.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Dual<V, A = V> {
     pub value: V,

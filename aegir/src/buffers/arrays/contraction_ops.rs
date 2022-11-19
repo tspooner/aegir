@@ -1,5 +1,5 @@
-use crate::buffers::Contract;
 use super::*;
+use crate::buffers::Contract;
 
 macro_rules! impl_contract {
     ($axes:literal; <$f:ident $(, $d:ident)*> $left:ty, $right:ty; |$x:ident, $y:ident| -> $out:ty { $impl:expr }) => {
@@ -85,9 +85,9 @@ mod tests {
     fn test_r2_r2() {
         let x = [[1.0f64, 2.0f64], [3.0f64, 4.0f64]];
 
-        assert_eq!(Contract::<_, 1>::contract(x, x).unwrap(), [
-            [7.0, 10.0],
-            [15.0, 22.0]
-        ]);
+        assert_eq!(
+            Contract::<_, 1>::contract(x, x).unwrap(),
+            [[7.0, 10.0], [15.0, 22.0]]
+        );
     }
 }
