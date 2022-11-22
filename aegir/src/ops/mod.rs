@@ -1,5 +1,5 @@
 //! Module for concrete operator implementations.
-use crate::buffers::{precedence::Precedence, Buffer, Class};
+use crate::buffers::ZipMap;
 
 macro_rules! impl_unary {
     ($(#[$attr:meta])* $name:ident[$str:tt]: $field_type:path, $eval:expr, $grad:expr) => {
@@ -7,12 +7,13 @@ macro_rules! impl_unary {
         #[derive(Clone, Copy, Debug, PartialEq, Contains)]
         pub struct $name<N>(#[op] pub N);
 
-        impl<D, N> crate::Function<D> for $name<N>
+        impl<D, N, F> crate::Function<D> for $name<N>
         where
             D: crate::Database,
             N: crate::Function<D>,
+            F: crate::buffers::Scalar + $field_type,
 
-            crate::buffers::FieldOf<N::Value>: $field_type,
+            N::Value: crate::buffers::Buffer<Field = F>,
         {
             type Value = crate::buffers::OwnedOf<N::Value>;
             type Error = N::Error;
@@ -32,11 +33,7 @@ macro_rules! impl_unary {
     }
 }
 
-pub(crate) type HadOut<A, B> = <<<A as Buffer>::Class as Precedence<
-    <B as Buffer>::Class,
-    <A as Buffer>::Shape,
-    <A as Buffer>::Field,
->>::Class as Class<<A as Buffer>::Shape, <A as Buffer>::Field>>::Buffer;
+pub(crate) type ZipOut<A, B, F> = <A as ZipMap<B>>::Output<F>;
 
 mod arithmetic;
 pub use self::arithmetic::{
@@ -58,7 +55,7 @@ pub use self::arithmetic::{
 };
 
 mod linalg;
-pub use self::linalg::{InnerProduct, OuterProduct, OuterProductTrait, TensorMul, TensorMulTrait};
+pub use self::linalg::{Contract, TensorDot, TensorProduct};
 
 mod logarithmic;
 pub use self::logarithmic::SafeXlnX;

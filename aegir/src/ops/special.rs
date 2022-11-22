@@ -95,7 +95,7 @@ where
 
         if N::is_zero(stage) == crate::logic::TFU::True {
             self.0.evaluate_shape(db).map(|shape| {
-                <ClassOf<Self::Value> as Class<ShapeOf<N::Value>, FieldOf<N::Value>>>::full(
+                <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(
                     shape,
                     num_traits::one(),
                 )
@@ -138,7 +138,7 @@ where
 
         if N::is_zero(stage) == crate::logic::TFU::True {
             self.0.evaluate_shape(db).map(|shape| {
-                <ClassOf<Self::Value> as Class<ShapeOf<N::Value>, FieldOf<N::Value>>>::full(
+                <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(
                     shape,
                     num_traits::zero(),
                 )

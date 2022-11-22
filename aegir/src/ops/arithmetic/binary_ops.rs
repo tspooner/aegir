@@ -1,7 +1,7 @@
 use crate::{
-    buffers::{precedence, shapes::Shape, Buffer, OwnedOf, Scalar, ZipMap},
+    buffers::{Buffer, OwnedOf, Scalar, ZipMap},
     logic::TFU,
-    ops::{HadOut, SafeXlnX},
+    ops::{SafeXlnX, ZipOut},
     BinaryError,
     Contains,
     Database,
@@ -166,47 +166,41 @@ impl<N1: Node, N2: Node> Node for Add<N1, N2> {
     }
 }
 
-impl<D, S, F, N1, C1, N2, C2> Function<D> for Add<N1, N2>
+impl<D, F, N1, N2> Function<D> for Add<N1, N2>
 where
     D: Database,
-    S: Shape,
     F: Scalar,
 
     N1: Function<D>,
-    N1::Value: Buffer<Class = C1, Shape = S, Field = F> + ZipMap<N2::Value>,
+    N1::Value: Buffer<Field = F> + ZipMap<N2::Value>,
 
     N2: Function<D>,
-    N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
-
-    C1: precedence::Precedence<C2, S, F>,
+    N2::Value: Buffer<Field = F>,
 {
     type Error = BinaryError<
         N1::Error,
         N2::Error,
         crate::NoError, // IncompatibleBuffers<Pattern<N1::Value>, Pattern<N2::Value>>
     >;
-    type Value = HadOut<N1::Value, N2::Value>;
+    type Value = ZipOut<N1::Value, N2::Value, F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         use crate::Stage::Evaluation;
 
         // First establish if either term is zero...
         if Evaluation(&self.0).is_zero() == TFU::True {
-            let rhs = self.1.evaluate(db).map_err(crate::BinaryError::Right)?;
+            let lhs_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
+            let rhs = self.1.evaluate(db).map_err(BinaryError::Right)?;
 
-            return Ok(<N1::Value as crate::buffers::ZipMap<N2::Value>>::take_right(rhs));
+            return Ok(<N1::Value as ZipMap<N2::Value>>::zip_map_right(&lhs_shape, &rhs));
         }
 
         // If not, then maybe the second term is...
         if Evaluation(&self.1).is_zero() == TFU::True {
-            let lhs = self
-                .0
-                .evaluate(db.as_ref())
-                .map_err(crate::BinaryError::Left)?;
+            let lhs = self.0.evaluate(&db).map_err(BinaryError::Left)?;
+            let rhs_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
 
-            return Ok(<N1::Value as crate::buffers::ZipMap<N2::Value>>::take_left(
-                lhs,
-            ));
+            return Ok(lhs.zip_map_left(&rhs_shape));
         }
 
         // Otherwise, we do the actual addition...
@@ -297,26 +291,23 @@ impl<N1: Node, N2: Node> Node for Sub<N1, N2> {
     }
 }
 
-impl<D, S, F, N1, C1, N2, C2> Function<D> for Sub<N1, N2>
+impl<D, F, N1, N2> Function<D> for Sub<N1, N2>
 where
     D: Database,
-    S: Shape,
     F: Scalar,
 
     N1: Function<D>,
-    N1::Value: Buffer<Class = C1, Shape = S, Field = F> + ZipMap<N2::Value>,
+    N1::Value: Buffer<Field = F> + ZipMap<N2::Value>,
 
     N2: Function<D>,
-    N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
-
-    C1: precedence::Precedence<C2, S, F>,
+    N2::Value: Buffer<Field = F>,
 {
     type Error = BinaryError<
         N1::Error,
         N2::Error,
         crate::NoError, // IncompatibleBuffers<Pattern<N1::Value>, Pattern<N2::Value>>
     >;
-    type Value = HadOut<N1::Value, N2::Value>;
+    type Value = ZipOut<N1::Value, N2::Value, F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         let x = self
@@ -402,22 +393,19 @@ impl<N1: Node, N2: Node> Node for Mul<N1, N2> {
     }
 }
 
-impl<D, S, F, N1, C1, N2, C2> Function<D> for Mul<N1, N2>
+impl<D, F, N1, N2> Function<D> for Mul<N1, N2>
 where
     D: Database,
-    S: Shape,
     F: Scalar,
 
     N1: Function<D>,
-    N1::Value: Buffer<Class = C1, Shape = S, Field = F> + ZipMap<N2::Value>,
+    N1::Value: Buffer<Field = F> + ZipMap<N2::Value>,
 
     N2: Function<D>,
-    N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
-
-    C1: precedence::Precedence<C2, S, F>,
+    N2::Value: Buffer<Field = F>,
 {
     type Error = BinaryError<N1::Error, N2::Error, crate::NoError>;
-    type Value = HadOut<N1::Value, N2::Value>;
+    type Value = ZipOut<N1::Value, N2::Value, F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         use crate::Stage::Evaluation;
@@ -427,29 +415,27 @@ where
 
         // If either value is zero, we can just short-circuit...
         if (s0.is_zero() | s1.is_zero()).is_true() {
-            // TODO XXX - Replace calls to unwrap!
-            return Ok(<Self::Value as Buffer>::zeroes(
-                self.0.evaluate_shape(db).unwrap(),
-            ));
+            let lhs_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
+            let rhs_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+
+            return Ok(<N1::Value as ZipMap<N2::Value>>::zip_map_neither(&lhs_shape, &rhs_shape));
         }
 
         // If either value is unity, then we can also short-circuit...
         if s0.is_one().is_true() {
             // In this case, the left-hand value is one, i.e. we have 1 * x = x.
-            return self
-                .0
-                .evaluate(db.as_ref())
-                .map_err(BinaryError::Left)
-                .map(<N1::Value as ZipMap<N2::Value>>::take_left);
+            let lhs_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
+            let rhs = self.1.evaluate(db).map_err(BinaryError::Right)?;
+
+            return Ok(<N1::Value as ZipMap<N2::Value>>::zip_map_right(&lhs_shape, &rhs));
         }
 
         if s1.is_one().is_true() {
             // In this case, the right-hand value is one, i.e. we have x * 1 = x.
-            return self
-                .1
-                .evaluate(db.as_ref())
-                .map_err(BinaryError::Right)
-                .map(<N1::Value as ZipMap<N2::Value>>::take_right);
+            let lhs = self.0.evaluate(&db).map_err(BinaryError::Left)?;
+            let rhs_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+
+            return Ok(<N1::Value as ZipMap<N2::Value>>::zip_map_left(&lhs, &rhs_shape));
         }
 
         // Otherwise we have to perform the multiplication...
@@ -507,33 +493,29 @@ impl<N1: Node, N2: Node> Node for Div<N1, N2> {
     }
 }
 
-impl<D, S, F, N1, C1, N2, C2> Function<D> for Div<N1, N2>
+impl<D, F, N1, N2> Function<D> for Div<N1, N2>
 where
     D: Database,
-    S: Shape,
     F: Scalar,
 
     N1: Function<D>,
-    N1::Value: Buffer<Class = C1, Shape = S, Field = F> + ZipMap<N2::Value>,
+    N1::Value: Buffer<Field = F> + ZipMap<N2::Value>,
 
     N2: Function<D>,
-    N2::Value: Buffer<Class = C2, Shape = S, Field = F>,
-
-    C1: precedence::Precedence<C2, S, F>,
+    N2::Value: Buffer<Field = F>,
 {
     type Error = BinaryError<N1::Error, N2::Error, crate::NoError>;
-    type Value = HadOut<N1::Value, N2::Value>;
+    type Value = ZipOut<N1::Value, N2::Value, F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         use crate::Stage::Evaluation;
 
         // If the denominator takes value one, then we can skip the operation...
         if Evaluation(&self.1).is_one().is_true() {
-            return self
-                .0
-                .evaluate(db.as_ref())
-                .map_err(BinaryError::Left)
-                .map(<N1::Value as ZipMap<N2::Value>>::take_left);
+            let n_val = self.0.evaluate(&db).map_err(BinaryError::Left)?;
+            let d_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+
+            return Ok(<N1::Value as ZipMap<N2::Value>>::zip_map_left(&n_val, &d_shape));
         }
 
         let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;

@@ -29,7 +29,7 @@ fn main() {
     let sse = aegir!((model - y) ^ 2);
     let adj = sse.adjoint(W);
 
-    for _ in 0..1_000_000 {
+    for _ in 0..10_000_000 {
         let [x1, x2] = [rand::random::<f64>(), rand::random::<f64>()];
 
         let g = adj
@@ -45,8 +45,8 @@ fn main() {
             })
             .unwrap();
 
-        weights[0] -= 0.01 * g[0][0];
-        weights[1] -= 0.01 * g[0][1];
+        weights[0] -= 0.01 * g[0];
+        weights[1] -= 0.01 * g[1];
     }
 
     println!("{:?}", weights.to_vec());

@@ -1,5 +1,4 @@
-use crate::buffers::{Buffer, FieldOf, OwnedOf};
-use num_traits::{One, Zero};
+use crate::buffers::{Buffer, Class, FieldOf, OwnedOf};
 use std::ops;
 
 type AddOut<A, B> = <A as std::ops::Add<B>>::Output;
@@ -34,22 +33,16 @@ pub struct Dual<V, A = V> {
 }
 
 impl<B: Buffer> Dual<B> {
-    pub fn variable(value: B) -> Dual<OwnedOf<B>>
-    where
-        B::Field: One,
-    {
-        let adjoint = value.to_ones();
-        let value = value.into_owned();
+    pub fn variable(buffer: B) -> Dual<OwnedOf<B>> {
+        let adjoint = <B::Class as Class<B::Shape>>::full(buffer.shape(), num_traits::one());
+        let value = buffer.into_owned();
 
         Dual { value, adjoint }
     }
 
-    pub fn constant(value: B) -> Dual<OwnedOf<B>>
-    where
-        B::Field: Zero,
-    {
-        let adjoint = value.to_zeroes();
-        let value = value.into_owned();
+    pub fn constant(buffer: B) -> Dual<OwnedOf<B>> {
+        let adjoint = <B::Class as Class<B::Shape>>::full(buffer.shape(), num_traits::zero());
+        let value = buffer.into_owned();
 
         Dual { value, adjoint }
     }

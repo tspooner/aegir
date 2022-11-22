@@ -187,10 +187,10 @@ where
     T: Identifier,
     N: Differentiable<T> + Clone,
 {
-    type Adjoint = crate::ops::TensorMul<Double<N>, N::Adjoint>;
+    type Adjoint = crate::ops::Mul<Double<N>, N::Adjoint>;
 
     fn adjoint(&self, target: T) -> Self::Adjoint {
-        crate::ops::TensorMul(Double(self.0.clone()), self.0.adjoint(target))
+        crate::ops::Mul(Double(self.0.clone()), self.0.adjoint(target))
     }
 }
 
@@ -299,9 +299,7 @@ where
     type Value = FieldOf<N::Value>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0
-            .evaluate(db)
-            .map(|buffer| buffer.fold(num_traits::zero(), |acc, &x| acc + x))
+        self.0.evaluate(db).map(|buf| buf.sum())
     }
 }
 

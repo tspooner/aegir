@@ -4,17 +4,17 @@ use num_traits::Num;
 /// Scalar buffer class.
 pub struct Scalars;
 
-impl<F: Scalar> Class<S0, F> for Scalars {
-    type Buffer = F;
+impl Class<S0> for Scalars {
+    type Buffer<F: Scalar> = F;
 
-    fn build(_: S0, f: impl Fn(()) -> F) -> F { f(()) }
+    fn build<F: Scalar>(_: S0, f: impl Fn(()) -> F) -> F { f(()) }
 
-    fn build_subset(
+    fn build_subset<F: Scalar>(
         shape: S0,
         base: F,
         mut indices: impl Iterator<Item = ()>,
         active: impl Fn(()) -> F,
-    ) -> Self::Buffer {
+    ) -> F {
         let next = indices.next();
 
         if next.is_some() {
@@ -38,15 +38,17 @@ macro_rules! impl_scalar {
             type Field = $F;
             type Shape = S0;
 
-            fn shape(&self) -> Self::Shape { S0 }
+            fn shape(&self) -> S0 { S0 }
 
             fn get(&self, _: ()) -> Option<$F> { Some(*self) }
 
-            fn map<F: Fn($F) -> Self::Field>(self, f: F) -> $F { f(self) }
+            fn get_unchecked(&self, _: ()) -> $F { *self }
 
-            fn map_ref<F: Fn($F) -> Self::Field>(&self, f: F) -> Self { f(*self) }
+            fn map<F: Scalar, M: Fn($F) -> F>(self, f: M) -> F { f(self) }
 
-            fn fold<A, F: Fn(A, &$F) -> A>(&self, init: A, f: F) -> A { f(init, self) }
+            fn map_ref<F: Scalar, M: Fn($F) -> F>(&self, f: M) -> F { f(*self) }
+
+            fn fold<F, M: Fn(F, $F) -> F>(&self, init: F, f: M) -> F { f(init, *self) }
 
             fn to_owned(&self) -> $F { *self }
 
@@ -58,15 +60,17 @@ macro_rules! impl_scalar {
             type Field = $F;
             type Shape = S0;
 
-            fn shape(&self) -> Self::Shape { S0 }
+            fn shape(&self) -> S0 { S0 }
 
             fn get(&self, _: ()) -> Option<$F> { Some(**self) }
 
-            fn map<F: Fn($F) -> Self::Field>(self, f: F) -> $F { f(*self) }
+            fn get_unchecked(&self, _: ()) -> $F { **self }
 
-            fn map_ref<F: Fn($F) -> Self::Field>(&self, f: F) -> $F { f(**self) }
+            fn map<F: Scalar, M: Fn($F) -> F>(self, f: M) -> F { f(*self) }
 
-            fn fold<A, F: Fn(A, &$F) -> A>(&self, init: A, f: F) -> A { f(init, self) }
+            fn map_ref<F: Scalar, M: Fn($F) -> F>(&self, f: M) -> F { f(**self) }
+
+            fn fold<F, M: Fn(F, $F) -> F>(&self, init: F, f: M) -> F { f(init, **self) }
 
             fn to_owned(&self) -> $F { **self }
 
@@ -74,12 +78,12 @@ macro_rules! impl_scalar {
         }
 
         impl ZipFold for $F {
-            fn zip_fold(
+            fn zip_fold<A: Scalar, M: Fn(A, ($F, $F)) -> A>(
                 &self,
                 rhs: &$F,
-                init: $F,
-                f: impl Fn($F, ($F, $F)) -> $F,
-            ) -> Result<$F, IncompatibleShapes<S0>> {
+                init: A,
+                f: M,
+            ) -> Result<A, IncompatibleShapes<S0>> {
                 let out = f(init, (*self, *rhs));
 
                 Ok(out)
@@ -87,25 +91,21 @@ macro_rules! impl_scalar {
         }
 
         impl ZipMap for $F {
-            fn zip_map(
-                self,
-                rhs: &$F,
-                f: impl Fn($F, $F) -> $F,
-            ) -> Result<$F, IncompatibleShapes<S0>> {
-                Ok(f(self, *rhs))
-            }
+            type Output<A: Scalar> = A;
 
-            fn zip_map_ref(
+            fn zip_map<A: Scalar, M: Fn($F, $F) -> A>(
                 &self,
                 rhs: &$F,
-                f: impl Fn($F, $F) -> $F,
-            ) -> Result<$F, IncompatibleShapes<S0>> {
+                f: M,
+            ) -> Result<A, IncompatibleShapes<S0>> {
                 Ok(f(*self, *rhs))
             }
 
-            fn take_left(lhs: $F) -> $F { lhs }
+            fn zip_map_left(&self, _: &S0) -> $F { *self }
 
-            fn take_right(rhs: $F) -> $F { rhs }
+            fn zip_map_right(_: &S0, rhs: &$F) -> $F { *rhs }
+
+            fn zip_map_neither(_: &S0, _: &S0) -> $F { num_traits::zero() }
         }
 
         impl Scalar for $F {}

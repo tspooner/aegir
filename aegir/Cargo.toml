@@ -6,7 +6,7 @@ version = "1.0.0"
 authors = ["Tom Spooner <spooner10000@gmail.com>"]
 
 readme = "README.md"
-license-file = "LICENSE"
+license = "MIT"
 
 keywords = ["autodiff", "autograd", "compute", "dag", "math"]
 
@@ -14,6 +14,7 @@ repository = "https://github.com/tspooner/aegir"
 documentation = "https://docs.rs/aegir"
 
 edition = "2018"
+rust-version = "1.65"
 
 [badges]
 travis-ci = { repository = "tspooner/aegir", branch = "master" }

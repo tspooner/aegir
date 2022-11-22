@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{OwnedOf, Scalar},
+    buffers::{Buffer, FieldOf, OwnedOf},
     logic::TFU,
     ops::{AddOne, Div, Mul},
     Contains,
@@ -10,6 +10,7 @@ use crate::{
     Node,
     Stage,
 };
+use num_traits::real::Real;
 use std::fmt;
 
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
@@ -21,11 +22,12 @@ impl<N: Node> Node for Ln<N> {
     fn is_one(_: Stage<&'_ Self>) -> TFU { TFU::Unknown }
 }
 
-impl<F, D, N> Function<D> for Ln<N>
+impl<D, N> Function<D> for Ln<N>
 where
-    F: Scalar + num_traits::real::Real,
     D: Database,
-    N: Function<D, Value = F>,
+    N: Function<D>,
+
+    FieldOf<N::Value>: Real,
 {
     type Error = N::Error;
     type Value = OwnedOf<N::Value>;
@@ -58,11 +60,12 @@ impl<N: Node> Node for SafeXlnX<N> {
     }
 }
 
-impl<F, D, N> Function<D> for SafeXlnX<N>
+impl<D, N> Function<D> for SafeXlnX<N>
 where
-    F: Scalar + num_traits::real::Real,
     D: Database,
-    N: Function<D, Value = F>,
+    N: Function<D>,
+
+    FieldOf<N::Value>: Real,
 {
     type Error = N::Error;
     type Value = OwnedOf<N::Value>;

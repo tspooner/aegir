@@ -1,6 +1,5 @@
 use crate::{
     buffers::{Buffer, FieldOf, OwnedOf},
-    ops::TensorMul,
     Contains,
     Database,
     Differentiable,
@@ -67,9 +66,9 @@ fn sigmoid<F: Real>(x: F) -> F {
 /// assert!((dual.value[1] - 0.88080).abs() < 1e-5);
 /// assert!((dual.value[2] - 0.95258).abs() < 1e-5);
 ///
-/// assert!((dual.adjoint[0][0] - 0.19661).abs() < 1e-5);
-/// assert!((dual.adjoint[0][1] - 0.10499).abs() < 1e-5);
-/// assert!((dual.adjoint[0][2] - 0.04518).abs() < 1e-5);
+/// assert!((dual.adjoint[0] - 0.19661).abs() < 1e-5);
+/// assert!((dual.adjoint[1] - 0.10499).abs() < 1e-5);
+/// assert!((dual.adjoint[2] - 0.04518).abs() < 1e-5);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Sigmoid<N>(#[op] pub N);
@@ -98,10 +97,10 @@ where
     T: Identifier,
     N: Differentiable<T> + Clone,
 {
-    type Adjoint = TensorMul<N::Adjoint, Rabbit<Self>>;
+    type Adjoint = crate::ops::TensorDot<N::Adjoint, Rabbit<Self>>;
 
     fn adjoint(&self, target: T) -> Self::Adjoint {
-        TensorMul(self.0.adjoint(target), Rabbit(self.clone()))
+        crate::ops::TensorDot::new(self.0.adjoint(target), Rabbit(self.clone()))
     }
 }
 
