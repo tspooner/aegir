@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{Buffer, OwnedOf, Scalar, ZipMap},
+    buffers::{Buffer, OwnedOf, ShapeOf, Scalar, ZipMap, IncompatibleShapes},
     logic::TFU,
     ops::{SafeXlnX, ZipOut},
     BinaryError,
@@ -12,6 +12,12 @@ use crate::{
     Stage,
 };
 use std::fmt;
+
+type Error<D, N1, N2> = BinaryError<
+    <N1 as Function<D>>::Error,
+    <N2 as Function<D>>::Error,
+    IncompatibleShapes<ShapeOf<<N1 as Function<D>>::Value>, ShapeOf<<N2 as Function<D>>::Value>>
+>;
 
 /// Computes the power of a [Buffer] to a [Field].
 ///
@@ -177,11 +183,7 @@ where
     N2: Function<D>,
     N2::Value: Buffer<Field = F>,
 {
-    type Error = BinaryError<
-        N1::Error,
-        N2::Error,
-        crate::NoError, // IncompatibleBuffers<Pattern<N1::Value>, Pattern<N2::Value>>
-    >;
+    type Error = Error<D, N1, N2>;
     type Value = ZipOut<N1::Value, N2::Value, F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
@@ -192,7 +194,11 @@ where
             let lhs_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
             let rhs = self.1.evaluate(db).map_err(BinaryError::Right)?;
 
-            return Ok(<N1::Value as ZipMap<N2::Value>>::zip_map_right(&lhs_shape, &rhs));
+            return <N1::Value as ZipMap<N2::Value>>::zip_map_right(
+                lhs_shape,
+                &rhs,
+                |v| v,
+            ).map_err(BinaryError::Output);
         }
 
         // If not, then maybe the second term is...
@@ -200,7 +206,11 @@ where
             let lhs = self.0.evaluate(&db).map_err(BinaryError::Left)?;
             let rhs_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
 
-            return Ok(lhs.zip_map_left(&rhs_shape));
+            return <N1::Value as ZipMap<N2::Value>>::zip_map_left(
+                &lhs,
+                rhs_shape,
+                |v| v,
+            ).map_err(BinaryError::Output);
         }
 
         // Otherwise, we do the actual addition...
@@ -404,7 +414,7 @@ where
     N2: Function<D>,
     N2::Value: Buffer<Field = F>,
 {
-    type Error = BinaryError<N1::Error, N2::Error, crate::NoError>;
+    type Error = Error<D, N1, N2>;
     type Value = ZipOut<N1::Value, N2::Value, F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
@@ -418,7 +428,11 @@ where
             let lhs_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
             let rhs_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
 
-            return Ok(<N1::Value as ZipMap<N2::Value>>::zip_map_neither(&lhs_shape, &rhs_shape));
+            return <N1::Value as ZipMap<N2::Value>>::zip_map_neither(
+                lhs_shape,
+                rhs_shape,
+                num_traits::zero(),
+            ).map_err(BinaryError::Output);
         }
 
         // If either value is unity, then we can also short-circuit...
@@ -427,7 +441,11 @@ where
             let lhs_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
             let rhs = self.1.evaluate(db).map_err(BinaryError::Right)?;
 
-            return Ok(<N1::Value as ZipMap<N2::Value>>::zip_map_right(&lhs_shape, &rhs));
+            return <N1::Value as ZipMap<N2::Value>>::zip_map_right(
+                lhs_shape,
+                &rhs,
+                |x| x,
+            ).map_err(BinaryError::Output);
         }
 
         if s1.is_one().is_true() {
@@ -435,7 +453,11 @@ where
             let lhs = self.0.evaluate(&db).map_err(BinaryError::Left)?;
             let rhs_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
 
-            return Ok(<N1::Value as ZipMap<N2::Value>>::zip_map_left(&lhs, &rhs_shape));
+            return <N1::Value as ZipMap<N2::Value>>::zip_map_left(
+                &lhs,
+                rhs_shape,
+                |x| x,
+            ).map_err(BinaryError::Output);
         }
 
         // Otherwise we have to perform the multiplication...
@@ -504,7 +526,7 @@ where
     N2: Function<D>,
     N2::Value: Buffer<Field = F>,
 {
-    type Error = BinaryError<N1::Error, N2::Error, crate::NoError>;
+    type Error = Error<D, N1, N2>;
     type Value = ZipOut<N1::Value, N2::Value, F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
@@ -515,7 +537,11 @@ where
             let n_val = self.0.evaluate(&db).map_err(BinaryError::Left)?;
             let d_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
 
-            return Ok(<N1::Value as ZipMap<N2::Value>>::zip_map_left(&n_val, &d_shape));
+            return <N1::Value as ZipMap<N2::Value>>::zip_map_left(
+                &n_val,
+                d_shape,
+                |x| x,
+            ).map_err(BinaryError::Output);
         }
 
         let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;

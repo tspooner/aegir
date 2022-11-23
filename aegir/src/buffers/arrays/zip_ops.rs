@@ -18,6 +18,30 @@ macro_rules! impl_map {
             ) -> Result<$garr, IncompatibleShapes<Self::Shape>> {
                 $zms_impl
             }
+
+            fn zip_map_left<$a: Scalar, M: Fn(F) -> $a>(
+                &self,
+                _: Self::Shape,
+                f: M,
+            ) -> Result<$garr, IncompatibleShapes<Self::Shape>> {
+                Ok(self.map(f))
+            }
+
+            fn zip_map_right<$a: Scalar, M: Fn(F) -> $a>(
+                _: Self::Shape,
+                rhs: &Self,
+                f: M,
+            ) -> Result<$garr, IncompatibleShapes<Self::Shape>> {
+                Ok(rhs.map(f))
+            }
+
+            fn zip_map_neither<$a: Scalar>(
+                shape: Self::Shape,
+                _: Self::Shape,
+                fill_value: $a,
+            ) -> Result<$garr, IncompatibleShapes<Self::Shape>> {
+                Ok(Arrays::full(shape, fill_value))
+            }
         }
 
         impl<$f: Scalar, $(const $d: usize),+> ZipMap<$f> for $arr {
@@ -30,6 +54,30 @@ macro_rules! impl_map {
             ) -> Result<$garr, IncompatibleShapes<Self::Shape, S0>> {
                 $zmfr_impl
             }
+
+            fn zip_map_left<$a: Scalar, M: Fn(F) -> $a>(
+                &self,
+                _: S0,
+                f: M,
+            ) -> Result<$garr, IncompatibleShapes<Self::Shape, S0>> {
+                Ok(self.map(f))
+            }
+
+            fn zip_map_right<$a: Scalar, M: Fn(F) -> $a>(
+                lhs_shape: Self::Shape,
+                rhs: &$f,
+                f: M,
+            ) -> Result<$garr, IncompatibleShapes<Self::Shape, S0>> {
+                Ok(Arrays::full(lhs_shape, f(*rhs)))
+            }
+
+            fn zip_map_neither<$a: Scalar>(
+                shape: Self::Shape,
+                _: S0,
+                fill_value: $a,
+            ) -> Result<$garr, IncompatibleShapes<Self::Shape, S0>> {
+                Ok(Arrays::full(shape, fill_value))
+            }
         }
 
         impl<$f: Scalar, $(const $d: usize),+> ZipMap<$arr> for $f {
@@ -41,6 +89,30 @@ macro_rules! impl_map {
                 $zmfl_func: M,
             ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
                 $zmfl_impl
+            }
+
+            fn zip_map_left<$a: Scalar, M: Fn(F) -> $a>(
+                &self,
+                rhs_shape: <$arr as Buffer>::Shape,
+                f: M,
+            ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
+                Ok(Arrays::full(rhs_shape, f(*self)))
+            }
+
+            fn zip_map_right<$a: Scalar, M: Fn(F) -> $a>(
+                _: S0,
+                rhs: &$arr,
+                f: M,
+            ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
+                Ok(rhs.map(f))
+            }
+
+            fn zip_map_neither<$a: Scalar>(
+                _: Self::Shape,
+                shape: <$arr as Buffer>::Shape,
+                fill_value: $a,
+            ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
+                Ok(Arrays::full(shape, fill_value))
             }
         }
     };

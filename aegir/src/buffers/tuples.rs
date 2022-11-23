@@ -89,9 +89,17 @@ impl<F: Scalar> ZipMap for (F, F) {
         Ok((f(self.0, rhs.0), f(self.1, rhs.1)))
     }
 
-    // fn take_left(lhs: Self) -> (F, F) { lhs }
+    fn zip_map_left<A: Scalar, M: Fn(F) -> A>(&self, _: S1<2>, f: M) -> Result<(A, A), IncompatibleShapes<S1<2>>> {
+        Ok((f(self.0), f(self.1)))
+    }
 
-    // fn take_right(rhs: Self) -> (F, F) { rhs }
+    fn zip_map_right<A: Scalar, M: Fn(F) -> A>(_: S1<2>, rhs: &Self, f: M) -> Result<(A, A), IncompatibleShapes<S1<2>>> {
+        Ok((f(rhs.0), f(rhs.1)))
+    }
+
+    fn zip_map_neither<A: Scalar>(_: S1<2>, _: S1<2>, fill_value: A) -> Result<(A, A), IncompatibleShapes<S1<2>>> {
+        Ok((fill_value, fill_value))
+    }
 }
 
 impl<F: Scalar> Buffer for &(F, F) {

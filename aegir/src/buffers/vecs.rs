@@ -97,9 +97,19 @@ impl<F: Scalar> ZipMap for Vec<F> {
         Ok(buf)
     }
 
-    // fn take_left(lhs: Self) -> Vec<F> { lhs }
+    fn zip_map_left<A: Scalar, M: Fn(F) -> A>(&self, lim: SDynamic<1>, f: M) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
+        Ok(self.iter().take(lim[0]).map(|x| f(*x)).collect())
+    }
 
-    // fn take_right(rhs: Self) -> Vec<F> { rhs }
+    fn zip_map_right<A: Scalar, M: Fn(F) -> A>(lim: SDynamic<1>, rhs: &Self, f: M) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
+        Ok(rhs.iter().take(lim[0]).map(|x| f(*x)).collect())
+    }
+
+    fn zip_map_neither<A: Scalar>(lim_l: SDynamic<1>, lim_r: SDynamic<1>, fill_value: A) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
+        let n = lim_l[0].min(lim_r[0]);
+
+        Ok(vec![fill_value; n])
+    }
 }
 
 impl<F: Scalar> Buffer for &Vec<F> {

@@ -101,11 +101,11 @@ macro_rules! impl_scalar {
                 Ok(f(*self, *rhs))
             }
 
-            fn zip_map_left(&self, _: &S0) -> $F { *self }
+            fn zip_map_left<A: Scalar, M: Fn($F) -> A>(&self, _: S0, f: M) -> Result<A, IncompatibleShapes<S0>> { Ok(f(*self)) }
 
-            fn zip_map_right(_: &S0, rhs: &$F) -> $F { *rhs }
+            fn zip_map_right<A: Scalar, M: Fn($F) -> A>(_: S0, rhs: &$F, f: M) -> Result<A, IncompatibleShapes<S0>> { Ok(f(*rhs)) }
 
-            fn zip_map_neither(_: &S0, _: &S0) -> $F { num_traits::zero() }
+            fn zip_map_neither<A: Scalar>(_: S0, _: S0, fill_value: A) -> Result<A, IncompatibleShapes<S0>> { Ok(fill_value) }
         }
 
         impl Scalar for $F {}

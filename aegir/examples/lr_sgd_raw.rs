@@ -9,10 +9,7 @@ fn main() {
         let y = x1 * 2.0 - x2 * 4.0;
         let p = weights[0] * x1 + weights[1] * x2;
         let e = p - y;
-        let g = [
-            2.0 * x1 * e,
-            2.0 * x2 * e
-        ];
+        let g = [2.0 * x1 * e, 2.0 * x2 * e];
 
         weights[0] -= 0.01 * g[0];
         weights[1] -= 0.01 * g[1];
