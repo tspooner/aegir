@@ -77,6 +77,8 @@ pub trait Shape: Copy + Debug + Display {
 
     fn contains(&self, ix: Self::Index) -> bool;
 
+    fn cardinality(&self) -> usize;
+
     /// Return an iterator over the indices of the shape.
     ///
     /// # Examples

@@ -12,6 +12,8 @@ impl Shape for S0 {
 
     fn contains(&self, _: ()) -> bool { true }
 
+    fn cardinality(&self) -> usize { 1 }
+
     fn indices(&self) -> std::iter::Once<()> { std::iter::once(()) }
 }
 
@@ -37,6 +39,8 @@ impl<const A: usize> Shape for S1<A> {
     const DIM: usize = 1;
 
     fn contains(&self, ix: usize) -> bool { ix < A }
+
+    fn cardinality(&self) -> usize { A }
 
     fn indices(&self) -> std::ops::Range<usize> { 0..A }
 }
@@ -87,6 +91,10 @@ macro_rules! impl_fixed {
                 IntoIterator::into_iter(ix)
                     .zip(IntoIterator::into_iter([$($tp),+]))
                     .all(|(l, r)| l < r)
+            }
+
+            fn cardinality(&self) -> usize {
+                IntoIterator::into_iter([$($tp),+]).product()
             }
 
             fn indices(&self) -> Self::IndexIter {

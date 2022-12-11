@@ -25,6 +25,10 @@ impl<const DIM: usize> Shape for SDynamic<DIM> {
         ix.iter().zip(self.0.iter()).all(|(l, r)| l < r)
     }
 
+    fn cardinality(&self) -> usize {
+        self.0.iter().product()
+    }
+
     fn indices(&self) -> Self::IndexIter { multi_product::MultiProduct::new(self.0) }
 }
 
