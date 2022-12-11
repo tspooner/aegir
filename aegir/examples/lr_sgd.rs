@@ -9,10 +9,12 @@ use aegir::{
     Identifier,
     Node,
 };
+use rand::{Rng, SeedableRng, rngs::SmallRng};
 
 db!(Database { x: X, y: Y, w: W });
 
 fn main() {
+    let mut rng = SmallRng::seed_from_u64(1994);
     let mut weights = [0.0, 0.0];
 
     let x = X.into_var();
@@ -29,16 +31,16 @@ fn main() {
     let sse = aegir!((model - y) ^ 2);
     let adj = sse.adjoint(W);
 
-    for _ in 0..10_000_000 {
-        let [x1, x2] = [rand::random::<f64>(), rand::random::<f64>()];
+    for _ in 0..1_000_000 {
+        let xs: [f64; 2] = rng.gen();
 
         let g = adj
             .evaluate(Database {
                 // Independent variables:
-                x: [x1, x2],
+                x: xs,
 
                 // Dependent variable:
-                y: x1 * 2.0 - x2 * 4.0,
+                y: xs[0] * 2.0 - xs[1] * 4.0,
 
                 // Model weights:
                 w: &weights,
