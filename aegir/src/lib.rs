@@ -199,7 +199,7 @@ pub trait Database: AsRef<Self> {}
 pub trait Read<I: Identifier>: Database {
     type Buffer: buffers::Buffer;
 
-    fn read(&self, ident: I) -> Option<&Self::Buffer>;
+    fn read(&self, ident: I) -> Option<Self::Buffer>;
 
     fn read_shape(&self, ident: I) -> Option<buffers::ShapeOf<Self::Buffer>> {
         use buffers::Buffer;
@@ -221,51 +221,8 @@ macro_rules! db {
     }
 }
 
-#[derive(Clone, Copy)]
-pub enum Stage<N> {
-    Type,
-    Instance(N),
-    Evaluation(N),
-}
-
-impl<N> Stage<N> {
-    pub fn map<U>(self, f: impl Fn(N) -> U) -> Stage<U> {
-        match self {
-            Stage::Type => Stage::Type,
-            Stage::Instance(node) => Stage::Instance(f(node)),
-            Stage::Evaluation(node) => Stage::Evaluation(f(node)),
-        }
-    }
-
-    pub fn split<O>(self, f_ct: impl Fn() -> O, f_rt: impl Fn(N) -> O) -> O {
-        match self {
-            Stage::Type => f_ct(),
-            Stage::Instance(node) | Stage::Evaluation(node) => f_rt(node),
-        }
-    }
-}
-
-impl<'a, N: Node> Stage<&'a N> {
-    pub fn is_zero(self) -> logic::TFU { N::is_zero(self) }
-
-    pub fn is_one(self) -> logic::TFU { N::is_one(self) }
-}
-
 /// Base trait for operator nodes.
 pub trait Node {
-    // Optimizer functions:
-    /// Checks if the node is zero-valued at a given stage.
-    ///
-    /// Note: this function returns a ternary truth value; i.e. it is possible
-    /// that the answer is unknown at the function call-site.
-    fn is_zero(_: Stage<&'_ Self>) -> logic::TFU { logic::TFU::Unknown }
-
-    /// Checks if the node is unity-valued at a given stage.
-    ///
-    /// Note: this function returns a ternary truth value; i.e. it is possible
-    /// that the answer is unknown at the function call-site.
-    fn is_one(_: Stage<&'_ Self>) -> logic::TFU { logic::TFU::Unknown }
-
     // Combinator functions:
     fn add<N: Node>(self, other: N) -> ops::Add<Self, N>
     where
@@ -344,6 +301,49 @@ pub trait Contains<T: Identifier>: Node {
     fn contains(&self, ident: T) -> bool;
 }
 
+pub enum State<B: buffers::Buffer> {
+    Zero(B::Shape),
+    One(B::Shape),
+    Buffer(B),
+}
+
+impl<F, B> State<B>
+where
+    F: buffers::Scalar,
+    B: buffers::Buffer<Field = F>,
+{
+    pub fn shape(&self) -> B::Shape {
+        match self {
+            &State::Zero(s) | &State::One(s) => s,
+            &State::Buffer(ref b) => b.shape(),
+        }
+    }
+
+    pub fn into_zero(self) -> Self {
+        match self {
+            State::Zero(s) => State::Zero(s),
+            State::One(s) => State::Zero(s),
+            State::Buffer(b) => State::Zero(b.shape()),
+        }
+    }
+
+    pub fn into_one(self) -> Self {
+        match self {
+            State::Zero(s) => State::One(s),
+            State::One(s) => State::One(s),
+            State::Buffer(b) => State::One(b.shape()),
+        }
+    }
+
+    pub fn unwrap(self) -> B {
+        match self {
+            State::Zero(s) => <B::Class as buffers::Class<B::Shape>>::full(s, F::zero()),
+            State::One(s) => <B::Class as buffers::Class<B::Shape>>::full(s, F::one()),
+            State::Buffer(b) => b,
+        }
+    }
+}
+
 /// Trait for operator [Nodes](Node) that can be evaluated against a [Database].
 pub trait Function<D: Database>: Node {
     /// The codomain of the function.
@@ -376,6 +376,13 @@ pub trait Function<D: Database>: Node {
         db: DR,
     ) -> Result<buffers::ShapeOf<Self::Value>, Self::Error> {
         self.evaluate(db).map(|ref buf| buffers::Buffer::shape(buf))
+    }
+
+    fn evaluate_state<DR: AsRef<D>>(
+        &self,
+        db: DR,
+    ) -> Result<State<Self::Value>, Self::Error> {
+        self.evaluate(db).map(State::Buffer)
     }
 }
 
@@ -472,8 +479,4 @@ mod sources;
 pub use self::sources::{Constant, ConstantAdjoint, SourceError, Variable, VariableAdjoint};
 
 pub mod buffers;
-pub mod logic;
 pub mod ops;
-
-// mod named;
-// pub use self::named::NamedNode;

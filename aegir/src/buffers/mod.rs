@@ -55,11 +55,6 @@ pub use shapes::IncompatibleShapes;
 /// mapping between a [Shape](Buffer::Shape) and [Field](Buffer::Field),
 /// and a (sized) [Buffer] type.
 ///
-/// __Note:__ as [Class::Buffer] must be sized, one can _always_ leverage the
-/// [OwnedOf] type alias to recover a concrete, owned type from a given buffer.
-/// This is particularly useful to establish the return type of methods such as
-/// [Buffer::map].
-///
 /// # Examples
 /// The Class trait is particularly useful for constructing instances of
 /// buffer types. In the example below, we consider the [Arrays] class
@@ -82,7 +77,7 @@ pub use shapes::IncompatibleShapes;
 /// ```
 pub trait Class<S: Shape> {
     /// The associated buffer types.
-    type Buffer<F: Scalar>: Buffer<Class = Self, Field = F> + Sized;
+    type Buffer<F: Scalar>: Buffer<Class = Self, Field = F>;
 
     /// Construct a [Buffer](Class::Buffer) using a function over indices.
     ///
@@ -237,15 +232,17 @@ pub type BufferOf<C, S, F> = <C as Class<S>>::Buffer<F>;
 
 /// Trait for types defining a data buffer over a fixed [field](Buffer::Field)
 /// and [shape](Buffer::Shape).
-pub trait Buffer {
+pub trait Buffer: Clone {
     /// [Class] associated with the buffer.
-    type Class: Class<Self::Shape>;
+    type Class: Class<Self::Shape, Buffer<Self::Field> = Self>;
 
     /// [Shape](shapes::Shape) associated with the buffer.
     type Shape: Shape;
 
     /// [Scalar] field associated with the buffer.
     type Field: Scalar;
+
+    fn class() -> Self::Class;
 
     /// Return the [Shape](Buffer::Shape) of the buffer.
     ///
@@ -316,15 +313,12 @@ pub trait Buffer {
     /// assert_eq!(new_buffer[2], 4.0);
     /// assert_eq!(new_buffer[3], 6.0);
     /// ```
-    fn map<F: Scalar, M: Fn(Self::Field) -> F>(self, f: M) -> OwnedOf<Self, F>
-    where
-        Self: Sized,
-    {
+    fn map<F: Scalar, M: Fn(Self::Field) -> F>(self, f: M) -> <Self::Class as Class<Self::Shape>>::Buffer<F> {
         <Self::Class as Class<Self::Shape>>::build(self.shape(), |ix| f(self.get_unchecked(ix)))
     }
 
     /// Perform an element-wise transformation of the buffer (reference).
-    fn map_ref<F: Scalar, M: Fn(Self::Field) -> F>(&self, f: M) -> OwnedOf<Self, F> {
+    fn map_ref<F: Scalar, M: Fn(Self::Field) -> F>(&self, f: M) -> <Self::Class as Class<Self::Shape>>::Buffer<F> {
         <Self::Class as Class<Self::Shape>>::build(self.shape(), |ix| f(self.get_unchecked(ix)))
     }
 
@@ -355,31 +349,12 @@ pub trait Buffer {
     /// ```
     fn sum(&self) -> Self::Field { self.fold(num_traits::zero(), |init, el| init + el) }
 
-    /// Create an owned instance from a borrowed buffer, usually by cloning.
-    fn to_owned(&self) -> OwnedOf<Self>;
-
-    /// Convert buffer directly into an owned instance, cloning when necessary.
-    fn into_owned(self) -> OwnedOf<Self>;
-
-    /// Create a [Constant](crate::sources::Constant) source node from the
-    /// buffer, usually by cloning.
-    fn to_constant(&self) -> crate::sources::Constant<OwnedOf<Self>> {
-        crate::sources::Constant(self.to_owned())
-    }
-
     /// Convert buffer directly into a [Constant](crate::sources::Constant)
     /// source node.
-    fn into_constant(self) -> crate::sources::Constant<OwnedOf<Self>>
-    where
-        Self: Sized,
-    {
-        crate::sources::Constant(self.into_owned())
+    fn into_constant(self) -> crate::sources::Constant<Self> {
+        crate::sources::Constant(self)
     }
 }
-
-/// Type shortcut for the owned variant of a [Buffer].
-pub type OwnedOf<B, F = <B as Buffer>::Field> =
-    <<B as Buffer>::Class as Class<<B as Buffer>::Shape>>::Buffer<F>;
 
 /// Type shortcut for the [Shape] associated with a [Buffer].
 pub type ShapeOf<B> = <B as Buffer>::Shape;
@@ -465,6 +440,11 @@ pub trait Contract<RHS: Buffer<Field = Self::Field>, const AXES: usize = 1>: Buf
         self,
         rhs: RHS,
     ) -> Result<Self::Output, IncompatibleShapes<Self::Shape, RHS::Shape>>;
+
+    fn contract_shape(
+        lhs: Self::Shape,
+        rhs: RHS::Shape,
+    ) -> Result<ShapeOf<Self::Output>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
 mod scalars;

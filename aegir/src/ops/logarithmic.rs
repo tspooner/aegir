@@ -1,6 +1,5 @@
 use crate::{
-    buffers::{Buffer, FieldOf, OwnedOf},
-    logic::TFU,
+    buffers::{Buffer, FieldOf},
     ops::{AddOne, Div, Mul},
     Contains,
     Database,
@@ -8,7 +7,7 @@ use crate::{
     Function,
     Identifier,
     Node,
-    Stage,
+    State,
 };
 use num_traits::real::Real;
 use std::fmt;
@@ -16,11 +15,7 @@ use std::fmt;
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Ln<N>(#[op] pub N);
 
-impl<N: Node> Node for Ln<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_one() }
-
-    fn is_one(_: Stage<&'_ Self>) -> TFU { TFU::Unknown }
-}
+impl<N: Node> Node for Ln<N> {}
 
 impl<D, N> Function<D> for Ln<N>
 where
@@ -30,10 +25,10 @@ where
     FieldOf<N::Value>: Real,
 {
     type Error = N::Error;
-    type Value = OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.ln()))
+        self.0.evaluate(db).map(|buf| buf.map(|x| x.ln()))
     }
 }
 
@@ -54,11 +49,7 @@ impl<N: fmt::Display> fmt::Display for Ln<N> {
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct SafeXlnX<N>(#[op] pub N);
 
-impl<N: Node> Node for SafeXlnX<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
-        stage.map(|node| &node.0).is_zero() | stage.map(|node| &node.0).is_one()
-    }
-}
+impl<N: Node> Node for SafeXlnX<N> {}
 
 impl<D, N> Function<D> for SafeXlnX<N>
 where
@@ -68,7 +59,7 @@ where
     FieldOf<N::Value>: Real,
 {
     type Error = N::Error;
-    type Value = OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         self.0.evaluate(db).map(|buffer| {

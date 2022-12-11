@@ -1,6 +1,5 @@
 use crate::{
-    buffers::{Buffer, OwnedOf, ShapeOf, Scalar, ZipMap, IncompatibleShapes, shapes::{self, Shape, Zip}, Class},
-    logic::TFU,
+    buffers::{Buffer, ShapeOf, Scalar, ZipMap, IncompatibleShapes, shapes::{self, Shape, Zip}, Class},
     ops::SafeXlnX,
     BinaryError,
     Contains,
@@ -9,7 +8,7 @@ use crate::{
     Function,
     Identifier,
     Node,
-    Stage,
+    State,
 };
 use std::fmt;
 
@@ -78,9 +77,7 @@ type Error<D, L, R> = BinaryError<
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Power<N, E>(#[op] pub N, #[op] pub E);
 
-impl<N: Node, E: Node> Node for Power<N, E> {
-    fn is_one(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_one() }
-}
+impl<N: Node, E: Node> Node for Power<N, E> {}
 
 impl<F, D, N, E> Function<D> for Power<N, E>
 where
@@ -91,17 +88,32 @@ where
     E: Function<D, Value = F>,
 {
     type Error = BinaryError<N::Error, E::Error, crate::NoError>;
-    type Value = OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let base = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
-        let exponent = self.1.evaluate(db).map_err(BinaryError::Right)?;
-
-        Ok(base.map(|x| x.pow(exponent)))
+        self.evaluate_state(db).map(|state| state.unwrap())
     }
 
     fn evaluate_shape<DR: AsRef<D>>(&self, _: DR) -> Result<shapes::S0, Self::Error> {
         Ok(shapes::S0)
+    }
+
+    fn evaluate_state<DR: AsRef<D>>(&self, db: DR) -> Result<State<Self::Value>, Self::Error> {
+        let base = self.0.evaluate_state(&db).map_err(BinaryError::Left)?;
+        let exponent = self.1.evaluate_state(db).map_err(BinaryError::Right)?;
+
+        match (base, exponent) {
+            (b, State::Zero(_)) => Ok(b.into_one()),
+
+            (b @ State::Zero(_), _) => Ok(b),
+            (b @ State::One(_), _) => Ok(b),
+
+            (b, e) => {
+                let e = e.unwrap();
+
+                Ok(State::Buffer(b.unwrap().map(|x| x.pow(e))))
+            }
+        }
     }
 }
 
@@ -160,21 +172,7 @@ impl<X: fmt::Display, E: fmt::Display> fmt::Display for Power<X, E> {
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Add<L, R>(#[op] pub L, #[op] pub R);
 
-impl<L: Node, R: Node> Node for Add<L, R> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
-        (stage.map(|node| &node.0).is_zero() & stage.map(|node| &node.1).is_zero())
-            .true_or(TFU::Unknown)
-    }
-
-    fn is_one(stage: Stage<&'_ Self>) -> TFU {
-        let a = (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_zero())
-            .true_or(TFU::Unknown);
-        let b = (stage.map(|node| &node.0).is_zero() & stage.map(|node| &node.1).is_one())
-            .true_or(TFU::Unknown);
-
-        a | b
-    }
-}
+impl<L: Node, R: Node> Node for Add<L, R> {}
 
 impl<D, F, L, LV, R, RV, OV> Function<D> for Add<L, R>
 where
@@ -185,7 +183,7 @@ where
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
 
     R: Function<D, Value = RV>,
-    RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
+    RV: Buffer<Field = F>,
 
     OV: Buffer<Field = F>,
 
@@ -195,26 +193,7 @@ where
     type Value = OV;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        use crate::Stage::Evaluation;
-
-        // First establish if either term is zero...
-        if Evaluation(&self.0).is_zero() == TFU::True {
-            return short_circuit!(@TakeRight db[self.0, self.1]);
-        }
-
-        // If not, then maybe the second term is...
-        if Evaluation(&self.1).is_zero() == TFU::True {
-            return short_circuit!(@TakeLeft db[self.0, self.1]);
-        }
-
-        // Otherwise, we do the actual addition...
-        let x = self
-            .0
-            .evaluate(db.as_ref())
-            .map_err(crate::BinaryError::Left)?;
-        let y = self.1.evaluate(db).map_err(crate::BinaryError::Right)?;
-
-        Ok(x.zip_map(y, |xi, yi| xi + yi).unwrap())
+        self.evaluate_state(db).map(|state| state.unwrap())
     }
 
     fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
@@ -222,6 +201,36 @@ where
         let r_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
 
         l_shape.zip(r_shape).map_err(BinaryError::Output)
+    }
+
+    fn evaluate_state<DR: AsRef<D>>(&self, db: DR) -> Result<State<Self::Value>, Self::Error> {
+        let x = self.0.evaluate_state(&db).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_state(db).map_err(BinaryError::Right)?;
+
+        match (x, y) {
+            (State::Zero(sx), State::Zero(sy)) => {
+                sx.zip(sy).map(State::Zero).map_err(BinaryError::Output)
+            },
+
+            (State::Zero(sx), State::One(sy)) | (State::One(sx), State::Zero(sy)) => {
+                sx.zip(sy).map(State::One).map_err(BinaryError::Output)
+            },
+
+            (State::One(sx), State::One(sy)) => {
+                let two = F::one() + F::one();
+                let shape = sx.zip(sy).map_err(BinaryError::Output)?;
+                let buffer = <OV::Class as Class<OV::Shape>>::full(shape, two);
+
+                Ok(State::Buffer(buffer))
+            },
+
+            (x, y) => {
+                let x = x.unwrap();
+                let y = y.unwrap();
+
+                Ok(State::Buffer(x.zip_map(y, |xi, yi| xi + yi).unwrap()))
+            },
+        }
     }
 }
 
@@ -245,15 +254,7 @@ impl<L: Node + std::fmt::Display, R: Node + std::fmt::Display> std::fmt::Display
     for Add<L, R>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use crate::Stage::Evaluation;
-
-        if Evaluation(&self.0).is_zero() == TFU::True {
-            write!(f, "{}", self.1)
-        } else if Evaluation(&self.1).is_zero() == TFU::True {
-            write!(f, "{}", self.0)
-        } else {
-            write!(f, "({}) + ({})", self.0, self.1)
-        }
+        write!(f, "({}) + ({})", self.0, self.1)
     }
 }
 
@@ -286,21 +287,7 @@ impl<L: Node + std::fmt::Display, R: Node + std::fmt::Display> std::fmt::Display
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Sub<L, R>(#[op] pub L, #[op] pub R);
 
-impl<L: Node, R: Node> Node for Sub<L, R> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
-        let a = (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_one())
-            .true_or(TFU::Unknown);
-        let b = (stage.map(|node| &node.0).is_zero() & stage.map(|node| &node.1).is_zero())
-            .true_or(TFU::Unknown);
-
-        a | b
-    }
-
-    fn is_one(stage: Stage<&'_ Self>) -> TFU {
-        (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_zero())
-            .true_or(TFU::Unknown)
-    }
-}
+impl<L: Node, R: Node> Node for Sub<L, R> {}
 
 impl<D, F, L, LV, R, RV, OV> Function<D> for Sub<L, R>
 where
@@ -321,13 +308,7 @@ where
     type Value = OV;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let x = self
-            .0
-            .evaluate(db.as_ref())
-            .map_err(crate::BinaryError::Left)?;
-        let y = self.1.evaluate(db).map_err(crate::BinaryError::Right)?;
-
-        x.zip_map(y, |xi, yi| xi - yi).map_err(BinaryError::Output)
+        self.evaluate_state(db).map(|state| state.unwrap())
     }
 
     fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
@@ -335,6 +316,28 @@ where
         let r_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
 
         l_shape.zip(r_shape).map_err(BinaryError::Output)
+    }
+
+    fn evaluate_state<DR: AsRef<D>>(&self, db: DR) -> Result<State<Self::Value>, Self::Error> {
+        let x = self.0.evaluate_state(&db).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_state(db).map_err(BinaryError::Right)?;
+
+        match (x, y) {
+            (State::Zero(sx), State::Zero(sy)) | (State::One(sx), State::One(sy)) => {
+                sx.zip(sy).map(State::Zero).map_err(BinaryError::Output)
+            },
+
+            (State::One(sx), State::Zero(sy)) => {
+                sx.zip(sy).map(State::One).map_err(BinaryError::Output)
+            },
+
+            (x, y) => {
+                let x = x.unwrap();
+                let y = y.unwrap();
+
+                Ok(State::Buffer(x.zip_map(y, |xi, yi| xi - yi).unwrap()))
+            },
+        }
     }
 }
 
@@ -358,15 +361,7 @@ impl<L: Node + std::fmt::Display, R: Node + std::fmt::Display> std::fmt::Display
     for Sub<L, R>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use crate::Stage::Evaluation;
-
-        if Evaluation(&self.0).is_zero() == TFU::True {
-            write!(f, "{}", self.1)
-        } else if Evaluation(&self.1).is_zero() == TFU::True {
-            write!(f, "{}", self.0)
-        } else {
-            write!(f, "({}) - ({})", self.0, self.1)
-        }
+        write!(f, "({}) - ({})", self.0, self.1)
     }
 }
 
@@ -399,16 +394,7 @@ impl<L: Node + std::fmt::Display, R: Node + std::fmt::Display> std::fmt::Display
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Mul<L, R>(#[op] pub L, #[op] pub R);
 
-impl<L: Node, R: Node> Node for Mul<L, R> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
-        stage.map(|node| &node.0).is_zero() | stage.map(|node| &node.1).is_zero()
-    }
-
-    fn is_one(stage: Stage<&'_ Self>) -> TFU {
-        (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_one())
-            .true_or(TFU::Unknown)
-    }
-}
+impl<L: Node, R: Node> Node for Mul<L, R> {}
 
 impl<D, F, L, LV, R, RV, OS, OC, OV> Function<D> for Mul<L, R>
 where
@@ -431,32 +417,7 @@ where
     type Value = OV;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        use crate::Stage::Evaluation;
-
-        let s0 = Evaluation(&self.0);
-        let s1 = Evaluation(&self.1);
-
-        // If either value is zero, we can just short-circuit...
-        if (s0.is_zero() | s1.is_zero()).is_true() {
-            return short_circuit!(@TakeNeither db[self.0, self.1]{F::zero()});
-        }
-
-        // If either value is unity, then we can also short-circuit...
-        if s0.is_one().is_true() {
-            // In this case, the left-hand value is one, i.e. we have 1 * x = x.
-            return short_circuit!(@TakeRight db[self.0, self.1]);
-        }
-
-        if s1.is_one().is_true() {
-            // In this case, the right-hand value is one, i.e. we have x * 1 = x.
-            return short_circuit!(@TakeLeft db[self.0, self.1]);
-        }
-
-        // Otherwise we have to perform the multiplication...
-        let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
-        let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
-
-        x.zip_map(y, |xi, yi| xi * yi).map_err(BinaryError::Output)
+        self.evaluate_state(db).map(|state| state.unwrap())
     }
 
     fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
@@ -464,6 +425,45 @@ where
         let r_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
 
         l_shape.zip(r_shape).map_err(BinaryError::Output)
+    }
+
+    fn evaluate_state<DR: AsRef<D>>(&self, db: DR) -> Result<State<Self::Value>, Self::Error> {
+        let x = self.0.evaluate_state(&db).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_state(&db).map_err(BinaryError::Right)?;
+
+        match (x, y) {
+            // If either value is zero, we can just short-circuit...
+            (State::Zero(sx), y) => {
+                sx.zip(y.shape()).map(State::Zero).map_err(BinaryError::Output)
+            },
+
+            (x, State::Zero(sy)) => {
+                x.shape().zip(sy).map(State::Zero).map_err(BinaryError::Output)
+            },
+
+            // If either value is one, we can just short-circuit...
+            (State::One(sx), State::One(sy)) => {
+                sx.zip(sy).map(State::One).map_err(BinaryError::Output)
+            },
+
+            // If either value is unity, then we can also short-circuit...
+            //  - In this case, the left-hand value is one, i.e. we have 1 * x = x.
+            (State::One(sx), State::Buffer(y)) => {
+                y.zip_map_dominate_id(sx)
+                    .map(State::Buffer)
+                    .map_err(|err| IncompatibleShapes(err.1, err.0))
+                    .map_err(BinaryError::Output)
+            },
+            //  - In this case, the right-hand value is one, i.e. we have x * 1 = x.
+            (State::Buffer(x), State::One(sy)) => {
+                x.zip_map_dominate_id(sy).map(State::Buffer).map_err(BinaryError::Output)
+            },
+
+            // Otherwise we just perform the full multiplication...
+            (State::Buffer(x), State::Buffer(y)) => {
+                x.zip_map(y, |xi, yi| xi * yi).map(State::Buffer).map_err(BinaryError::Output)
+            },
+        }
     }
 }
 
@@ -488,15 +488,7 @@ where
 
 impl<L: Node + fmt::Display, R: Node + fmt::Display> fmt::Display for Mul<L, R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use crate::Stage::Evaluation;
-
-        if Evaluation(&self.0).is_zero() == TFU::True {
-            write!(f, "{}", self.1)
-        } else if Evaluation(&self.1).is_zero() == TFU::True {
-            write!(f, "{}", self.0)
-        } else {
-            write!(f, "({}) \u{2218} ({})", self.0, self.1)
-        }
+        write!(f, "({}) \u{2218} ({})", self.0, self.1)
     }
 }
 
@@ -504,14 +496,7 @@ impl<L: Node + fmt::Display, R: Node + fmt::Display> fmt::Display for Mul<L, R> 
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Div<L, R>(#[op] pub L, #[op] pub R);
 
-impl<L: Node, R: Node> Node for Div<L, R> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
-
-    fn is_one(stage: Stage<&'_ Self>) -> TFU {
-        (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_one())
-            .true_or(TFU::Unknown)
-    }
-}
+impl<L: Node, R: Node> Node for Div<L, R> {}
 
 impl<D, F, L, LV, R, RV, OV> Function<D> for Div<L, R>
 where
@@ -532,13 +517,6 @@ where
     type Value = OV;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        use crate::Stage::Evaluation;
-
-        // If the denominator takes value one, then we can skip the operation...
-        if Evaluation(&self.1).is_one().is_true() {
-            return short_circuit!(@TakeLeft db[self.0, self.1]);
-        }
-
         let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
 

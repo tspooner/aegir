@@ -78,8 +78,8 @@ fn db_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStream {
             impl #impl_generics ::aegir::Read<#field_id> for #name #ty_generics #wc {
                 type Buffer = #ty;
 
-                fn read(&self, _: #field_id) -> Option<&#ty> {
-                    Some(&self.#field_name)
+                fn read(&self, _: #field_id) -> Option<#ty> {
+                    Some(self.#field_name.clone())
                 }
             }
         })

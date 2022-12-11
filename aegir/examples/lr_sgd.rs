@@ -15,7 +15,11 @@ db!(Database { x: X, y: Y, w: W });
 
 fn main() {
     let mut rng = SmallRng::seed_from_u64(1994);
-    let mut weights = [0.0, 0.0];
+    let mut db = Database {
+        x: [0.0, 0.0],
+        y: 0.0,
+        w: [0.0, 0.0],
+    };
 
     let x = X.into_var();
     let y = Y.into_var();
@@ -32,20 +36,14 @@ fn main() {
     let adj = sse.adjoint(W);
 
     for _ in 0..1_000_000 {
-        let xs: [f64; 2] = rng.gen();
+        // Independent variables:
+        db.x = rng.gen();
 
-        let g = adj
-            .evaluate(Database {
-                // Independent variables:
-                x: xs,
+        // Dependent variable:
+        db.y = db.x[0] * 2.0 - db.x[1] * 4.0;
 
-                // Dependent variable:
-                y: xs[0] * 2.0 - xs[1] * 4.0,
-
-                // Model weights:
-                w: &weights,
-            })
-            .unwrap();
+        // Evaluate gradient:
+        let g = adj.evaluate(&db).unwrap();
 
         weights[0] -= 0.01 * g[0];
         weights[1] -= 0.01 * g[1];

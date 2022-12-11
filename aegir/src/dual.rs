@@ -1,4 +1,4 @@
-use crate::buffers::{Buffer, Class, FieldOf, OwnedOf};
+use crate::buffers::{Buffer, Scalar, Class, FieldOf};
 use std::ops;
 
 type AddOut<A, B> = <A as std::ops::Add<B>>::Output;
@@ -32,19 +32,17 @@ pub struct Dual<V, A = V> {
     pub adjoint: A,
 }
 
-impl<B: Buffer> Dual<B> {
-    pub fn variable(buffer: B) -> Dual<OwnedOf<B>> {
-        let adjoint = <B::Class as Class<B::Shape>>::full(buffer.shape(), num_traits::one());
-        let value = buffer.into_owned();
+impl<F: Scalar, B: Buffer<Field = F>> Dual<B> {
+    pub fn variable(buffer: B) -> Dual<B> {
+        let adjoint = <B::Class as Class<B::Shape>>::full(buffer.shape(), F::one());
 
-        Dual { value, adjoint }
+        Dual { value: buffer, adjoint }
     }
 
-    pub fn constant(buffer: B) -> Dual<OwnedOf<B>> {
-        let adjoint = <B::Class as Class<B::Shape>>::full(buffer.shape(), num_traits::zero());
-        let value = buffer.into_owned();
+    pub fn constant(buffer: B) -> Dual<B> {
+        let adjoint = <B::Class as Class<B::Shape>>::full(buffer.shape(), F::zero());
 
-        Dual { value, adjoint }
+        Dual { value: buffer, adjoint }
     }
 }
 
@@ -63,27 +61,13 @@ impl<V: Buffer, A: Buffer> Dual<V, A> {
     fn map_ref<V_, A_>(&self, f: impl Fn(&V, &A) -> (V_, A_)) -> Dual<V_, A_> {
         f(&self.value, &self.adjoint).into()
     }
-
-    pub fn to_owned(&self) -> Dual<OwnedOf<V>, OwnedOf<A>> {
-        Dual {
-            value: self.value.to_owned(),
-            adjoint: self.adjoint.to_owned(),
-        }
-    }
-
-    pub fn into_owned(self) -> Dual<OwnedOf<V>, OwnedOf<A>> {
-        Dual {
-            value: self.value.into_owned(),
-            adjoint: self.adjoint.into_owned(),
-        }
-    }
 }
 
 impl<V, A: Buffer> Dual<V, A>
 where
     FieldOf<A>: std::ops::Neg<Output = FieldOf<A>>,
 {
-    pub fn conj(self) -> Dual<V, OwnedOf<A>> {
+    pub fn conj(self) -> Dual<V, A> {
         Dual {
             value: self.value,
             adjoint: self.adjoint.map(|a| -a),
@@ -102,20 +86,6 @@ where
     type Output = Dual<V::Output, A::Output>;
 
     fn neg(self) -> Dual<V::Output, A::Output> { self.map(|v, a| (-v, -a)) }
-}
-
-impl<V, A> ops::Neg for &Dual<V, A>
-where
-    V: Buffer,
-    OwnedOf<V>: std::ops::Neg,
-
-    A: Buffer,
-    OwnedOf<A>: std::ops::Neg,
-{
-    type Output =
-        Dual<<OwnedOf<V> as std::ops::Neg>::Output, <OwnedOf<A> as std::ops::Neg>::Output>;
-
-    fn neg(self) -> Self::Output { self.map_ref(|v, a| (-v.to_owned(), -a.to_owned())) }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -274,17 +244,15 @@ where
 impl<V, A> ops::Mul<Dual<V, A>> for Dual<V, A>
 where
     V: Buffer + std::ops::Mul<V>,
-    OwnedOf<V>: std::ops::Mul<OwnedOf<V>>,
-
     A: Buffer + std::ops::Mul<V>,
 
     MulOut<A, V>: std::ops::Add<MulOut<A, V>>,
 {
-    type Output = Dual<MulOut<OwnedOf<V>, OwnedOf<V>>, AddOut<MulOut<A, V>, MulOut<A, V>>>;
+    type Output = Dual<MulOut<V, V>, AddOut<MulOut<A, V>, MulOut<A, V>>>;
 
     fn mul(self, rhs: Dual<V, A>) -> Self::Output {
         Dual {
-            value: self.value.to_owned() * rhs.value.to_owned(),
+            value: self.value.clone() * rhs.value.clone(),
             adjoint: self.adjoint * rhs.value + rhs.adjoint * self.value,
         }
     }
@@ -293,17 +261,15 @@ where
 impl<'a, V, A> ops::Mul<&'a Dual<V, A>> for Dual<V, A>
 where
     V: Buffer + std::ops::Mul<&'a V> + std::ops::Mul<&'a A>,
-    OwnedOf<V>: std::ops::Mul<&'a V>,
-
     A: Buffer + std::ops::Mul<&'a V>,
 
     MulOut<A, &'a V>: std::ops::Add<MulOut<V, &'a A>>,
 {
-    type Output = Dual<MulOut<OwnedOf<V>, &'a V>, AddOut<MulOut<A, &'a V>, MulOut<V, &'a A>>>;
+    type Output = Dual<MulOut<V, &'a V>, AddOut<MulOut<A, &'a V>, MulOut<V, &'a A>>>;
 
     fn mul(self, rhs: &'a Dual<V, A>) -> Self::Output {
         Dual {
-            value: self.value.to_owned() * &rhs.value,
+            value: self.value.clone() * &rhs.value,
             adjoint: self.adjoint * &rhs.value + self.value * &rhs.adjoint,
         }
     }

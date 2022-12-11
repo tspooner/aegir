@@ -38,6 +38,8 @@ macro_rules! impl_scalar {
             type Field = $F;
             type Shape = S0;
 
+            fn class() -> Scalars { Scalars }
+
             fn shape(&self) -> S0 { S0 }
 
             fn get(&self, _: ()) -> Option<$F> { Some(*self) }
@@ -49,32 +51,6 @@ macro_rules! impl_scalar {
             fn map_ref<F: Scalar, M: Fn($F) -> F>(&self, f: M) -> F { f(*self) }
 
             fn fold<F, M: Fn(F, $F) -> F>(&self, init: F, f: M) -> F { f(init, *self) }
-
-            fn to_owned(&self) -> $F { *self }
-
-            fn into_owned(self) -> $F { self }
-        }
-
-        impl Buffer for &$F {
-            type Class = Scalars;
-            type Field = $F;
-            type Shape = S0;
-
-            fn shape(&self) -> S0 { S0 }
-
-            fn get(&self, _: ()) -> Option<$F> { Some(**self) }
-
-            fn get_unchecked(&self, _: ()) -> $F { **self }
-
-            fn map<F: Scalar, M: Fn($F) -> F>(self, f: M) -> F { f(*self) }
-
-            fn map_ref<F: Scalar, M: Fn($F) -> F>(&self, f: M) -> F { f(**self) }
-
-            fn fold<F, M: Fn(F, $F) -> F>(&self, init: F, f: M) -> F { f(init, **self) }
-
-            fn to_owned(&self) -> $F { **self }
-
-            fn into_owned(self) -> $F { *self }
         }
 
         impl ZipFold for $F {

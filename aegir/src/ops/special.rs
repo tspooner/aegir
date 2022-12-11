@@ -1,11 +1,9 @@
 use crate::{
-    buffers::{Buffer, Class, ClassOf, FieldOf, OwnedOf, ShapeOf},
-    logic::TFU,
+    buffers::{Buffer, Class, ClassOf, FieldOf, ShapeOf},
     Contains,
     Database,
     Function,
     Node,
-    Stage,
 };
 use special_fun::FloatSpecial;
 use std::fmt;
@@ -14,9 +12,7 @@ use std::fmt;
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Gamma<N>(#[op] pub N);
 
-impl<N: Node> Node for Gamma<N> {
-    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::False }
-}
+impl<N: Node> Node for Gamma<N> {}
 
 impl<D, N> Function<D> for Gamma<N>
 where
@@ -26,7 +22,7 @@ where
     FieldOf<N::Value>: special_fun::FloatSpecial,
 {
     type Error = N::Error;
-    type Value = OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         self.0.evaluate(db).map(|buffer| buffer.map(|x| x.gamma()))
@@ -41,11 +37,7 @@ impl<N: fmt::Display> fmt::Display for Gamma<N> {
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct LogGamma<N>(#[op] pub N);
 
-impl<N: Node> Node for LogGamma<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
-        stage.map(|node| &node.0).is_one().true_or(TFU::Unknown)
-    }
-}
+impl<N: Node> Node for LogGamma<N> {}
 
 impl<D, N> Function<D> for LogGamma<N>
 where
@@ -55,7 +47,7 @@ where
     FieldOf<N::Value>: special_fun::FloatSpecial,
 {
     type Error = N::Error;
-    type Value = OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         self.0
@@ -74,11 +66,7 @@ impl<N: fmt::Display> fmt::Display for LogGamma<N> {
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Factorial<N>(#[op] pub N);
 
-impl<N: Node> Node for Factorial<N> {
-    fn is_zero(_: Stage<&'_ Self>) -> TFU { TFU::False }
-
-    fn is_one(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
-}
+impl<N: Node> Node for Factorial<N> {}
 
 impl<D, N> Function<D> for Factorial<N>
 where
@@ -88,20 +76,20 @@ where
     FieldOf<N::Value>: special_fun::FloatSpecial,
 {
     type Error = N::Error;
-    type Value = OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let stage = crate::Stage::Evaluation(&self.0);
+        // let stage = crate::Stage::Evaluation(&self.0);
 
-        if N::is_zero(stage) == crate::logic::TFU::True {
-            self.0.evaluate_shape(db).map(|shape| {
-                <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(shape, num_traits::one())
-            })
-        } else {
+        // if N::is_zero(stage) == crate::logic::TFU::True {
+            // self.0.evaluate_shape(db).map(|shape| {
+                // <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(shape, num_traits::one())
+            // })
+        // } else {
             self.0
                 .evaluate(db)
                 .map(|buffer| buffer.map(|x| x.factorial()))
-        }
+        // }
     }
 }
 
@@ -116,9 +104,7 @@ impl<N> Erf<N> {
     pub fn complementary(self) -> crate::ops::Negate<Self> { crate::ops::Negate(self) }
 }
 
-impl<N: Node> Node for Erf<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
-}
+impl<N: Node> Node for Erf<N> {}
 
 impl<D, N> Function<D> for Erf<N>
 where
@@ -128,18 +114,18 @@ where
     crate::buffers::FieldOf<N::Value>: special_fun::FloatSpecial,
 {
     type Error = N::Error;
-    type Value = crate::buffers::OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let stage = crate::Stage::Evaluation(&self.0);
+        // let stage = crate::Stage::Evaluation(&self.0);
 
-        if N::is_zero(stage) == crate::logic::TFU::True {
-            self.0.evaluate_shape(db).map(|shape| {
-                <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(shape, num_traits::zero())
-            })
-        } else {
+        // if N::is_zero(stage) == crate::logic::TFU::True {
+            // self.0.evaluate_shape(db).map(|shape| {
+                // <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(shape, num_traits::zero())
+            // })
+        // } else {
             self.0.evaluate(db).map(|buffer| buffer.map(|x| x.erf()))
-        }
+        // }
     }
 }
 

@@ -2,15 +2,10 @@ use super::SourceError;
 use crate::{
     buffers::{
         shapes::{Concat, Shape},
-        Arrays,
         Buffer,
         Class,
-        OwnedOf,
         ShapeOf,
         Scalar,
-        Scalars,
-        Tuples,
-        Vecs,
     },
     Contains,
     Differentiable,
@@ -60,16 +55,13 @@ impl<D, I> Function<D> for Variable<I>
 where
     D: Read<I>,
     I: Identifier,
-
-    OwnedOf<D::Buffer>: Buffer<Shape = ShapeOf<D::Buffer>>,
 {
     type Error = SourceError<I>;
-    type Value = OwnedOf<D::Buffer>;
+    type Value = D::Buffer;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         db.as_ref()
             .read(self.0)
-            .map(|v| v.to_owned())
             .ok_or_else(|| SourceError::Undefined(self.0))
     }
 
@@ -115,20 +107,7 @@ pub struct VariableAdjoint<I, T> {
     pub target: T,
 }
 
-impl<I: PartialEq<T>, T> Node for VariableAdjoint<I, T> {
-    fn is_zero(stage: aegir::Stage<&'_ Self>) -> aegir::logic::TFU {
-        match stage {
-            aegir::Stage::Evaluation(me) | aegir::Stage::Instance(me) => {
-                if me.value == me.target { false.into() } else { true.into() }
-            }
-            _ => aegir::logic::TFU::Unknown,
-        }
-    }
-
-    fn is_one(stage: aegir::Stage<&'_ Self>) -> aegir::logic::TFU {
-        !Self::is_zero(stage)
-    }
-}
+impl<I, T> Node for VariableAdjoint<I, T> {}
 
 impl<I, T, A> Contains<A> for VariableAdjoint<I, T>
 where

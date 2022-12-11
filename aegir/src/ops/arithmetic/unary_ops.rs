@@ -1,13 +1,12 @@
 use crate::{
-    buffers::{Buffer, FieldOf, OwnedOf, Scalar},
-    logic::TFU,
+    buffers::{Buffer, FieldOf, Scalar, ShapeOf},
     Contains,
     Database,
     Differentiable,
     Function,
     Identifier,
     Node,
-    Stage,
+    State,
 };
 use num_traits::real::Real;
 use std::fmt;
@@ -32,9 +31,7 @@ impl_unary!(
     |dx| { dx }
 );
 
-impl<N: Node> Node for SubOne<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_one() }
-}
+impl<N: Node> Node for SubOne<N> {}
 
 impl<T, N> Differentiable<T> for SubOne<N>
 where
@@ -63,11 +60,7 @@ where
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct OneSub<N>(#[op] pub N);
 
-impl<N: Node> Node for OneSub<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_one() }
-
-    fn is_one(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
-}
+impl<N: Node> Node for OneSub<N> {}
 
 impl<D, N> crate::Function<D> for OneSub<N>
 where
@@ -75,7 +68,7 @@ where
     N: Function<D>,
 {
     type Error = N::Error;
-    type Value = crate::buffers::OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         self.0.evaluate(db).map(|buffer| {
@@ -88,11 +81,11 @@ where
 
 impl<X: Node + std::fmt::Display> std::fmt::Display for OneSub<X> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if Stage::Instance(&self.0).is_zero() != TFU::True {
+        // if Stage::Instance(&self.0).is_zero() != TFU::True {
             write!(f, "1 - ({})", self.0)
-        } else {
-            write!(f, "1")
-        }
+        // } else {
+            // write!(f, "1")
+        // }
     }
 }
 
@@ -126,9 +119,7 @@ impl_unary!(
     |dx| { dx }
 );
 
-impl<N: Node> Node for AddOne<N> {
-    fn is_one(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
-}
+impl<N: Node> Node for AddOne<N> {}
 
 impl<T, N> Differentiable<T> for AddOne<N>
 where
@@ -158,13 +149,7 @@ where
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Square<N>(#[op] pub N);
 
-impl<N: Node> Node for Square<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
-
-    fn is_one(stage: Stage<&'_ Self>) -> TFU {
-        stage.map(|node| &node.0).is_one().true_or(TFU::Unknown)
-    }
-}
+impl<N: Node> Node for Square<N> {}
 
 impl<F, D, N> Function<D> for Square<N>
 where
@@ -196,11 +181,11 @@ where
 
 impl<X: Node + fmt::Display> fmt::Display for Square<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if Stage::Instance(&self.0).is_zero() != TFU::True {
+        // if Stage::Instance(&self.0).is_zero() != TFU::True {
             write!(f, "({})^2", self.0)
-        } else {
-            write!(f, "0")
-        }
+        // } else {
+            // write!(f, "0")
+        // }
     }
 }
 
@@ -221,9 +206,7 @@ impl<X: Node + fmt::Display> fmt::Display for Square<X> {
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Double<N>(#[op] pub N);
 
-impl<N: Node> Node for Double<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
-}
+impl<N: Node> Node for Double<N> {}
 
 impl<D, N> Function<D> for Double<N>
 where
@@ -231,12 +214,25 @@ where
     N: Function<D>,
 {
     type Error = N::Error;
-    type Value = OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let two = num_traits::one::<FieldOf<N::Value>>() + num_traits::one();
+        self.evaluate_state(db).map(|state| state.unwrap())
+    }
 
-        self.0.evaluate(db).map(|buffer| buffer.map(|x| two * x))
+    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        self.0.evaluate_shape(db)
+    }
+
+    fn evaluate_state<DR: AsRef<D>>(&self, db: DR) -> Result<State<Self::Value>, Self::Error> {
+        match self.0.evaluate_state(db)? {
+            s @ State::Zero(_) | s @ State::One(_) => Ok(s),
+            State::Buffer(buf) => {
+                let two = num_traits::one::<FieldOf<N::Value>>() + num_traits::one();
+
+                Ok(State::Buffer(buf.map(|x| two * x)))
+            },
+        }
     }
 }
 
@@ -252,11 +248,11 @@ where
 
 impl<X: Node + fmt::Display> fmt::Display for Double<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if Stage::Instance(&self.0).is_zero() != TFU::True {
+        // if Stage::Instance(&self.0).is_zero() != TFU::True {
             write!(f, "2({})", self.0)
-        } else {
-            write!(f, "0")
-        }
+        // } else {
+            // write!(f, "0")
+        // }
     }
 }
 
@@ -282,11 +278,7 @@ impl<X: Node + fmt::Display> fmt::Display for Double<X> {
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Sum<N>(#[op] pub N);
 
-impl<N: Node> Node for Sum<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU {
-        stage.map(|node| &node.0).is_zero().true_or(TFU::Unknown)
-    }
-}
+impl<N: Node> Node for Sum<N> {}
 
 impl<D, N> Function<D> for Sum<N>
 where
@@ -338,9 +330,7 @@ impl_unary!(
     |dx| { -dx }
 );
 
-impl<N: Node> Node for Negate<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
-}
+impl<N: Node> Node for Negate<N> {}
 
 impl<T, N> Differentiable<T> for Negate<N>
 where
@@ -400,18 +390,14 @@ impl<N: Node> Node for Dirac<N> {}
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Sign<N>(#[op] pub N);
 
-impl<N: Node> Node for Sign<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
-
-    fn is_one(stage: Stage<&'_ Self>) -> TFU { !stage.map(|node| &node.0).is_zero() }
-}
+impl<N: Node> Node for Sign<N> {}
 
 impl<D: Database, N: Function<D>> Function<D> for Sign<N>
 where
     FieldOf<N::Value>: num_traits::Float,
 {
     type Error = N::Error;
-    type Value = OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         self.0.evaluate(db).map(|buffer| {
@@ -459,20 +445,14 @@ impl<X: fmt::Display> fmt::Display for Sign<X> {
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Abs<N>(#[op] pub N);
 
-impl<N: Node> Node for Abs<N> {
-    fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
-
-    fn is_one(stage: Stage<&'_ Self>) -> TFU {
-        stage.map(|node| &node.0).is_one().true_or(TFU::Unknown)
-    }
-}
+impl<N: Node> Node for Abs<N> {}
 
 impl<D: Database, N: Function<D>> Function<D> for Abs<N>
 where
     FieldOf<N::Value>: num_traits::real::Real,
 {
     type Error = N::Error;
-    type Value = OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         self.0.evaluate(db).map(|buffer| buffer.map(|x| x.abs()))
@@ -493,10 +473,10 @@ where
 
 impl<N: Node + fmt::Display> fmt::Display for Abs<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if Stage::Instance(&self.0).is_zero() != TFU::True {
+        // if Stage::Instance(&self.0).is_zero() != TFU::True {
             write!(f, "|{}|", self.0)
-        } else {
-            write!(f, "0")
-        }
+        // } else {
+            // write!(f, "0")
+        // }
     }
 }

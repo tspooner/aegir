@@ -20,7 +20,7 @@ macro_rules! impl_trig {
             crate::buffers::FieldOf<N::Value>: num_traits::real::Real,
         {
             type Error = N::Error;
-            type Value = crate::buffers::OwnedOf<N::Value>;
+            type Value = N::Value;
 
             fn evaluate<DR: AsRef<D>>(&self, state: DR) -> Result<Self::Value, Self::Error> {
                 self.0

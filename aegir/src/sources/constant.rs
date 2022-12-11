@@ -2,15 +2,10 @@ use super::SourceError;
 use crate::{
     buffers::{
         shapes::{Concat, Shape},
-        Arrays,
         Buffer,
         Class,
         FieldOf,
-        OwnedOf,
         Scalar,
-        Scalars,
-        Tuples,
-        Vecs,
     },
     Contains,
     Database,
@@ -60,10 +55,10 @@ where
     B: Buffer,
 {
     type Error = SourceError<()>;
-    type Value = OwnedOf<B>;
+    type Value = B;
 
     fn evaluate<DR: AsRef<D>>(&self, _: DR) -> Result<Self::Value, Self::Error> {
-        Ok(self.0.to_owned())
+        Ok(self.0.clone())
     }
 }
 
@@ -74,11 +69,11 @@ where
 
     FieldOf<B>: num_traits::Zero,
 {
-    type Adjoint = ConstantAdjoint<Constant<OwnedOf<B>>, T>;
+    type Adjoint = ConstantAdjoint<Constant<B>, T>;
 
     fn adjoint(&self, ident: T) -> Self::Adjoint {
         ConstantAdjoint {
-            node: Constant(self.0.to_owned()),
+            node: self.clone(),
             target: ident,
         }
     }

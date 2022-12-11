@@ -1,4 +1,4 @@
-use super::{shapes::S1, Buffer, Class, IncompatibleShapes, OwnedOf, Scalar, ZipFold, ZipMap};
+use super::{shapes::S1, Buffer, Class, IncompatibleShapes, Scalar, ZipFold, ZipMap};
 
 /// Tuple buffer class.
 pub struct Tuples;
@@ -35,6 +35,8 @@ impl<F: Scalar> Buffer for (F, F) {
     type Field = F;
     type Shape = S1<2>;
 
+    fn class() -> Tuples { Tuples }
+
     fn shape(&self) -> Self::Shape { S1 }
 
     fn get(&self, ix: usize) -> Option<F> {
@@ -52,10 +54,6 @@ impl<F: Scalar> Buffer for (F, F) {
             _ => panic!("Invalid index for tuple."),
         }
     }
-
-    fn to_owned(&self) -> Self { *self }
-
-    fn into_owned(self) -> Self { self }
 
     fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> (A, A) { (f(self.0), f(self.1)) }
 
@@ -99,38 +97,4 @@ impl<F: Scalar> ZipMap for (F, F) {
     fn zip_map_dominate_id(self, _: S1<2>) -> Result<(F, F), IncompatibleShapes<S1<2>>> {
         Ok(self)
     }
-}
-
-impl<F: Scalar> Buffer for &(F, F) {
-    type Class = Tuples;
-    type Field = F;
-    type Shape = S1<2>;
-
-    fn shape(&self) -> Self::Shape { S1 }
-
-    fn get(&self, ix: usize) -> Option<F> {
-        match ix {
-            0 => Some(self.0),
-            1 => Some(self.1),
-            _ => None,
-        }
-    }
-
-    fn get_unchecked(&self, ix: usize) -> F {
-        match ix {
-            0 => self.0,
-            1 => self.1,
-            _ => panic!("Invalid index for tuple."),
-        }
-    }
-
-    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> (A, A) { (f(self.0), f(self.1)) }
-
-    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> (A, A) { (f(self.0), f(self.1)) }
-
-    fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A { f(f(init, self.0), self.1) }
-
-    fn to_owned(&self) -> OwnedOf<Self> { **self }
-
-    fn into_owned(self) -> OwnedOf<Self> { *self }
 }

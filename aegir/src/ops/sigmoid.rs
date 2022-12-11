@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{Buffer, FieldOf, OwnedOf},
+    buffers::{Buffer, FieldOf},
     Contains,
     Database,
     Differentiable,
@@ -13,11 +13,7 @@ use std::fmt;
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Rabbit<N>(#[op] pub N);
 
-impl<N: Node> Node for Rabbit<N> {
-    fn is_zero(stage: crate::Stage<&'_ Self>) -> aegir::logic::TFU {
-        stage.map(|node| &node.0).is_zero() | stage.map(|node| &node.0).is_one()
-    }
-}
+impl<N: Node> Node for Rabbit<N> {}
 
 impl<D, N> Function<D> for Rabbit<N>
 where
@@ -25,7 +21,7 @@ where
     N: Function<D>,
 {
     type Error = N::Error;
-    type Value = OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         let one: FieldOf<N::Value> = one();
@@ -73,9 +69,7 @@ fn sigmoid<F: Real>(x: F) -> F {
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Sigmoid<N>(#[op] pub N);
 
-impl<N: Node> Node for Sigmoid<N> {
-    fn is_zero(_: crate::Stage<&'_ Self>) -> aegir::logic::TFU { aegir::logic::TFU::Unknown }
-}
+impl<N: Node> Node for Sigmoid<N> {}
 
 impl<D, N> Function<D> for Sigmoid<N>
 where
@@ -85,7 +79,7 @@ where
     FieldOf<N::Value>: Real,
 {
     type Error = N::Error;
-    type Value = OwnedOf<N::Value>;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         self.0.evaluate(db).map(|buffer| buffer.map(sigmoid))

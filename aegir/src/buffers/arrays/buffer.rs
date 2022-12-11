@@ -42,6 +42,8 @@ macro_rules! impl_buffer {
             type Field = $f;
             type Shape = $shape;
 
+            fn class() -> Arrays { Arrays }
+
             fn shape(&self) -> Self::Shape { $s_impl }
 
             fn get_unchecked(&$gu_self, $gu_ix: IndexOf<Self::Shape>) -> $f { $gu_impl }
@@ -57,39 +59,6 @@ macro_rules! impl_buffer {
 
                 init
             }
-
-            fn to_owned(&self) -> <Arrays as Class<$shape>>::Buffer<$f> { self.clone() }
-
-            fn into_owned(self) -> <Arrays as Class<$shape>>::Buffer<$f> { self }
-        }
-
-        // Buffer (ref) implementation:
-        impl<$f: Scalar, $(const $d: usize),+> Buffer for &$arr {
-            type Class = Arrays;
-            type Field = $f;
-            type Shape = $shape;
-
-            fn shape(&self) -> Self::Shape { $s_impl }
-
-            fn map<A: Scalar, M: Fn($f) -> A>(self, f: M) -> <Arrays as Class<$shape>>::Buffer<A> {
-                <$arr as Buffer>::map_ref(self, f)
-            }
-
-            fn get_unchecked(&$gu_self, $gu_ix: IndexOf<Self::Shape>) -> $f { $gu_impl }
-
-            fn map_ref<A: Scalar, M: Fn($f) -> A>(&self, f: M) -> <Arrays as Class<$shape>>::Buffer<A> { array_init::array_init(|i| self[i].map_ref(&f)) }
-
-            fn fold<A, M: Fn(A, $f) -> A>(&self, mut init: A, f: M) -> A {
-                for i in 0..D1 {
-                    init = self[i].fold(init, &f)
-                }
-
-                init
-            }
-
-            fn to_owned(&self) -> <Arrays as Class<$shape>>::Buffer<$f> { <$arr as Buffer>::to_owned(self) }
-
-            fn into_owned(self) -> <Arrays as Class<$shape>>::Buffer<$f> { self.clone() }
         }
     };
 }

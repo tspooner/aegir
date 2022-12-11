@@ -1,6 +1,4 @@
 //! Module for concrete operator implementations.
-use crate::buffers::{ZipMap, IncompatibleShapes};
-
 macro_rules! impl_unary {
     ($(#[$attr:meta])* $name:ident[$str:tt]: $field_type:path, $eval:expr, $grad:expr) => {
         $(#[$attr])*
@@ -15,8 +13,8 @@ macro_rules! impl_unary {
 
             N::Value: crate::buffers::Buffer<Field = F>,
         {
-            type Value = crate::buffers::OwnedOf<N::Value>;
             type Error = N::Error;
+            type Value = N::Value;
 
             fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
                 self.0.evaluate(db).map(|buffer| {
