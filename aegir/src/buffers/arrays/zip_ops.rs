@@ -9,110 +9,92 @@ macro_rules! impl_map {
         @zm_field_l |$zmfl_self:ident, $zmfl_rhs:ident, $zmfl_func:ident| { $zmfl_impl:expr };
     ) => {
         impl<$f: Scalar, $(const $d: usize),+> ZipMap for $arr {
-            type Output<$a: Scalar> = $garr;
+            type Output<A: Scalar> = $garr;
 
+            #[inline]
             fn zip_map<$a: Scalar, M: Fn(F, F) -> $a>(
-                &$zms_self,
-                $zms_rhs: &Self,
+                $zms_self,
+                $zms_rhs: Self,
                 $zms_func: M,
             ) -> Result<$garr, IncompatibleShapes<Self::Shape>> {
                 $zms_impl
             }
 
-            fn zip_map_left<$a: Scalar, M: Fn(F) -> $a>(
-                &self,
+            #[inline]
+            fn zip_map_dominate<$a: Scalar, M: Fn(F) -> $a>(
+                self,
                 _: Self::Shape,
                 f: M,
             ) -> Result<$garr, IncompatibleShapes<Self::Shape>> {
-                Ok(self.map(f))
+                Ok(<Self as Buffer>::map(self, f))
             }
 
-            fn zip_map_right<$a: Scalar, M: Fn(F) -> $a>(
+            #[inline]
+            fn zip_map_dominate_id(
+                self,
                 _: Self::Shape,
-                rhs: &Self,
-                f: M,
-            ) -> Result<$garr, IncompatibleShapes<Self::Shape>> {
-                Ok(rhs.map(f))
-            }
-
-            fn zip_map_neither<$a: Scalar>(
-                shape: Self::Shape,
-                _: Self::Shape,
-                fill_value: $a,
-            ) -> Result<$garr, IncompatibleShapes<Self::Shape>> {
-                Ok(Arrays::full(shape, fill_value))
+            ) -> Result<$arr, IncompatibleShapes<Self::Shape>> {
+                Ok(self)
             }
         }
 
         impl<$f: Scalar, $(const $d: usize),+> ZipMap<$f> for $arr {
-            type Output<$a: Scalar> = $garr;
+            type Output<A: Scalar> = $garr;
 
+            #[inline]
             fn zip_map<$a: Scalar, M: Fn(F, F) -> $a>(
-                &$zmfr_self,
-                $zmfr_rhs: &$f,
+                $zmfr_self,
+                $zmfr_rhs: $f,
                 $zmfr_func: M,
             ) -> Result<$garr, IncompatibleShapes<Self::Shape, S0>> {
                 $zmfr_impl
             }
 
-            fn zip_map_left<$a: Scalar, M: Fn(F) -> $a>(
-                &self,
+            #[inline]
+            fn zip_map_dominate<$a: Scalar, M: Fn(F) -> $a>(
+                self,
                 _: S0,
                 f: M,
             ) -> Result<$garr, IncompatibleShapes<Self::Shape, S0>> {
-                Ok(self.map(f))
+                Ok(<Self as Buffer>::map(self, f))
             }
 
-            fn zip_map_right<$a: Scalar, M: Fn(F) -> $a>(
-                lhs_shape: Self::Shape,
-                rhs: &$f,
-                f: M,
-            ) -> Result<$garr, IncompatibleShapes<Self::Shape, S0>> {
-                Ok(Arrays::full(lhs_shape, f(*rhs)))
-            }
-
-            fn zip_map_neither<$a: Scalar>(
-                shape: Self::Shape,
+            #[inline]
+            fn zip_map_dominate_id(
+                self,
                 _: S0,
-                fill_value: $a,
-            ) -> Result<$garr, IncompatibleShapes<Self::Shape, S0>> {
-                Ok(Arrays::full(shape, fill_value))
+            ) -> Result<$arr, IncompatibleShapes<Self::Shape, S0>> {
+                Ok(self)
             }
         }
 
         impl<$f: Scalar, $(const $d: usize),+> ZipMap<$arr> for $f {
-            type Output<$a: Scalar> = $garr;
+            type Output<A: Scalar> = $garr;
 
+            #[inline]
             fn zip_map<$a: Scalar, M: Fn(F, F) -> $a>(
-                &$zmfl_self,
-                $zmfl_rhs: &$arr,
+                $zmfl_self,
+                $zmfl_rhs: $arr,
                 $zmfl_func: M,
             ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
                 $zmfl_impl
             }
 
-            fn zip_map_left<$a: Scalar, M: Fn(F) -> $a>(
-                &self,
+            #[inline]
+            fn zip_map_dominate<$a: Scalar, M: Fn(F) -> $a>(
+                self,
                 rhs_shape: <$arr as Buffer>::Shape,
                 f: M,
             ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
-                Ok(Arrays::full(rhs_shape, f(*self)))
+                Ok(Arrays::full(rhs_shape, f(self)))
             }
 
-            fn zip_map_right<$a: Scalar, M: Fn(F) -> $a>(
-                _: S0,
-                rhs: &$arr,
-                f: M,
-            ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
-                Ok(rhs.map(f))
-            }
-
-            fn zip_map_neither<$a: Scalar>(
-                _: Self::Shape,
-                shape: <$arr as Buffer>::Shape,
-                fill_value: $a,
-            ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
-                Ok(Arrays::full(shape, fill_value))
+            #[inline]
+            fn zip_map_dominate_id(
+                self,
+                rhs_shape: <$arr as Buffer>::Shape,
+            ) -> Result<$arr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
+                Ok(Arrays::full(rhs_shape, self))
             }
         }
     };
@@ -122,7 +104,7 @@ macro_rules! impl_map {
 
             @zm_self |self, rhs, f| {
                 Ok(array_init::array_init(|i| unsafe {
-                    self[i].zip_map(&rhs[i], &f).unwrap_unchecked()
+                    self[i].zip_map(rhs[i], &f).unwrap_unchecked()
                 }))
             };
             @zm_field_r |self, rhs, f| {
@@ -178,8 +160,8 @@ impl_map!(
     @Type <F, A, D1> [F; D1], [A; D1];
 
     @zm_self |self, rhs, f| { Ok(array_init::array_init(|i| f(self[i], rhs[i]))) };
-    @zm_field_r |self, rhs, f| { Ok(array_init::array_init(|i| f(self[i], *rhs))) };
-    @zm_field_l |self, rhs, f| { Ok(array_init::array_init(|i| f(*self, rhs[i]))) };
+    @zm_field_r |self, rhs, f| { Ok(array_init::array_init(|i| f(self[i], rhs))) };
+    @zm_field_l |self, rhs, f| { Ok(array_init::array_init(|i| f(self, rhs[i]))) };
 );
 
 impl_fold!(<F, A, D1> [F; D1]);

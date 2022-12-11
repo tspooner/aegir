@@ -6,6 +6,7 @@ use crate::{
         Buffer,
         Class,
         OwnedOf,
+        ShapeOf,
         Scalar,
         Scalars,
         Tuples,
@@ -59,6 +60,8 @@ impl<D, I> Function<D> for Variable<I>
 where
     D: Read<I>,
     I: Identifier,
+
+    OwnedOf<D::Buffer>: Buffer<Shape = ShapeOf<D::Buffer>>,
 {
     type Error = SourceError<I>;
     type Value = OwnedOf<D::Buffer>;
@@ -69,11 +72,17 @@ where
             .map(|v| v.to_owned())
             .ok_or_else(|| SourceError::Undefined(self.0))
     }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        db.as_ref()
+            .read_shape(self.0)
+            .ok_or_else(|| SourceError::Undefined(self.0))
+    }
 }
 
 impl<I, T> Differentiable<T> for Variable<I>
 where
-    I: Identifier,
+    I: Identifier + PartialEq<T>,
     T: Identifier,
 {
     type Adjoint = VariableAdjoint<I, T>;
@@ -106,11 +115,24 @@ pub struct VariableAdjoint<I, T> {
     pub target: T,
 }
 
-impl<I, T> Node for VariableAdjoint<I, T> {}
+impl<I: PartialEq<T>, T> Node for VariableAdjoint<I, T> {
+    fn is_zero(stage: aegir::Stage<&'_ Self>) -> aegir::logic::TFU {
+        match stage {
+            aegir::Stage::Evaluation(me) | aegir::Stage::Instance(me) => {
+                if me.value == me.target { false.into() } else { true.into() }
+            }
+            _ => aegir::logic::TFU::Unknown,
+        }
+    }
+
+    fn is_one(stage: aegir::Stage<&'_ Self>) -> aegir::logic::TFU {
+        !Self::is_zero(stage)
+    }
+}
 
 impl<I, T, A> Contains<A> for VariableAdjoint<I, T>
 where
-    I: Identifier + PartialEq<A>,
+    I: Identifier + PartialEq<T> + PartialEq<A>,
     T: Identifier + PartialEq<A>,
     A: Identifier,
 {
@@ -137,6 +159,8 @@ where
 
     <D as Read<I>>::Buffer: Buffer<Class = CI, Shape = SI, Field = F>,
     <D as Read<T>>::Buffer: Buffer<Class = CT, Shape = ST, Field = F>,
+
+    <CA as Class<SA>>::Buffer<F>: Buffer<Shape = SA>,
 {
     type Error = crate::BinaryError<SourceError<I>, SourceError<T>, crate::NoError>;
     type Value = <CA as Class<SA>>::Buffer<F>;
@@ -169,10 +193,26 @@ where
             <Self::Value as Buffer>::Class::full(shape_adjoint, num_traits::zero())
         })
     }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<SA, Self::Error> {
+        let shape_value = db
+            .as_ref()
+            .read_shape(self.value)
+            .ok_or(crate::BinaryError::Left(SourceError::Undefined(self.value)))?;
+        let shape_target =
+            db.as_ref()
+                .read_shape(self.target)
+                .ok_or(crate::BinaryError::Right(SourceError::Undefined(
+                    self.target,
+                )))?;
+
+        Ok(shape_value.concat(shape_target))
+    }
 }
 
 impl<I, T, A> Differentiable<A> for VariableAdjoint<I, T>
 where
+    I: PartialEq<T>,
     A: Identifier,
 
     Self: Clone,

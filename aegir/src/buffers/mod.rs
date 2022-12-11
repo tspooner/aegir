@@ -45,7 +45,8 @@
 //! inner product between `[f64; 2]` and    `(f64, f64)`.
 pub mod shapes;
 
-use shapes::{Concat, Ix, Shape};
+use shapes::{Ix, Shape};
+pub use shapes::IncompatibleShapes;
 
 /// Marker trait for class subscriptions of [Buffer] types.
 ///
@@ -389,34 +390,6 @@ pub type FieldOf<B> = <B as Buffer>::Field;
 /// Type shortcut for the [Class] associated with a [Buffer].
 pub type ClassOf<B> = <B as Buffer>::Class;
 
-/// Error type for two incompatible buffers based on their shapes.
-#[derive(Copy, Clone, Debug)]
-pub struct IncompatibleShapes<S1, S2 = S1>(pub(crate) S1, pub(crate) S2)
-where
-    S1: shapes::Shape,
-    S2: shapes::Shape;
-
-impl<S1, S2> std::fmt::Display for IncompatibleShapes<S1, S2>
-where
-    S1: shapes::Shape,
-    S2: shapes::Shape,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Buffer shapes are incompatible: {} vs {}.",
-            self.0, self.1
-        )
-    }
-}
-
-impl<S1, S2> std::error::Error for IncompatibleShapes<S1, S2>
-where
-    S1: shapes::Shape,
-    S2: shapes::Shape,
-{
-}
-
 /// Trait for performing a zip and fold over a pair of buffers.
 pub trait ZipFold<RHS: Buffer = Self>: Buffer {
     /// Perform a zip and fold over a pair of buffers.
@@ -438,7 +411,21 @@ pub trait ZipFold<RHS: Buffer = Self>: Buffer {
 }
 
 /// Trait for combining two buffers in an elementwise fashion.
-pub trait ZipMap<RHS: Buffer = Self>: Buffer {
+pub trait ZipMap<RHS: Buffer = Self>: Buffer + Sized
+{
+    // TODO - Implement symmetry in this operation.
+    //
+    // Implementing symmetry in this operation can be done via the following:
+    //  1. Use the shapes::Zip trait as the unified source of truth for the output shape.
+    //  2. Replace Self::Output with Self::ZipClass; i.e. the user defines only the __Class__ of
+    //     the resulting buffer, not the field or shape. Those will instead be implied by Zip and
+    //     by the closure passed to the function.
+    //  3. Add a trait bound such that RHS also implements ZipMap, and has identical ZipClass.
+    //
+    // This works as of v1.65 - yay! - but unfortunately we end up polluting where clauses
+    // extensively downstream - nay! For now we will just leave it as unconstrained and leave it
+    // to the user to handle that. However, once RFC-2089 (implied-bounds) lands, we should be able
+    // to revisit this and potentially enforce commutativity.
     type Output<F: Scalar>: Buffer<Field = F>;
 
     /// Combine two buffers in an elementwise fashion.
@@ -449,50 +436,26 @@ pub trait ZipMap<RHS: Buffer = Self>: Buffer {
     /// let b1 = [1.0, 2.0, 3.0];
     /// let b2 = [-1.0, 0.0, 1.0];
     ///
-    /// assert_eq!(b1.zip_map(&b2, |l, r| l * r).unwrap(), [-1.0, 0.0, 3.0]);
+    /// assert_eq!(b1.zip_map(b2, |l, r| l * r).unwrap(), [-1.0, 0.0, 3.0]);
     /// ```
     fn zip_map<F: Scalar, M: Fn(Self::Field, RHS::Field) -> F>(
-        &self,
-        rhs: &RHS,
+        self,
+        rhs: RHS,
         f: M,
     ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 
-    /// Combine two buffers in an elementwise fashion, mapping only left values.
-    fn zip_map_left<F: Scalar, M: Fn(Self::Field) -> F>(
-        &self,
+    fn zip_map_dominate<F: Scalar, M: Fn(Self::Field) -> F>(
+        self,
         rhs_shape: RHS::Shape,
         f: M,
     ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 
-    /// Combine two buffers in an elementwise fashion, taking only left values.
-    fn zip_map_left_id(
-        &self,
+    fn zip_map_dominate_id(
+        self,
         rhs_shape: RHS::Shape,
     ) -> Result<Self::Output<Self::Field>, IncompatibleShapes<Self::Shape, RHS::Shape>> {
-        self.zip_map_left(rhs_shape, |x| x)
+        self.zip_map_dominate(rhs_shape, |x| x)
     }
-
-    /// Combine two buffers in an elementwise fashion, mapping only right values.
-    fn zip_map_right<F: Scalar, M: Fn(RHS::Field) -> F>(
-        self_shape: Self::Shape,
-        rhs: &RHS,
-        f: M,
-    ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
-
-    /// Combine two buffers in an elementwise fashion, taking only right values.
-    fn zip_map_right_id<F: Scalar, M: Fn(RHS::Field) -> F>(
-        self_shape: Self::Shape,
-        rhs: &RHS,
-    ) -> Result<Self::Output<RHS::Field>, IncompatibleShapes<Self::Shape, RHS::Shape>> {
-        <Self as ZipMap<RHS>>::zip_map_right(self_shape, rhs, |x| x)
-    }
-
-    /// Combine two buffers in an elementwise fashion, filling in with a default value.
-    fn zip_map_neither<F: Scalar>(
-        self_shape: Self::Shape,
-        rhs_shape: RHS::Shape,
-        fill_value: F,
-    ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
 pub trait Contract<RHS: Buffer<Field = Self::Field>, const AXES: usize = 1>: Buffer {

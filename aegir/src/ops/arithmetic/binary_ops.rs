@@ -1,7 +1,7 @@
 use crate::{
-    buffers::{Buffer, OwnedOf, ShapeOf, Scalar, ZipMap, IncompatibleShapes},
+    buffers::{Buffer, OwnedOf, ShapeOf, Scalar, ZipMap, IncompatibleShapes, shapes::{self, Shape, Zip}, Class},
     logic::TFU,
-    ops::{SafeXlnX, ZipOut},
+    ops::SafeXlnX,
     BinaryError,
     Contains,
     Database,
@@ -13,10 +13,10 @@ use crate::{
 };
 use std::fmt;
 
-type Error<D, N1, N2> = BinaryError<
-    <N1 as Function<D>>::Error,
-    <N2 as Function<D>>::Error,
-    IncompatibleShapes<ShapeOf<<N1 as Function<D>>::Value>, ShapeOf<<N2 as Function<D>>::Value>>
+type Error<D, L, R> = BinaryError<
+    <L as Function<D>>::Error,
+    <R as Function<D>>::Error,
+    IncompatibleShapes<ShapeOf<<L as Function<D>>::Value>, ShapeOf<<R as Function<D>>::Value>>
 >;
 
 /// Computes the power of a [Buffer] to a [Field].
@@ -99,6 +99,10 @@ where
 
         Ok(base.map(|x| x.pow(exponent)))
     }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, _: DR) -> Result<shapes::S0, Self::Error> {
+        Ok(shapes::S0)
+    }
 }
 
 impl<T, N, E> Differentiable<T> for Power<N, E>
@@ -154,9 +158,9 @@ impl<X: fmt::Display, E: fmt::Display> fmt::Display for Power<X, E> {
 /// assert_eq!(f.evaluate_dual(Y, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(5.0, 4.0));
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
-pub struct Add<N1, N2>(#[op] pub N1, #[op] pub N2);
+pub struct Add<L, R>(#[op] pub L, #[op] pub R);
 
-impl<N1: Node, N2: Node> Node for Add<N1, N2> {
+impl<L: Node, R: Node> Node for Add<L, R> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU {
         (stage.map(|node| &node.0).is_zero() & stage.map(|node| &node.1).is_zero())
             .true_or(TFU::Unknown)
@@ -172,45 +176,35 @@ impl<N1: Node, N2: Node> Node for Add<N1, N2> {
     }
 }
 
-impl<D, F, N1, N2> Function<D> for Add<N1, N2>
+impl<D, F, L, LV, R, RV, OV> Function<D> for Add<L, R>
 where
     D: Database,
     F: Scalar,
 
-    N1: Function<D>,
-    N1::Value: Buffer<Field = F> + ZipMap<N2::Value>,
+    L: Function<D, Value = LV>,
+    LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
 
-    N2: Function<D>,
-    N2::Value: Buffer<Field = F>,
+    R: Function<D, Value = RV>,
+    RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
+
+    OV: Buffer<Field = F>,
+
+    LV::Shape: Zip<RV::Shape, Shape = OV::Shape>,
 {
-    type Error = Error<D, N1, N2>;
-    type Value = ZipOut<N1::Value, N2::Value, F>;
+    type Error = Error<D, L, R>;
+    type Value = OV;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         use crate::Stage::Evaluation;
 
         // First establish if either term is zero...
         if Evaluation(&self.0).is_zero() == TFU::True {
-            let lhs_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
-            let rhs = self.1.evaluate(db).map_err(BinaryError::Right)?;
-
-            return <N1::Value as ZipMap<N2::Value>>::zip_map_right(
-                lhs_shape,
-                &rhs,
-                |v| v,
-            ).map_err(BinaryError::Output);
+            return short_circuit!(@TakeRight db[self.0, self.1]);
         }
 
         // If not, then maybe the second term is...
         if Evaluation(&self.1).is_zero() == TFU::True {
-            let lhs = self.0.evaluate(&db).map_err(BinaryError::Left)?;
-            let rhs_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
-
-            return <N1::Value as ZipMap<N2::Value>>::zip_map_left(
-                &lhs,
-                rhs_shape,
-                |v| v,
-            ).map_err(BinaryError::Output);
+            return short_circuit!(@TakeLeft db[self.0, self.1]);
         }
 
         // Otherwise, we do the actual addition...
@@ -220,17 +214,24 @@ where
             .map_err(crate::BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(crate::BinaryError::Right)?;
 
-        Ok(x.zip_map(&y, |xi, yi| xi + yi).unwrap())
+        Ok(x.zip_map(y, |xi, yi| xi + yi).unwrap())
+    }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
+        let r_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+
+        l_shape.zip(r_shape).map_err(BinaryError::Output)
     }
 }
 
-impl<T, N1, N2> Differentiable<T> for Add<N1, N2>
+impl<T, L, R> Differentiable<T> for Add<L, R>
 where
     T: Identifier,
-    N1: Differentiable<T>,
-    N2: Differentiable<T>,
+    L: Differentiable<T>,
+    R: Differentiable<T>,
 {
-    type Adjoint = Add<N1::Adjoint, N2::Adjoint>;
+    type Adjoint = Add<L::Adjoint, R::Adjoint>;
 
     fn adjoint(&self, target: T) -> Self::Adjoint {
         let x = self.0.adjoint(target);
@@ -240,8 +241,8 @@ where
     }
 }
 
-impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Display
-    for Add<N1, N2>
+impl<L: Node + std::fmt::Display, R: Node + std::fmt::Display> std::fmt::Display
+    for Add<L, R>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use crate::Stage::Evaluation;
@@ -283,9 +284,9 @@ impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Displ
 /// assert_eq!(f.evaluate_dual(Y, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(-3.0, -4.0));
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
-pub struct Sub<N1, N2>(#[op] pub N1, #[op] pub N2);
+pub struct Sub<L, R>(#[op] pub L, #[op] pub R);
 
-impl<N1: Node, N2: Node> Node for Sub<N1, N2> {
+impl<L: Node, R: Node> Node for Sub<L, R> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU {
         let a = (stage.map(|node| &node.0).is_one() & stage.map(|node| &node.1).is_one())
             .true_or(TFU::Unknown);
@@ -301,23 +302,23 @@ impl<N1: Node, N2: Node> Node for Sub<N1, N2> {
     }
 }
 
-impl<D, F, N1, N2> Function<D> for Sub<N1, N2>
+impl<D, F, L, LV, R, RV, OV> Function<D> for Sub<L, R>
 where
     D: Database,
     F: Scalar,
 
-    N1: Function<D>,
-    N1::Value: Buffer<Field = F> + ZipMap<N2::Value>,
+    L: Function<D, Value = LV>,
+    LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
 
-    N2: Function<D>,
-    N2::Value: Buffer<Field = F>,
+    R: Function<D, Value = RV>,
+    RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
+
+    OV: Buffer<Field = F>,
+
+    LV::Shape: Zip<RV::Shape, Shape = OV::Shape>,
 {
-    type Error = BinaryError<
-        N1::Error,
-        N2::Error,
-        crate::NoError, // IncompatibleBuffers<Pattern<N1::Value>, Pattern<N2::Value>>
-    >;
-    type Value = ZipOut<N1::Value, N2::Value, F>;
+    type Error = Error<D, L, R>;
+    type Value = OV;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         let x = self
@@ -326,18 +327,24 @@ where
             .map_err(crate::BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(crate::BinaryError::Right)?;
 
-        // x.zip_map(&y, $eval).map_err(BinaryError::Output)
-        Ok(x.zip_map(&y, |xi, yi| xi - yi).unwrap())
+        x.zip_map(y, |xi, yi| xi - yi).map_err(BinaryError::Output)
+    }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
+        let r_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+
+        l_shape.zip(r_shape).map_err(BinaryError::Output)
     }
 }
 
-impl<T, N1, N2> Differentiable<T> for Sub<N1, N2>
+impl<T, L, R> Differentiable<T> for Sub<L, R>
 where
     T: Identifier,
-    N1: Differentiable<T>,
-    N2: Differentiable<T>,
+    L: Differentiable<T>,
+    R: Differentiable<T>,
 {
-    type Adjoint = Sub<N1::Adjoint, N2::Adjoint>;
+    type Adjoint = Sub<L::Adjoint, R::Adjoint>;
 
     fn adjoint(&self, target: T) -> Self::Adjoint {
         let x = self.0.adjoint(target);
@@ -347,8 +354,8 @@ where
     }
 }
 
-impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Display
-    for Sub<N1, N2>
+impl<L: Node + std::fmt::Display, R: Node + std::fmt::Display> std::fmt::Display
+    for Sub<L, R>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use crate::Stage::Evaluation;
@@ -390,9 +397,9 @@ impl<N1: Node + std::fmt::Display, N2: Node + std::fmt::Display> std::fmt::Displ
 /// assert_eq!(f.evaluate_dual(Y, &DB { x: 3.0, y: 2.0, }).unwrap(), dual!(12.0, 12.0));
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
-pub struct Mul<N1, N2>(#[op] pub N1, #[op] pub N2);
+pub struct Mul<L, R>(#[op] pub L, #[op] pub R);
 
-impl<N1: Node, N2: Node> Node for Mul<N1, N2> {
+impl<L: Node, R: Node> Node for Mul<L, R> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU {
         stage.map(|node| &node.0).is_zero() | stage.map(|node| &node.1).is_zero()
     }
@@ -403,19 +410,25 @@ impl<N1: Node, N2: Node> Node for Mul<N1, N2> {
     }
 }
 
-impl<D, F, N1, N2> Function<D> for Mul<N1, N2>
+impl<D, F, L, LV, R, RV, OS, OC, OV> Function<D> for Mul<L, R>
 where
     D: Database,
     F: Scalar,
 
-    N1: Function<D>,
-    N1::Value: Buffer<Field = F> + ZipMap<N2::Value>,
+    L: Function<D, Value = LV>,
+    LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
 
-    N2: Function<D>,
-    N2::Value: Buffer<Field = F>,
+    R: Function<D, Value = RV>,
+    RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
+
+    OS: Shape,
+    OC: Class<OS, Buffer<F> = OV>,
+    OV: Buffer<Field = F, Class = OC, Shape = OS>,
+
+    LV::Shape: shapes::Zip<RV::Shape, Shape = OS>,
 {
-    type Error = Error<D, N1, N2>;
-    type Value = ZipOut<N1::Value, N2::Value, F>;
+    type Error = Error<D, L, R>;
+    type Value = OV;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         use crate::Stage::Evaluation;
@@ -425,57 +438,42 @@ where
 
         // If either value is zero, we can just short-circuit...
         if (s0.is_zero() | s1.is_zero()).is_true() {
-            let lhs_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
-            let rhs_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
-
-            return <N1::Value as ZipMap<N2::Value>>::zip_map_neither(
-                lhs_shape,
-                rhs_shape,
-                num_traits::zero(),
-            ).map_err(BinaryError::Output);
+            return short_circuit!(@TakeNeither db[self.0, self.1]{F::zero()});
         }
 
         // If either value is unity, then we can also short-circuit...
         if s0.is_one().is_true() {
             // In this case, the left-hand value is one, i.e. we have 1 * x = x.
-            let lhs_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
-            let rhs = self.1.evaluate(db).map_err(BinaryError::Right)?;
-
-            return <N1::Value as ZipMap<N2::Value>>::zip_map_right(
-                lhs_shape,
-                &rhs,
-                |x| x,
-            ).map_err(BinaryError::Output);
+            return short_circuit!(@TakeRight db[self.0, self.1]);
         }
 
         if s1.is_one().is_true() {
             // In this case, the right-hand value is one, i.e. we have x * 1 = x.
-            let lhs = self.0.evaluate(&db).map_err(BinaryError::Left)?;
-            let rhs_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
-
-            return <N1::Value as ZipMap<N2::Value>>::zip_map_left(
-                &lhs,
-                rhs_shape,
-                |x| x,
-            ).map_err(BinaryError::Output);
+            return short_circuit!(@TakeLeft db[self.0, self.1]);
         }
 
         // Otherwise we have to perform the multiplication...
         let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
 
-        // x.zip_map(&y, |xi, yi| xi * yi).map_err(BinaryError::Output)
-        Ok(x.zip_map(&y, |xi, yi| xi * yi).unwrap())
+        x.zip_map(y, |xi, yi| xi * yi).map_err(BinaryError::Output)
+    }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
+        let r_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+
+        l_shape.zip(r_shape).map_err(BinaryError::Output)
     }
 }
 
-impl<T, N1, N2> Differentiable<T> for Mul<N1, N2>
+impl<T, L, R> Differentiable<T> for Mul<L, R>
 where
     T: Identifier,
-    N1: Differentiable<T> + Clone,
-    N2: Differentiable<T> + Clone,
+    L: Differentiable<T> + Clone,
+    R: Differentiable<T> + Clone,
 {
-    type Adjoint = Add<Mul<N1::Adjoint, N2>, Mul<N2::Adjoint, N1>>;
+    type Adjoint = Add<Mul<L::Adjoint, R>, Mul<R::Adjoint, L>>;
 
     fn adjoint(&self, target: T) -> Self::Adjoint {
         let gl = self.0.adjoint(target);
@@ -488,7 +486,7 @@ where
     }
 }
 
-impl<N1: Node + fmt::Display, N2: Node + fmt::Display> fmt::Display for Mul<N1, N2> {
+impl<L: Node + fmt::Display, R: Node + fmt::Display> fmt::Display for Mul<L, R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use crate::Stage::Evaluation;
 
@@ -504,9 +502,9 @@ impl<N1: Node + fmt::Display, N2: Node + fmt::Display> fmt::Display for Mul<N1, 
 
 /// Computes the (elementwise) quotient of two compatible [Buffer] types.
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
-pub struct Div<N1, N2>(#[op] pub N1, #[op] pub N2);
+pub struct Div<L, R>(#[op] pub L, #[op] pub R);
 
-impl<N1: Node, N2: Node> Node for Div<N1, N2> {
+impl<L: Node, R: Node> Node for Div<L, R> {
     fn is_zero(stage: Stage<&'_ Self>) -> TFU { stage.map(|node| &node.0).is_zero() }
 
     fn is_one(stage: Stage<&'_ Self>) -> TFU {
@@ -515,58 +513,61 @@ impl<N1: Node, N2: Node> Node for Div<N1, N2> {
     }
 }
 
-impl<D, F, N1, N2> Function<D> for Div<N1, N2>
+impl<D, F, L, LV, R, RV, OV> Function<D> for Div<L, R>
 where
     D: Database,
     F: Scalar,
 
-    N1: Function<D>,
-    N1::Value: Buffer<Field = F> + ZipMap<N2::Value>,
+    L: Function<D, Value = LV>,
+    LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
 
-    N2: Function<D>,
-    N2::Value: Buffer<Field = F>,
+    R: Function<D, Value = RV>,
+    RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
+
+    OV: Buffer<Field = F>,
+
+    LV::Shape: Zip<RV::Shape, Shape = OV::Shape>,
 {
-    type Error = Error<D, N1, N2>;
-    type Value = ZipOut<N1::Value, N2::Value, F>;
+    type Error = Error<D, L, R>;
+    type Value = OV;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         use crate::Stage::Evaluation;
 
         // If the denominator takes value one, then we can skip the operation...
         if Evaluation(&self.1).is_one().is_true() {
-            let n_val = self.0.evaluate(&db).map_err(BinaryError::Left)?;
-            let d_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
-
-            return <N1::Value as ZipMap<N2::Value>>::zip_map_left(
-                &n_val,
-                d_shape,
-                |x| x,
-            ).map_err(BinaryError::Output);
+            return short_circuit!(@TakeLeft db[self.0, self.1]);
         }
 
         let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
 
-        // x.zip_map(&y, |xi, yi| xi * yi).map_err(BinaryError::Output)
-        Ok(x.zip_map(&y, |xi, yi| xi / yi).unwrap())
+        x.zip_map(y, |xi, yi| xi / yi).map_err(BinaryError::Output)
+    }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
+        let r_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+
+        l_shape.zip(r_shape).map_err(BinaryError::Output)
     }
 }
 
-// impl<F, D, T, N1, N2> Differentiable<D, T> for Div<N1, N2>
+// impl<F, D, T, L, R> Differentiable<D, T> for Div<L, R>
 // where
 // F: Scalar,
 // D: Database,
 // T: Identifier,
-// N1: Differentiable<D, T>,
-// N2: Differentiable<D, T>,
+// L: Differentiable<D, T>,
+// R: Differentiable<D, T>,
 
-// N1::Value: Buffer<Field = F> + ZipMap<N2::Value> + ZipMap<N2::Adjoint,
-// Output = N1::Value>, N2::Value: Buffer<Field = F> + ZipMap<N1::Adjoint,
-// Output = N2::Value>,
+// L::Value: Buffer<Field = F> + ZipMap<R::Value> + ZipMap<R::Adjoint,
+// Output = L::Value>, R::Value: Buffer<Field = F> + ZipMap<L::Adjoint,
+// Output = R::Value>,
 
-// HadOut<N1::Value, N2::Value>: ZipMap<N2::Value>,
+// HadOut<L::Value, R::Value>: ZipMap<R::Value>,
 // {
-// type Adjoint = HadOut<HadOut<N1::Value, N2::Value>, N2::Value>;
+// type Adjoint = HadOut<HadOut<L::Value, R::Value>, R::Value>;
 
 // fn grad(&self, db: &D, target: T) -> Result<Self::Adjoint, Self::Error> {
 // let x = self.0.dual(db, target).map_err(BinaryError::Left)?;
@@ -586,13 +587,13 @@ where
 // }
 // }
 
-impl<T, N1, N2> Differentiable<T> for Div<N1, N2>
+impl<T, L, R> Differentiable<T> for Div<L, R>
 where
     T: Identifier,
-    N1: Differentiable<T> + Clone,
-    N2: Differentiable<T> + Clone,
+    L: Differentiable<T> + Clone,
+    R: Differentiable<T> + Clone,
 {
-    type Adjoint = Div<Sub<Mul<N2, N1::Adjoint>, Mul<N1, N2::Adjoint>>, crate::ops::Square<N2>>;
+    type Adjoint = Div<Sub<Mul<R, L::Adjoint>, Mul<L, R::Adjoint>>, crate::ops::Square<R>>;
 
     fn adjoint(&self, target: T) -> Self::Adjoint {
         let l = self.0.adjoint(target);
@@ -604,7 +605,7 @@ where
     }
 }
 
-impl<N1: fmt::Display, N2: Node + fmt::Display> fmt::Display for Div<N1, N2> {
+impl<L: fmt::Display, R: Node + fmt::Display> fmt::Display for Div<L, R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "({}) / ({})", self.0, self.1)
     }

@@ -1,5 +1,5 @@
 //! Module for concrete operator implementations.
-use crate::buffers::ZipMap;
+use crate::buffers::{ZipMap, IncompatibleShapes};
 
 macro_rules! impl_unary {
     ($(#[$attr:meta])* $name:ident[$str:tt]: $field_type:path, $eval:expr, $grad:expr) => {
@@ -33,7 +33,30 @@ macro_rules! impl_unary {
     }
 }
 
-pub(crate) type ZipOut<A, B, F> = <A as ZipMap<B>>::Output<F>;
+macro_rules! short_circuit {
+    (@TakeLeft $db:ident[$l:expr, $r:expr]) => {{
+        let l = $l.evaluate(&$db).map_err(BinaryError::Left)?;
+        let r_shape = $r.evaluate_shape($db).map_err(BinaryError::Right)?;
+
+        l.zip_map_dominate_id(r_shape).map_err(BinaryError::Output)
+    }};
+    (@TakeRight $db:ident[$l:expr, $r:expr]) => {{
+        let l_shape = $l.evaluate_shape(&$db).map_err(BinaryError::Left)?;
+        let r = $r.evaluate($db).map_err(BinaryError::Right)?;
+
+        r.zip_map_dominate_id(l_shape).map_err(|err| IncompatibleShapes(err.1, err.0)).map_err(BinaryError::Output)
+    }};
+    (@TakeNeither $db:ident[$l:expr, $r:expr]{$fv:expr}) => {{
+        use crate::buffers::{ClassOf, ShapeOf, shapes::Zip};
+
+        let l_shape = $l.evaluate_shape(&$db).map_err(BinaryError::Left)?;
+        let r_shape = $r.evaluate_shape($db).map_err(BinaryError::Right)?;
+
+        let shape: ShapeOf<Self::Value> = l_shape.zip(r_shape).map_err(BinaryError::Output)?;
+
+        Ok(<ClassOf<Self::Value> as Class<ShapeOf<Self::Value>>>::full(shape, $fv))
+    }};
+}
 
 mod arithmetic;
 pub use self::arithmetic::{

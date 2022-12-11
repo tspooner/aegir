@@ -83,32 +83,29 @@ impl<F: Scalar> ZipFold for Vec<F> {
 impl<F: Scalar> ZipMap for Vec<F> {
     type Output<A: Scalar> = Vec<A>;
 
+    #[inline]
     fn zip_map<A: Scalar, M: Fn(F, F) -> A>(
-        &self,
-        rhs: &Vec<F>,
+        self,
+        rhs: Vec<F>,
         f: M,
     ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
         let buf = self
-            .iter()
-            .zip(rhs.iter())
-            .map(|(x, y)| f(*x, *y))
+            .into_iter()
+            .zip(rhs.into_iter())
+            .map(|(x, y)| f(x, y))
             .collect();
 
         Ok(buf)
     }
 
-    fn zip_map_left<A: Scalar, M: Fn(F) -> A>(&self, lim: SDynamic<1>, f: M) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
-        Ok(self.iter().take(lim[0]).map(|x| f(*x)).collect())
+    #[inline]
+    fn zip_map_dominate<A: Scalar, M: Fn(F) -> A>(self, lim: SDynamic<1>, f: M) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
+        Ok(self.into_iter().take(lim[0]).map(f).collect())
     }
 
-    fn zip_map_right<A: Scalar, M: Fn(F) -> A>(lim: SDynamic<1>, rhs: &Self, f: M) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
-        Ok(rhs.iter().take(lim[0]).map(|x| f(*x)).collect())
-    }
-
-    fn zip_map_neither<A: Scalar>(lim_l: SDynamic<1>, lim_r: SDynamic<1>, fill_value: A) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
-        let n = lim_l[0].min(lim_r[0]);
-
-        Ok(vec![fill_value; n])
+    #[inline]
+    fn zip_map_dominate_id(self, lim: SDynamic<1>) -> Result<Self, IncompatibleShapes<SDynamic<1>>> {
+        Ok(self)
     }
 }
 

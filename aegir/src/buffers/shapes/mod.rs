@@ -2,6 +2,34 @@
 use concat_arrays::concat_arrays;
 use std::fmt::{Debug, Display};
 
+/// Error type for two incompatible buffers based on their shapes.
+#[derive(Copy, Clone, Debug)]
+pub struct IncompatibleShapes<S1, S2 = S1>(pub(crate) S1, pub(crate) S2)
+where
+    S1: Shape,
+    S2: Shape;
+
+impl<S1, S2> std::fmt::Display for IncompatibleShapes<S1, S2>
+where
+    S1: Shape,
+    S2: Shape,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Buffer shapes are incompatible: {} vs {}.",
+            self.0, self.1
+        )
+    }
+}
+
+impl<S1, S2> std::error::Error for IncompatibleShapes<S1, S2>
+where
+    S1: Shape,
+    S2: Shape,
+{
+}
+
 /// Trait for index types that can be used to access buffer elements.
 pub trait Ix: Eq + Copy + Debug {
     /// Returns true if the index is a diagonal element.
@@ -126,6 +154,12 @@ pub trait Concat<RHS: Shape = Self>: Shape {
 
     /// Concatenate two indices for the shape one.
     fn concat_indices(left: Self::Index, rhs: RHS::Index) -> IndexOf<Self::Shape>;
+}
+
+pub trait Zip<RHS: Shape = Self>: Shape {
+    type Shape: Shape;
+
+    fn zip(self, rhs: RHS) -> Result<Self::Shape, IncompatibleShapes<Self, RHS>>;
 }
 
 // TODO - Once impl-spec drops, we can implement this. It'd be useful for

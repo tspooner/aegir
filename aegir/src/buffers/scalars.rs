@@ -94,18 +94,16 @@ macro_rules! impl_scalar {
             type Output<A: Scalar> = A;
 
             fn zip_map<A: Scalar, M: Fn($F, $F) -> A>(
-                &self,
-                rhs: &$F,
+                self,
+                rhs: $F,
                 f: M,
             ) -> Result<A, IncompatibleShapes<S0>> {
-                Ok(f(*self, *rhs))
+                Ok(f(self, rhs))
             }
 
-            fn zip_map_left<A: Scalar, M: Fn($F) -> A>(&self, _: S0, f: M) -> Result<A, IncompatibleShapes<S0>> { Ok(f(*self)) }
+            fn zip_map_dominate<A: Scalar, M: Fn($F) -> A>(self, _: S0, f: M) -> Result<A, IncompatibleShapes<S0>> { Ok(f(self)) }
 
-            fn zip_map_right<A: Scalar, M: Fn($F) -> A>(_: S0, rhs: &$F, f: M) -> Result<A, IncompatibleShapes<S0>> { Ok(f(*rhs)) }
-
-            fn zip_map_neither<A: Scalar>(_: S0, _: S0, fill_value: A) -> Result<A, IncompatibleShapes<S0>> { Ok(fill_value) }
+            fn zip_map_dominate_id(self, _: S0) -> Result<$F, IncompatibleShapes<S0>> { Ok(self) }
         }
 
         impl Scalar for $F {}
