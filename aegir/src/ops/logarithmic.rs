@@ -7,7 +7,6 @@ use crate::{
     Function,
     Identifier,
     Node,
-    State,
 };
 use num_traits::real::Real;
 use std::fmt;

@@ -76,24 +76,24 @@ macro_rules! impl_map {
                 $zmfl_self,
                 $zmfl_rhs: $arr,
                 $zmfl_func: M,
-            ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
+            ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Shaped>::Shape>> {
                 $zmfl_impl
             }
 
             #[inline]
             fn zip_map_dominate<$a: Scalar, M: Fn(F) -> $a>(
                 self,
-                rhs_shape: <$arr as Buffer>::Shape,
+                rhs_shape: <$arr as Shaped>::Shape,
                 f: M,
-            ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
+            ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Shaped>::Shape>> {
                 Ok(Arrays::full(rhs_shape, f(self)))
             }
 
             #[inline]
             fn zip_map_dominate_id(
                 self,
-                rhs_shape: <$arr as Buffer>::Shape,
-            ) -> Result<$arr, IncompatibleShapes<S0, <$arr as Buffer>::Shape>> {
+                rhs_shape: <$arr as Shaped>::Shape,
+            ) -> Result<$arr, IncompatibleShapes<S0, <$arr as Shaped>::Shape>> {
                 Ok(Arrays::full(rhs_shape, self))
             }
         }

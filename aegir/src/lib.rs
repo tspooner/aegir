@@ -201,8 +201,12 @@ pub trait Read<I: Identifier>: Database {
 
     fn read(&self, ident: I) -> Option<Self::Buffer>;
 
-    fn read_shape(&self, ident: I) -> Option<buffers::ShapeOf<Self::Buffer>> {
-        use buffers::Buffer;
+    fn read_spec(&self, ident: I) -> Option<buffers::Spec<Self::Buffer>> {
+        self.read(ident).map(buffers::Spec::Raw)
+    }
+
+    fn read_shape(&self, ident: I) -> Option<buffers::shapes::ShapeOf<Self::Buffer>> {
+        use buffers::shapes::Shaped;
 
         self.read(ident).map(|buf| buf.shape())
     }
@@ -301,49 +305,6 @@ pub trait Contains<T: Identifier>: Node {
     fn contains(&self, ident: T) -> bool;
 }
 
-pub enum State<B: buffers::Buffer> {
-    Zero(B::Shape),
-    One(B::Shape),
-    Buffer(B),
-}
-
-impl<F, B> State<B>
-where
-    F: buffers::Scalar,
-    B: buffers::Buffer<Field = F>,
-{
-    pub fn shape(&self) -> B::Shape {
-        match self {
-            &State::Zero(s) | &State::One(s) => s,
-            &State::Buffer(ref b) => b.shape(),
-        }
-    }
-
-    pub fn into_zero(self) -> Self {
-        match self {
-            State::Zero(s) => State::Zero(s),
-            State::One(s) => State::Zero(s),
-            State::Buffer(b) => State::Zero(b.shape()),
-        }
-    }
-
-    pub fn into_one(self) -> Self {
-        match self {
-            State::Zero(s) => State::One(s),
-            State::One(s) => State::One(s),
-            State::Buffer(b) => State::One(b.shape()),
-        }
-    }
-
-    pub fn unwrap(self) -> B {
-        match self {
-            State::Zero(s) => <B::Class as buffers::Class<B::Shape>>::full(s, F::zero()),
-            State::One(s) => <B::Class as buffers::Class<B::Shape>>::full(s, F::one()),
-            State::Buffer(b) => b,
-        }
-    }
-}
-
 /// Trait for operator [Nodes](Node) that can be evaluated against a [Database].
 pub trait Function<D: Database>: Node {
     /// The codomain of the function.
@@ -365,6 +326,13 @@ pub trait Function<D: Database>: Node {
     /// ```
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> AegirResult<Self, D>;
 
+    fn evaluate_spec<DR: AsRef<D>>(
+        &self,
+        db: DR,
+    ) -> Result<buffers::Spec<Self::Value>, Self::Error> {
+        self.evaluate(db).map(buffers::Spec::Raw)
+    }
+
     /// Evaluate the function and return the shape of the
     /// [Value](Function::Value).
     ///
@@ -374,15 +342,9 @@ pub trait Function<D: Database>: Node {
     fn evaluate_shape<DR: AsRef<D>>(
         &self,
         db: DR,
-    ) -> Result<buffers::ShapeOf<Self::Value>, Self::Error> {
-        self.evaluate(db).map(|ref buf| buffers::Buffer::shape(buf))
-    }
-
-    fn evaluate_state<DR: AsRef<D>>(
-        &self,
-        db: DR,
-    ) -> Result<State<Self::Value>, Self::Error> {
-        self.evaluate(db).map(State::Buffer)
+    ) -> Result<buffers::shapes::ShapeOf<Self::Value>, Self::Error> {
+        self.evaluate(db)
+            .map(|ref buf| buffers::shapes::Shaped::shape(buf))
     }
 }
 
@@ -468,9 +430,6 @@ pub type AdjointOf<F, T> = <F as Differentiable<T>>::Adjoint;
 pub type DualOf<F, D, T> = Dual<ValueOf<F, D>, ValueOf<AdjointOf<F, T>, D>>;
 
 extern crate self as aegir;
-
-#[macro_use]
-mod macros;
 
 mod dual;
 pub use self::dual::Dual;

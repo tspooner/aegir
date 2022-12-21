@@ -1,11 +1,11 @@
 use super::SourceError;
 use crate::{
     buffers::{
-        shapes::{Concat, Shape},
+        shapes::{Concat, Shape, ShapeOf},
         Buffer,
         Class,
-        ShapeOf,
         Scalar,
+        Spec,
     },
     Contains,
     Differentiable,
@@ -62,6 +62,12 @@ where
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         db.as_ref()
             .read(self.0)
+            .ok_or_else(|| SourceError::Undefined(self.0))
+    }
+
+    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
+        db.as_ref()
+            .read_spec(self.0)
             .ok_or_else(|| SourceError::Undefined(self.0))
     }
 
@@ -145,6 +151,10 @@ where
     type Value = <CA as Class<SA>>::Buffer<F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        self.evaluate_spec(db).map(|spec| spec.unwrap())
+    }
+
+    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
         let shape_value = db
             .as_ref()
             .read_shape(self.value)
@@ -167,9 +177,14 @@ where
                 .zip(shape_target.indices())
                 .map(|ixs| <SI as Concat<ST>>::concat_indices(ixs.0, ixs.1));
 
-            CA::build_subset(shape_adjoint, num_traits::zero(), ixs, |_| one)
+            Spec::Raw(CA::build_subset(
+                shape_adjoint,
+                F::zero(),
+                ixs,
+                |_| one,
+            ))
         } else {
-            <Self::Value as Buffer>::Class::full(shape_adjoint, num_traits::zero())
+            Spec::zeroes(shape_adjoint)
         })
     }
 

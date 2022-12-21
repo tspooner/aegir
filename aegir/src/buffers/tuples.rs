@@ -1,4 +1,12 @@
-use super::{shapes::S1, Buffer, Class, IncompatibleShapes, Scalar, ZipFold, ZipMap};
+use super::{
+    shapes::{Shaped, S1},
+    Buffer,
+    Class,
+    IncompatibleShapes,
+    Scalar,
+    ZipFold,
+    ZipMap,
+};
 
 /// Tuple buffer class.
 pub struct Tuples;
@@ -30,14 +38,17 @@ impl Class<S1<2>> for Tuples {
     fn full<F: Scalar>(_: S1<2>, value: F) -> Self::Buffer<F> { (value, value) }
 }
 
+impl<F: Scalar> Shaped for (F, F) {
+    type Shape = S1<2>;
+
+    fn shape(&self) -> Self::Shape { S1 }
+}
+
 impl<F: Scalar> Buffer for (F, F) {
     type Class = Tuples;
     type Field = F;
-    type Shape = S1<2>;
 
     fn class() -> Tuples { Tuples }
-
-    fn shape(&self) -> Self::Shape { S1 }
 
     fn get(&self, ix: usize) -> Option<F> {
         match ix {
@@ -89,7 +100,11 @@ impl<F: Scalar> ZipMap for (F, F) {
     }
 
     #[inline]
-    fn zip_map_dominate<A: Scalar, M: Fn(F) -> A>(self, _: S1<2>, f: M) -> Result<(A, A), IncompatibleShapes<S1<2>>> {
+    fn zip_map_dominate<A: Scalar, M: Fn(F) -> A>(
+        self,
+        _: S1<2>,
+        f: M,
+    ) -> Result<(A, A), IncompatibleShapes<S1<2>>> {
         Ok((f(self.0), f(self.1)))
     }
 

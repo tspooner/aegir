@@ -1,5 +1,5 @@
 use super::{
-    shapes::{IndexOf, Shape, S0, S1, S2, S3, S4, S5},
+    shapes::{IndexOf, Shape, Shaped, S0, S1, S2, S3, S4, S5},
     Buffer,
     Class,
     IncompatibleShapes,

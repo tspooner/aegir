@@ -1,4 +1,4 @@
-use crate::buffers::{Buffer, Scalar, Class, FieldOf};
+use crate::buffers::{Buffer, Class, FieldOf, Scalar};
 use std::ops;
 
 type AddOut<A, B> = <A as std::ops::Add<B>>::Output;
@@ -36,13 +36,19 @@ impl<F: Scalar, B: Buffer<Field = F>> Dual<B> {
     pub fn variable(buffer: B) -> Dual<B> {
         let adjoint = <B::Class as Class<B::Shape>>::full(buffer.shape(), F::one());
 
-        Dual { value: buffer, adjoint }
+        Dual {
+            value: buffer,
+            adjoint,
+        }
     }
 
     pub fn constant(buffer: B) -> Dual<B> {
         let adjoint = <B::Class as Class<B::Shape>>::full(buffer.shape(), F::zero());
 
-        Dual { value: buffer, adjoint }
+        Dual {
+            value: buffer,
+            adjoint,
+        }
     }
 }
 

@@ -4,66 +4,90 @@ use std::fmt::{Debug, Display};
 
 /// Error type for two incompatible buffers based on their shapes.
 #[derive(Copy, Clone, Debug)]
-pub struct IncompatibleShapes<S1, S2 = S1>(pub(crate) S1, pub(crate) S2)
-where
-    S1: Shape,
-    S2: Shape;
+pub struct IncompatibleShapes<L: Shape, R: Shape = L> {
+    pub left: L,
+    pub right: R,
+}
 
-impl<S1, S2> std::fmt::Display for IncompatibleShapes<S1, S2>
-where
-    S1: Shape,
-    S2: Shape,
-{
+impl<L: Shape, R: Shape> IncompatibleShapes<L, R> {
+    pub fn reverse(self) -> IncompatibleShapes<R, L> {
+        IncompatibleShapes {
+            left: self.right,
+            right: self.left,
+        }
+    }
+}
+
+impl<L: Shape, R: Shape> std::fmt::Display for IncompatibleShapes<L, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "Buffer shapes are incompatible: {} vs {}.",
-            self.0, self.1
+            self.left, self.right
         )
     }
 }
 
-impl<S1, S2> std::error::Error for IncompatibleShapes<S1, S2>
-where
-    S1: Shape,
-    S2: Shape,
-{
-}
+impl<L: Shape, R: Shape> std::error::Error for IncompatibleShapes<L, R> {}
 
 /// Trait for index types that can be used to access buffer elements.
 pub trait Ix: Eq + Copy + Debug {
-    /// Returns true if the index is a diagonal element.
-    ///
-    /// A diagonal element is defined here as an index where all components are
-    /// equal.
-    ///
-    /// ```
-    /// # #[macro_use] extern crate aegir;
-    /// # use aegir::buffers::shapes::Ix;
-    /// assert!([1, 1, 1].is_diagonal());
-    /// ```
-    fn is_diagonal(&self) -> bool;
+/// Returns true if the index is a diagonal element.
+///
+/// A diagonal element is defined here as an index where all components are
+/// equal.
+///
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # use aegir::buffers::shapes::Ix;
+/// assert!([1, 1, 1].is_diagonal());
+/// ```
+fn is_diagonal(&self) -> bool;
 }
 
 impl Ix for () {
-    fn is_diagonal(&self) -> bool { true }
+fn is_diagonal(&self) -> bool { true }
 }
 
 impl Ix for usize {
-    fn is_diagonal(&self) -> bool { true }
+fn is_diagonal(&self) -> bool { true }
 }
 
 impl<const DIM: usize> Ix for [usize; DIM] {
-    fn is_diagonal(&self) -> bool {
-        let mut it = self.iter();
-        let first = it.next();
+fn is_diagonal(&self) -> bool {
+    let mut it = self.iter();
+    let first = it.next();
 
-        match first {
+    match first {
             None => true,
             Some(ix) => it.all(|jx| ix == jx),
         }
     }
 }
+
+pub trait Shaped {
+    /// [Shape](shapes::Shape) associated with this type.
+    type Shape: Shape;
+
+    /// Return the [Shape](Buffer::Shape) associated with the type.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::{Buffer, shapes::S2};
+    /// // Take the 2x2 identity matrix...
+    /// let buffer = [
+    ///     [1.0, 0.0],
+    ///     [0.0, 1.0]
+    /// ];
+    ///
+    /// // We can assert that the row/col counts match by the following type annotation:
+    /// let shape: S2<2, 2> = buffer.shape();
+    /// ```
+    fn shape(&self) -> Self::Shape;
+}
+
+/// Type shortcut for the [Shape] associated with a [Shaped].
+pub type ShapeOf<B> = <B as Shaped>::Shape;
 
 /// Trait for types that represent the shape of a buffer.
 pub trait Shape: Copy + Debug + Display {
@@ -163,18 +187,6 @@ pub trait Zip<RHS: Shape = Self>: Shape {
 
     fn zip(self, rhs: RHS) -> Result<Self::Shape, IncompatibleShapes<Self, RHS>>;
 }
-
-// TODO - Once impl-spec drops, we can implement this. It'd be useful for
-// simplification code, much        like with operator rewrites.
-// /// Trait for reducing a shape into its simplest form.
-// ///
-// /// This typically involves trimming either end of unitary values.
-// pub trait Reduce: Shape {
-// type Reduced: Shape;
-
-// /// Trim the shape.
-// fn reduce(self) -> Self::Reduced;
-// }
 
 mod multi_product;
 

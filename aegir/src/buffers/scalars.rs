@@ -1,4 +1,11 @@
-use super::{shapes::S0, Buffer, Class, IncompatibleShapes, ZipFold, ZipMap};
+use super::{
+    shapes::{Shaped, S0},
+    Buffer,
+    Class,
+    IncompatibleShapes,
+    ZipFold,
+    ZipMap,
+};
 use num_traits::Num;
 
 /// Scalar buffer class.
@@ -33,14 +40,17 @@ pub trait Scalar:
 
 macro_rules! impl_scalar {
     ($F:ty) => {
+        impl Shaped for $F {
+            type Shape = S0;
+
+            fn shape(&self) -> S0 { S0 }
+        }
+
         impl Buffer for $F {
             type Class = Scalars;
             type Field = $F;
-            type Shape = S0;
 
             fn class() -> Scalars { Scalars }
-
-            fn shape(&self) -> S0 { S0 }
 
             fn get(&self, _: ()) -> Option<$F> { Some(*self) }
 
@@ -77,7 +87,13 @@ macro_rules! impl_scalar {
                 Ok(f(self, rhs))
             }
 
-            fn zip_map_dominate<A: Scalar, M: Fn($F) -> A>(self, _: S0, f: M) -> Result<A, IncompatibleShapes<S0>> { Ok(f(self)) }
+            fn zip_map_dominate<A: Scalar, M: Fn($F) -> A>(
+                self,
+                _: S0,
+                f: M,
+            ) -> Result<A, IncompatibleShapes<S0>> {
+                Ok(f(self))
+            }
 
             fn zip_map_dominate_id(self, _: S0) -> Result<$F, IncompatibleShapes<S0>> { Ok(self) }
         }

@@ -36,15 +36,17 @@ macro_rules! impl_buffer {
             fn full<F: Scalar>(_: $shape, $f_val: F) -> Self::Buffer<F> { $f_impl }
         }
 
-        // Buffer (owned) implementation:
+        impl<$f: Scalar, $(const $d: usize),+> Shaped for $arr {
+            type Shape = $shape;
+
+            fn shape(&self) -> Self::Shape { $s_impl }
+        }
+
         impl<$f: Scalar, $(const $d: usize),+> Buffer for $arr {
             type Class = Arrays;
             type Field = $f;
-            type Shape = $shape;
 
             fn class() -> Arrays { Arrays }
-
-            fn shape(&self) -> Self::Shape { $s_impl }
 
             fn get_unchecked(&$gu_self, $gu_ix: IndexOf<Self::Shape>) -> $f { $gu_impl }
 

@@ -1,12 +1,12 @@
 use crate::{
-    buffers::{Buffer, FieldOf, Scalar, ShapeOf},
+    buffers::shapes::ShapeOf,
+    buffers::{Buffer, FieldOf, Scalar, Spec},
     Contains,
     Database,
     Differentiable,
     Function,
     Identifier,
     Node,
-    State,
 };
 use num_traits::real::Real;
 use std::fmt;
@@ -82,9 +82,9 @@ where
 impl<X: Node + std::fmt::Display> std::fmt::Display for OneSub<X> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // if Stage::Instance(&self.0).is_zero() != TFU::True {
-            write!(f, "1 - ({})", self.0)
+        write!(f, "1 - ({})", self.0)
         // } else {
-            // write!(f, "1")
+        // write!(f, "1")
         // }
     }
 }
@@ -182,9 +182,9 @@ where
 impl<X: Node + fmt::Display> fmt::Display for Square<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // if Stage::Instance(&self.0).is_zero() != TFU::True {
-            write!(f, "({})^2", self.0)
+        write!(f, "({})^2", self.0)
         // } else {
-            // write!(f, "0")
+        // write!(f, "0")
         // }
     }
 }
@@ -217,22 +217,19 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.evaluate_state(db).map(|state| state.unwrap())
+        self.evaluate_spec(db).map(|state| state.unwrap())
+    }
+
+    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
+        let two = num_traits::one::<FieldOf<N::Value>>() + num_traits::one();
+
+        self.0
+            .evaluate_spec(db)
+            .map(|spec| spec.map(|x| two * x))
     }
 
     fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
         self.0.evaluate_shape(db)
-    }
-
-    fn evaluate_state<DR: AsRef<D>>(&self, db: DR) -> Result<State<Self::Value>, Self::Error> {
-        match self.0.evaluate_state(db)? {
-            s @ State::Zero(_) | s @ State::One(_) => Ok(s),
-            State::Buffer(buf) => {
-                let two = num_traits::one::<FieldOf<N::Value>>() + num_traits::one();
-
-                Ok(State::Buffer(buf.map(|x| two * x)))
-            },
-        }
     }
 }
 
@@ -249,9 +246,9 @@ where
 impl<X: Node + fmt::Display> fmt::Display for Double<X> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // if Stage::Instance(&self.0).is_zero() != TFU::True {
-            write!(f, "2({})", self.0)
+        write!(f, "2({})", self.0)
         // } else {
-            // write!(f, "0")
+        // write!(f, "0")
         // }
     }
 }
@@ -474,9 +471,9 @@ where
 impl<N: Node + fmt::Display> fmt::Display for Abs<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // if Stage::Instance(&self.0).is_zero() != TFU::True {
-            write!(f, "|{}|", self.0)
+        write!(f, "|{}|", self.0)
         // } else {
-            // write!(f, "0")
+        // write!(f, "0")
         // }
     }
 }

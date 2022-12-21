@@ -31,31 +31,6 @@ macro_rules! impl_unary {
     }
 }
 
-macro_rules! short_circuit {
-    (@TakeLeft $db:ident[$l:expr, $r:expr]) => {{
-        let l = $l.evaluate(&$db).map_err(BinaryError::Left)?;
-        let r_shape = $r.evaluate_shape($db).map_err(BinaryError::Right)?;
-
-        l.zip_map_dominate_id(r_shape).map_err(BinaryError::Output)
-    }};
-    (@TakeRight $db:ident[$l:expr, $r:expr]) => {{
-        let l_shape = $l.evaluate_shape(&$db).map_err(BinaryError::Left)?;
-        let r = $r.evaluate($db).map_err(BinaryError::Right)?;
-
-        r.zip_map_dominate_id(l_shape).map_err(|err| IncompatibleShapes(err.1, err.0)).map_err(BinaryError::Output)
-    }};
-    (@TakeNeither $db:ident[$l:expr, $r:expr]{$fv:expr}) => {{
-        use crate::buffers::{ClassOf, ShapeOf, shapes::Zip};
-
-        let l_shape = $l.evaluate_shape(&$db).map_err(BinaryError::Left)?;
-        let r_shape = $r.evaluate_shape($db).map_err(BinaryError::Right)?;
-
-        let shape: ShapeOf<Self::Value> = l_shape.zip(r_shape).map_err(BinaryError::Output)?;
-
-        Ok(<ClassOf<Self::Value> as Class<ShapeOf<Self::Value>>>::full(shape, $fv))
-    }};
-}
-
 mod arithmetic;
 pub use self::arithmetic::{
     Abs,

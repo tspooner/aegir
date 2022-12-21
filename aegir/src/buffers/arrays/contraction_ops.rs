@@ -8,14 +8,14 @@ macro_rules! impl_contract {
             type Output = $out;
 
             fn contract($x, $y: $right) -> Result<
-                $out, IncompatibleShapes<<$left as Buffer>::Shape, <$right as Buffer>::Shape>
+                $out, IncompatibleShapes<<$left as Shaped>::Shape, <$right as Shaped>::Shape>
             >
             {
                 $impl
             }
 
-            fn contract_shape(_: <$left as Buffer>::Shape, _: <$right as Buffer>::Shape) -> Result<
-                <$out as Buffer>::Shape, IncompatibleShapes<<$left as Buffer>::Shape, <$right as Buffer>::Shape>
+            fn contract_shape(_: <$left as Shaped>::Shape, _: <$right as Shaped>::Shape) -> Result<
+                <$out as Shaped>::Shape, IncompatibleShapes<<$left as Shaped>::Shape, <$right as Shaped>::Shape>
             >
             {
                 Ok($shape)

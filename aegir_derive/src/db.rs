@@ -69,17 +69,31 @@ fn db_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStream {
                 predicates: syn::punctuated::Punctuated::new(),
             });
 
-        let f_ty = &f.ty;
-
-        wc.predicates
-            .push(parse_quote! { #f_ty: ::aegir::buffers::Buffer });
+        wc.predicates.push(parse_quote! {
+            #ty: Clone + ::aegir::buffers::IntoSpec + ::aegir::buffers::shapes::Shaped
+        });
+        wc.predicates.push(parse_quote! {
+            <#ty as ::aegir::buffers::IntoSpec>::Buffer: ::aegir::buffers::shapes::Shaped<Shape = <#ty as ::aegir::buffers::shapes::Shaped>::Shape>
+        });
 
         (quote! {
             impl #impl_generics ::aegir::Read<#field_id> for #name #ty_generics #wc {
-                type Buffer = #ty;
+                type Buffer = <#ty as ::aegir::buffers::IntoSpec>::Buffer;
 
-                fn read(&self, _: #field_id) -> Option<#ty> {
-                    Some(self.#field_name.clone())
+                fn read(&self, fid: #field_id) -> Option<Self::Buffer> {
+                    self.read_spec(fid).map(|spec| spec.unwrap())
+                }
+
+                fn read_spec(&self, _: #field_id) -> Option<::aegir::buffers::Spec<Self::Buffer>> {
+                    use ::aegir::buffers::IntoSpec;
+
+                    Some(self.#field_name.clone().into_spec())
+                }
+
+                fn read_shape(&self, _: #field_id) -> Option<::aegir::buffers::shapes::ShapeOf<#ty>> {
+                    use ::aegir::buffers::shapes::Shaped;
+
+                    Some(self.#field_name.shape())
                 }
             }
         })

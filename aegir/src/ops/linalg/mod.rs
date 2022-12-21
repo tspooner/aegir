@@ -1,5 +1,6 @@
 use crate::{
-    buffers::{Buffer, Contract as CTrait, FieldOf, IncompatibleShapes, ShapeOf, shapes::Shape},
+    buffers::shapes::{ShapeOf, Shaped},
+    buffers::{Buffer, Contract as CTrait, FieldOf, IncompatibleShapes, Spec},
     ops::Add,
     BinaryError,
     Contains,
@@ -8,8 +9,8 @@ use crate::{
     Function,
     Identifier,
     Node,
-    State,
 };
+use num_traits::Zero as _;
 
 #[derive(Copy, Clone, PartialEq, Contains)]
 pub struct Contract<const AXES: usize, L, R>(#[op] pub L, #[op] pub R);
@@ -29,15 +30,39 @@ where
     L::Value: CTrait<R::Value, AXES>,
     R::Value: Buffer<Field = FieldOf<L::Value>>,
 {
-    type Error = BinaryError<
-        L::Error,
-        R::Error,
-        IncompatibleShapes<ShapeOf<L::Value>, ShapeOf<R::Value>>,
-    >;
+    type Error =
+        BinaryError<L::Error, R::Error, IncompatibleShapes<ShapeOf<L::Value>, ShapeOf<R::Value>>>;
     type Value = <L::Value as CTrait<R::Value, AXES>>::Output;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.evaluate_state(db).map(|state| state.unwrap())
+        self.evaluate_spec(db).map(|state| state.unwrap())
+    }
+
+    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
+        use Spec::*;
+
+        let x = self.0.evaluate_spec(&db).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_spec(db).map_err(BinaryError::Right)?;
+
+        match (x, y) {
+            (Full(sx, fx), y) if fx.is_zero() => {
+                <L::Value as CTrait<R::Value, AXES>>::contract_shape(sx, y.shape())
+                    .map(Spec::zeroes)
+                    .map_err(BinaryError::Output)
+            },
+
+            (x, Full(sy, fy)) if fy.is_zero() => {
+                <L::Value as CTrait<R::Value, AXES>>::contract_shape(x.shape(), sy)
+                    .map(Spec::zeroes)
+                    .map_err(BinaryError::Output)
+            },
+
+            (x, y) => x
+                .unwrap()
+                .contract(y.unwrap())
+                .map(Spec::Raw)
+                .map_err(BinaryError::Output),
+        }
     }
 
     fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
@@ -45,35 +70,6 @@ where
         let y = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
 
         <L::Value as CTrait<R::Value, AXES>>::contract_shape(x, y).map_err(BinaryError::Output)
-    }
-
-    fn evaluate_state<DR: AsRef<D>>(&self, db: DR) -> Result<State<Self::Value>, Self::Error> {
-        let x = self.0.evaluate_state(&db).map_err(BinaryError::Left)?;
-        let y = self.1.evaluate_state(db).map_err(BinaryError::Right)?;
-
-        match (x, y) {
-            // (State::Zero(sx), State::Zero(sy)) | (State::Zero(sx), State::One(sy)) | (State::One(sx), State::Zero(sy)) => {
-                // <L::Value as CTrait<R::Value, AXES>>::contract_shape(sx, sy)
-                    // .map(State::Zero)
-                    // .map_err(BinaryError::Output)
-            // },
-
-            // (State::Zero(sx), State::Buffer(y)) => {
-                // <L::Value as CTrait<R::Value, AXES>>::contract_shape(sx, y.shape())
-                    // .map(State::Zero)
-                    // .map_err(BinaryError::Output)
-            // },
-
-            // (State::Buffer(x), State::Zero(sy)) => {
-                // <L::Value as CTrait<R::Value, AXES>>::contract_shape(x.shape(), sy)
-                    // .map(State::Zero)
-                    // .map_err(BinaryError::Output)
-            // },
-
-            (x, y) => {
-                x.unwrap().contract(y.unwrap()).map(State::Buffer).map_err(BinaryError::Output)
-            },
-        }
     }
 }
 

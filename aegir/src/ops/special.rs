@@ -1,5 +1,5 @@
 use crate::{
-    buffers::{Buffer, Class, ClassOf, FieldOf, ShapeOf},
+    buffers::{Buffer, FieldOf},
     Contains,
     Database,
     Function,
@@ -82,13 +82,13 @@ where
         // let stage = crate::Stage::Evaluation(&self.0);
 
         // if N::is_zero(stage) == crate::logic::TFU::True {
-            // self.0.evaluate_shape(db).map(|shape| {
-                // <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(shape, num_traits::one())
-            // })
+        // self.0.evaluate_shape(db).map(|shape| {
+        // <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(shape,
+        // num_traits::one()) })
         // } else {
-            self.0
-                .evaluate(db)
-                .map(|buffer| buffer.map(|x| x.factorial()))
+        self.0
+            .evaluate(db)
+            .map(|buffer| buffer.map(|x| x.factorial()))
         // }
     }
 }
@@ -120,11 +120,11 @@ where
         // let stage = crate::Stage::Evaluation(&self.0);
 
         // if N::is_zero(stage) == crate::logic::TFU::True {
-            // self.0.evaluate_shape(db).map(|shape| {
-                // <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(shape, num_traits::zero())
-            // })
+        // self.0.evaluate_shape(db).map(|shape| {
+        // <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(shape,
+        // num_traits::zero()) })
         // } else {
-            self.0.evaluate(db).map(|buffer| buffer.map(|x| x.erf()))
+        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.erf()))
         // }
     }
 }
