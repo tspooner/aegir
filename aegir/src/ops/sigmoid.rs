@@ -7,7 +7,7 @@ use crate::{
     Identifier,
     Node,
 };
-use num_traits::{one, real::Real, zero};
+use num_traits::real::Real;
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
@@ -24,21 +24,19 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let one: FieldOf<N::Value> = one();
+        let one: FieldOf<N::Value> = num_traits::one();
 
-        self.0
-            .evaluate(db)
-            .map(|buffer| buffer.map(|x| x * (one - x)))
+        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x * (one - x)); buf })
     }
 }
 
 fn sigmoid<F: Real>(x: F) -> F {
-    if x >= zero() {
-        let l: F = one();
+    if x >= num_traits::zero() {
+        let l: F = num_traits::one();
 
         l / (l + (-x).exp())
     } else {
-        let l: F = one();
+        let l: F = num_traits::one();
         let z = x.exp();
 
         return z / (l + z);
@@ -82,7 +80,7 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buffer| buffer.map(sigmoid))
+        self.0.evaluate(db).map(|mut buf| { buf.mutate(sigmoid); buf })
     }
 }
 

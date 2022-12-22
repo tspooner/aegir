@@ -25,7 +25,7 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.gamma()))
+        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x.gamma()); buf })
     }
 }
 
@@ -50,9 +50,7 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0
-            .evaluate(db)
-            .map(|buffer| buffer.map(|x| x.loggamma()))
+        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x.loggamma()); buf })
     }
 }
 
@@ -79,17 +77,7 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        // let stage = crate::Stage::Evaluation(&self.0);
-
-        // if N::is_zero(stage) == crate::logic::TFU::True {
-        // self.0.evaluate_shape(db).map(|shape| {
-        // <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(shape,
-        // num_traits::one()) })
-        // } else {
-        self.0
-            .evaluate(db)
-            .map(|buffer| buffer.map(|x| x.factorial()))
-        // }
+        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x.factorial()); buf })
     }
 }
 
@@ -117,15 +105,7 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        // let stage = crate::Stage::Evaluation(&self.0);
-
-        // if N::is_zero(stage) == crate::logic::TFU::True {
-        // self.0.evaluate_shape(db).map(|shape| {
-        // <ClassOf<Self::Value> as Class<ShapeOf<N::Value>>>::full(shape,
-        // num_traits::zero()) })
-        // } else {
-        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.erf()))
-        // }
+        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x.erf()); buf })
     }
 }
 

@@ -71,11 +71,9 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buffer| {
-            let o: FieldOf<N::Value> = num_traits::one();
+        let o: FieldOf<N::Value> = num_traits::one();
 
-            buffer.map(|x| o - x)
-        })
+        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| o - x); buf })
     }
 }
 
@@ -155,15 +153,16 @@ impl<F, D, N> Function<D> for Square<N>
 where
     F: Scalar + num_traits::Pow<F, Output = F>,
     D: Database,
-    N: Function<D, Value = F>,
+    N: Function<D>,
+    N::Value: Buffer<Field = F>,
 {
     type Error = N::Error;
-    type Value = F;
+    type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         let two = num_traits::one::<F>() + num_traits::one();
 
-        self.0.evaluate(db).map(|x| x.pow(two))
+        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x.pow(two)); buf })
     }
 }
 
@@ -223,9 +222,7 @@ where
     fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
         let two = num_traits::one::<FieldOf<N::Value>>() + num_traits::one();
 
-        self.0
-            .evaluate_spec(db)
-            .map(|spec| spec.map(|x| two * x))
+        self.0.evaluate_spec(db).map(|spec| spec.map(|x| two * x))
     }
 
     fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
@@ -397,14 +394,15 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buffer| {
-            buffer.map(|x| {
+        self.0.evaluate(db).map(|mut buf| {
+            buf.mutate(|x| {
                 if num_traits::Zero::is_zero(&x) {
                     x
                 } else {
                     x.signum()
                 }
-            })
+            });
+            buf
         })
     }
 }
@@ -452,7 +450,7 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buffer| buffer.map(|x| x.abs()))
+        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x.abs()); buf })
     }
 }
 

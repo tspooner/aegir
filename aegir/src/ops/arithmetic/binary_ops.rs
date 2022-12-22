@@ -119,8 +119,11 @@ where
 
             (b, e) => {
                 let e = e.unwrap();
+                let mut b = b.unwrap();
 
-                Ok(Raw(b.unwrap().map(|x| x.pow(e))))
+                b.mutate(|x| x.pow(e));
+
+                Ok(Raw(b))
             },
         }
     }
@@ -542,40 +545,6 @@ where
         l_shape.zip(r_shape).map_err(BinaryError::Output)
     }
 }
-
-// impl<F, D, T, L, R> Differentiable<D, T> for Div<L, R>
-// where
-// F: Scalar,
-// D: Database,
-// T: Identifier,
-// L: Differentiable<D, T>,
-// R: Differentiable<D, T>,
-
-// L::Value: Buffer<Field = F> + ZipMap<R::Value> + ZipMap<R::Adjoint,
-// Output = L::Value>, R::Value: Buffer<Field = F> + ZipMap<L::Adjoint,
-// Output = R::Value>,
-
-// HadOut<L::Value, R::Value>: ZipMap<R::Value>,
-// {
-// type Adjoint = HadOut<HadOut<L::Value, R::Value>, R::Value>;
-
-// fn grad(&self, db: &D, target: T) -> Result<Self::Adjoint, Self::Error> {
-// let x = self.0.dual(db, target).map_err(BinaryError::Left)?;
-// let y = self.1.dual(db, target).map_err(BinaryError::Right)?;
-
-// let t1 = y.value.zip_map(&x.adjoint, |xi, yi| xi * yi)
-// .unwrap();
-// // .map_err(BinaryError::Output)?;
-// let t2 = x.value.zip_map(&y.adjoint, |xi, yi| xi * yi)
-// .unwrap();
-// // .map_err(BinaryError::Output)?;
-
-// let numerator = t2.zip_map(&t1, |yi, xi| xi - yi).unwrap();
-
-// // t1.zip_map(&t2, |t1i, t2i| t1i + t2i).map_err(BinaryError::Output)
-// Ok(numerator.zip_map(&y.value, |n, d| n / d).unwrap())
-// }
-// }
 
 impl<T, L, R> Differentiable<T> for Div<L, R>
 where

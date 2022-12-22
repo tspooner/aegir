@@ -27,7 +27,7 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buf| buf.map(|x| x.ln()))
+        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x.ln()); buf })
     }
 }
 
@@ -61,14 +61,16 @@ where
     type Value = N::Value;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buffer| {
-            buffer.map(|x| {
+        self.0.evaluate(db).map(|mut buf| {
+            buf.mutate(|x| {
                 if x <= num_traits::zero() {
                     num_traits::zero()
                 } else {
                     x * x.ln()
                 }
-            })
+            });
+
+            buf
         })
     }
 }

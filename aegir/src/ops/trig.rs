@@ -23,9 +23,9 @@ macro_rules! impl_trig {
             type Value = N::Value;
 
             fn evaluate<DR: AsRef<D>>(&self, state: DR) -> Result<Self::Value, Self::Error> {
-                self.0
-                    .evaluate(state)
-                    .map(|buffer| crate::buffers::Buffer::map(buffer, $eval))
+                use crate::buffers::Buffer;
+
+                self.0.evaluate(state).map(|mut buf| { buf.mutate($eval); buf })
             }
         }
 

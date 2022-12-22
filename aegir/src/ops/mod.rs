@@ -17,9 +17,9 @@ macro_rules! impl_unary {
             type Value = N::Value;
 
             fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-                self.0.evaluate(db).map(|buffer| {
-                    crate::buffers::Buffer::map(buffer, $eval)
-                })
+                use crate::buffers::Buffer;
+
+                self.0.evaluate(db).map(|mut buf| { buf.mutate($eval); buf })
             }
         }
 
