@@ -321,5 +321,6 @@ pub use self::dual::Dual;
 mod sources;
 pub use self::sources::{Constant, ConstantAdjoint, SourceError, Variable, VariableAdjoint};
 
+pub mod fmt;
 pub mod buffers;
 pub mod ops;

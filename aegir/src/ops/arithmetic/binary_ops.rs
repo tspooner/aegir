@@ -8,6 +8,7 @@ use crate::{
         Spec,
         ZipMap,
     },
+    fmt::{ToExpr, Expr, PreWrap},
     ops::SafeXlnX,
     BinaryError,
     Contains,
@@ -152,9 +153,26 @@ where
     }
 }
 
-impl<X: fmt::Display, E: fmt::Display> fmt::Display for Power<X, E> {
+impl<N: ToExpr, E: ToExpr> ToExpr for Power<N, E> {
+    fn to_expr(&self) -> Expr {
+        use Expr::*;
+
+        match (self.0.to_expr(), self.1.to_expr()) {
+            (Zero, _) => Zero,
+            (_, Zero) => One,
+            (One, _) => One,
+            (l, One) => l,
+            (Text(l), Text(r)) => Text(PreWrap {
+                text: format!("{}^{}", l.to_safe_string('(', ')'), r.to_safe_string('(', ')')),
+                needs_wrap: false,
+            })
+        }
+    }
+}
+
+impl<X: ToExpr, E: ToExpr> fmt::Display for Power<X, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({})^({})", self.0, self.1)
+        self.to_expr().fmt(f)
     }
 }
 
@@ -266,9 +284,41 @@ where
     }
 }
 
-impl<L: Node + std::fmt::Display, R: Node + std::fmt::Display> std::fmt::Display for Add<L, R> {
+impl<L: ToExpr, R: ToExpr> ToExpr for Add<L, R> {
+    fn to_expr(&self) -> Expr {
+        use Expr::*;
+
+        match (self.0.to_expr(), self.1.to_expr()) {
+            (Zero, Zero) => Zero,
+            (Zero, One) | (One, Zero) => One,
+
+            (One, One) => Text(PreWrap {
+                text: "2".to_string(),
+                needs_wrap: false,
+            }),
+
+            (Text(l), Zero) => Text(l),
+            (Zero, Text(r)) => Text(r),
+
+            (Text(l), One) => Text(PreWrap {
+                text: format!("{} + 1", l.to_safe_string('(', ')')),
+                needs_wrap: true,
+            }),
+            (One, Text(r)) => Text(PreWrap {
+                text: format!("1 + {}", r.to_safe_string('(', ')')),
+                needs_wrap: true,
+            }),
+            (Text(l), Text(r)) => Text(PreWrap {
+                text: format!("{} + {}", l.to_safe_string('(', ')'), r.to_safe_string('(', ')')),
+                needs_wrap: true,
+            })
+        }
+    }
+}
+
+impl<L: ToExpr, R: ToExpr> std::fmt::Display for Add<L, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}) + ({})", self.0, self.1)
+        self.to_expr().fmt(f)
     }
 }
 
@@ -373,9 +423,45 @@ where
     }
 }
 
-impl<L: Node + std::fmt::Display, R: Node + std::fmt::Display> std::fmt::Display for Sub<L, R> {
+impl<L: ToExpr, R: ToExpr> ToExpr for Sub<L, R> {
+    fn to_expr(&self) -> Expr {
+        use Expr::*;
+
+        match (self.0.to_expr(), self.1.to_expr()) {
+            (Zero, Zero) => Zero,
+            (One, One) => Zero,
+
+            (One, Zero) => One,
+            (Zero, One) => Text(PreWrap {
+                text: "-1".to_string(),
+                needs_wrap: false,
+            }),
+
+            (Text(l), Zero) => Text(l),
+            (Zero, Text(r)) => Text(PreWrap {
+                text: format!("-{}", r.to_safe_string('(', ')')),
+                needs_wrap: false,
+            }),
+
+            (Text(l), One) => Text(PreWrap {
+                text: format!("{} - 1", l.to_safe_string('(', ')')),
+                needs_wrap: true,
+            }),
+            (One, Text(r)) => Text(PreWrap {
+                text: format!("1 - {}", r.to_safe_string('(', ')')),
+                needs_wrap: true,
+            }),
+            (Text(l), Text(r)) => Text(PreWrap {
+                text: format!("{} - {}", l.to_safe_string('(', ')'), r.to_safe_string('(', ')')),
+                needs_wrap: true,
+            })
+        }
+    }
+}
+
+impl<L: ToExpr, R: ToExpr> std::fmt::Display for Sub<L, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}) - ({})", self.0, self.1)
+        self.to_expr().fmt(f)
     }
 }
 
@@ -500,9 +586,28 @@ where
     }
 }
 
-impl<L: Node + fmt::Display, R: Node + fmt::Display> fmt::Display for Mul<L, R> {
+impl<L: ToExpr, R: ToExpr> ToExpr for Mul<L, R> {
+    fn to_expr(&self) -> Expr {
+        use Expr::*;
+
+        match (self.0.to_expr(), self.1.to_expr()) {
+            (_, Zero) | (Zero, _) => Zero,
+            (One, One) => One,
+
+            (l, One) => l,
+            (One, r) => r,
+
+            (Text(l), Text(r)) => Text(PreWrap {
+                text: format!("{} \u{2218} {}", l.to_safe_string('(', ')'), r.to_safe_string('(', ')')),
+                needs_wrap: true,
+            })
+        }
+    }
+}
+
+impl<L: ToExpr, R: ToExpr> fmt::Display for Mul<L, R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}) \u{2218} ({})", self.0, self.1)
+        self.to_expr().fmt(f)
     }
 }
 
@@ -560,6 +665,32 @@ where
         let numerator = self.1.clone().mul(l).sub(self.0.clone().mul(r));
 
         numerator.div(self.1.clone().squared())
+    }
+}
+
+impl<L: ToExpr, R: ToExpr> ToExpr for Div<L, R> {
+    fn to_expr(&self) -> Expr {
+        use Expr::*;
+
+        match (self.0.to_expr(), self.1.to_expr()) {
+            (Zero, _) => Zero,
+            (l, One) => l,
+
+            (_, Zero) => Text(PreWrap {
+                text: "\u{221E}".to_string(),
+                needs_wrap: false,
+            }),
+
+            (One, Text(r)) => Text(PreWrap {
+                text: format!("1 / {}", r.to_safe_string('(', ')')),
+                needs_wrap: true,
+            }),
+
+            (Text(l), Text(r)) => Text(PreWrap {
+                text: format!("{} / {}", l.to_safe_string('(', ')'), r.to_safe_string('(', ')')),
+                needs_wrap: true,
+            })
+        }
     }
 }
 

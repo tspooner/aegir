@@ -1,114 +1,76 @@
 use crate::{
-    buffers::{Buffer, FieldOf},
-    Contains,
-    Database,
+    buffers::Buffer,
     Function,
-    Node,
 };
 use special_fun::FloatSpecial;
-use std::fmt;
 
 // Derive = x.gamma() * x.digamma()
-#[derive(Clone, Copy, Debug, PartialEq, Contains)]
-pub struct Gamma<N>(#[op] pub N);
+impl_unary!(
+    Gamma<F: FloatSpecial>, |x| { x.gamma() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
 
-impl<N: Node> Node for Gamma<N> {}
-
-impl<D, N> Function<D> for Gamma<N>
-where
-    D: Database,
-    N: Function<D>,
-
-    FieldOf<N::Value>: special_fun::FloatSpecial,
-{
-    type Error = N::Error;
-    type Value = N::Value;
-
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x.gamma()); buf })
+        match self.0.to_expr() {
+            Zero => Text(PreWrap {
+                text: "\u{221E}".to_string(),
+                needs_wrap: false,
+            }),
+            One => One,
+            Text(pw) => Text(PreWrap {
+                text: format!("\u{0393}({})", pw),
+                needs_wrap: false,
+            })
+        }
     }
-}
-
-impl<N: fmt::Display> fmt::Display for Gamma<N> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "\u{0393}({})", self.0) }
-}
+);
 
 // Deriv = x.digamma()
-#[derive(Clone, Copy, Debug, PartialEq, Contains)]
-pub struct LogGamma<N>(#[op] pub N);
+impl_unary!(
+    LogGamma<F: FloatSpecial>, |x| { x.loggamma() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
 
-impl<N: Node> Node for LogGamma<N> {}
-
-impl<D, N> Function<D> for LogGamma<N>
-where
-    D: Database,
-    N: Function<D>,
-
-    FieldOf<N::Value>: special_fun::FloatSpecial,
-{
-    type Error = N::Error;
-    type Value = N::Value;
-
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x.loggamma()); buf })
+        match self.0.to_expr() {
+            Zero => Text(PreWrap {
+                text: "\u{221E}".to_string(),
+                needs_wrap: false,
+            }),
+            One => Zero,
+            Text(pw) => Text(PreWrap {
+                text: format!("ln\u{0393}({})", pw),
+                needs_wrap: false,
+            })
+        }
     }
-}
-
-impl<N: fmt::Display> fmt::Display for LogGamma<N> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ln \u{0393}({})", self.0)
-    }
-}
+);
 
 // Deriv = x.loggamma()
-#[derive(Clone, Copy, Debug, PartialEq, Contains)]
-pub struct Factorial<N>(#[op] pub N);
+impl_unary!(
+    Factorial<F: FloatSpecial>, |x| { x.factorial() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
 
-impl<N: Node> Node for Factorial<N> {}
-
-impl<D, N> Function<D> for Factorial<N>
-where
-    D: Database,
-    N: Function<D>,
-
-    FieldOf<N::Value>: special_fun::FloatSpecial,
-{
-    type Error = N::Error;
-    type Value = N::Value;
-
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x.factorial()); buf })
+        match self.0.to_expr() {
+            Zero | One => One,
+            Text(pw) => Text(PreWrap {
+                text: format!("{}!", pw.to_safe_string('(', ')')),
+                needs_wrap: false,
+            })
+        }
     }
-}
+);
 
-impl<N: fmt::Display> fmt::Display for Factorial<N> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}!", self.0) }
-}
+impl_unary!(
+    Erf<F: FloatSpecial>, |x| { x.erf() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
 
-#[derive(Clone, Copy, Debug, PartialEq, Contains)]
-pub struct Erf<N>(#[op] pub N);
+        match self.0.to_expr() {
+            Zero | One => One,
+            Text(pw) => Text(PreWrap {
+                text: format!("erf({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);
 
 impl<N> Erf<N> {
     pub fn complementary(self) -> crate::ops::Negate<Self> { crate::ops::Negate(self) }
-}
-
-impl<N: Node> Node for Erf<N> {}
-
-impl<D, N> Function<D> for Erf<N>
-where
-    D: Database,
-    N: Function<D>,
-
-    crate::buffers::FieldOf<N::Value>: special_fun::FloatSpecial,
-{
-    type Error = N::Error;
-    type Value = N::Value;
-
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|mut buf| { buf.mutate(|x| x.erf()); buf })
-    }
-}
-
-impl<X: fmt::Display + PartialEq> fmt::Display for Erf<X> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "erf({})", self.0) }
 }

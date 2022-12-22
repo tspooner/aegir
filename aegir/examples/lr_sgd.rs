@@ -32,7 +32,7 @@ fn main() {
     let sse = model.sub(y).squared();
     let adj = sse.adjoint(W);
 
-    for _ in 0..100_000_000 {
+    for _ in 0..1_000_000 {
         // Independent variables:
         db.x = rng.gen();
 

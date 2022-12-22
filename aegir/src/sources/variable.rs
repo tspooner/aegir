@@ -7,6 +7,7 @@ use crate::{
         Scalar,
         Spec,
     },
+    fmt::{Expr, PreWrap, ToExpr},
     Contains,
     Differentiable,
     Function,
@@ -90,6 +91,15 @@ where
             value: self.0,
             target: target,
         }
+    }
+}
+
+impl<I: Identifier> ToExpr for Variable<I> {
+    fn to_expr(&self) -> Expr {
+        Expr::Text(PreWrap {
+            text: ToString::to_string(&self.0),
+            needs_wrap: false,
+        })
     }
 }
 
@@ -221,17 +231,27 @@ where
     }
 }
 
+impl<I, T> ToExpr for VariableAdjoint<I, T>
+where
+    I: Identifier + PartialEq<T>,
+    T: Identifier,
+{
+    fn to_expr(&self) -> Expr {
+        if self.value == self.target {
+            Expr::One
+        } else {
+            Expr::Zero
+        }
+    }
+}
+
 impl<I, T> std::fmt::Display for VariableAdjoint<I, T>
 where
-    I: std::fmt::Display + PartialEq<T>,
-    T: std::fmt::Display,
+    I: Identifier + PartialEq<T>,
+    T: Identifier,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.value == self.target {
-            write!(f, "\u{2202}{}", self.value)
-        } else {
-            write!(f, "0")
-        }
+        self.to_expr().fmt(f)
     }
 }
 

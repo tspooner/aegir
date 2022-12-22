@@ -5,39 +5,23 @@ use crate::{
 };
 use num_traits::real::Real;
 
-macro_rules! impl_trig {
-    ($name:ident[$str:tt], $eval:expr, $grad:expr) => {
-        #[derive(Clone, Copy, Debug, PartialEq, Contains)]
-        pub struct $name<N>(#[op] pub N);
+impl_unary!(
+    Cos<F: Real>, |x| { x.cos() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
 
-        impl<N: crate::Node> crate::Node for $name<N> {}
-
-        impl<D, N> crate::Function<D> for $name<N>
-        where
-            D: crate::Database,
-            N: crate::Function<D>,
-
-            crate::buffers::FieldOf<N::Value>: num_traits::real::Real,
-        {
-            type Error = N::Error;
-            type Value = N::Value;
-
-            fn evaluate<DR: AsRef<D>>(&self, state: DR) -> Result<Self::Value, Self::Error> {
-                use crate::buffers::Buffer;
-
-                self.0.evaluate(state).map(|mut buf| { buf.mutate($eval); buf })
-            }
+        match self.0.to_expr() {
+            Zero => One,
+            One => Text(PreWrap {
+                text: "cos(1)".to_string(),
+                needs_wrap: false,
+            }),
+            Text(pw) => Text(PreWrap {
+                text: format!("cos({})", pw),
+                needs_wrap: false,
+            })
         }
-
-        impl<X: std::fmt::Display + PartialEq> std::fmt::Display for $name<X> {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, $str, self.0)
-            }
-        }
-    };
-}
-
-impl_trig!(Cos["cos({})"], |x| { x.cos() }, |x| { -x.sin() });
+    }
+);
 
 impl<T, N> Differentiable<T> for Cos<N>
 where
@@ -51,15 +35,77 @@ where
     }
 }
 
-impl_trig!(Cosh["cosh({})"], |x| { x.cosh() }, |x| { x.sinh() });
-impl_trig!(ArcCos["acos({})"], |x| { x.acos() }, |x| {
-    (x.powi(2) - num_traits::one()).neg().sqrt().recip().neg()
-});
-impl_trig!(ArcCosh["acosh({})"], |x| { x.acosh() }, |x| {
-    (x.powi(2) - num_traits::one()).sqrt().recip()
-});
+impl_unary!(
+    Cosh<F: Real>, |x| { x.cosh() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
 
-impl_trig!(Sin["sin({})"], |x| { x.sin() }, |x| { x.cos() });
+        match self.0.to_expr() {
+            Zero => One,
+            One => Text(PreWrap {
+                text: "cosh(1)".to_string(),
+                needs_wrap: false,
+            }),
+            Text(pw) => Text(PreWrap {
+                text: format!("cosh({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);
+
+impl_unary!(
+    ArcCos<F: Real>, |x| { x.acos() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
+
+        match self.0.to_expr() {
+            Zero => Text(PreWrap {
+                text: "\u{03C0}/2".to_string(),
+                needs_wrap: false,
+            }),
+            One => Zero,
+            Text(pw) => Text(PreWrap {
+                text: format!("acos({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);
+
+impl_unary!(
+    ArcCosh<F: Real>, |x| { x.acosh() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
+
+        match self.0.to_expr() {
+            Zero => Text(PreWrap {
+                text: "\u{1D456}\u{03C0}/2".to_string(),
+                needs_wrap: false,
+            }),
+            One => Zero,
+            Text(pw) => Text(PreWrap {
+                text: format!("acosh({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);
+
+impl_unary!(
+    Sin<F: Real>, |x| { x.sin() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
+
+        match self.0.to_expr() {
+            Zero => Zero,
+            One => Text(PreWrap {
+                text: "sin(1)".to_string(),
+                needs_wrap: false,
+            }),
+            Text(pw) => Text(PreWrap {
+                text: format!("sin({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);
 
 impl<T, N> Differentiable<T> for Sin<N>
 where
@@ -73,23 +119,128 @@ where
     }
 }
 
-impl_trig!(Sinh["sinh({})"], |x| { x.sinh() }, |x| { x.cosh() });
-impl_trig!(ArcSin["asin({})"], |x| { x.asin() }, |x| {
-    (x.powi(2) - num_traits::one()).neg().sqrt().recip()
-});
-impl_trig!(ArcSinh["asinh({})"], |x| { x.asinh() }, |x| {
-    (x.powi(2) + num_traits::one()).sqrt().recip()
-});
+impl_unary!(
+    Sinh<F: Real>, |x| { x.sinh() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
 
-impl_trig!(Tan["tan({})"], |x| { x.tan() }, |x| {
-    x.cos().powi(2).recip()
-});
-impl_trig!(Tanh["tanh({})"], |x| { x.tanh() }, |x| {
-    x.cosh().powi(2).recip()
-});
-impl_trig!(ArcTan["atan({})"], |x| { x.atan() }, |x| {
-    (x.powi(2) + num_traits::one()).recip()
-});
-impl_trig!(ArcTanh["atanh({})"], |x| { x.atanh() }, |x| {
-    (x.powi(2) - num_traits::one()).neg().recip()
-});
+        match self.0.to_expr() {
+            Zero => Zero,
+            One => Text(PreWrap {
+                text: "sin(1)".to_string(),
+                needs_wrap: false,
+            }),
+            Text(pw) => Text(PreWrap {
+                text: format!("sinh({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);
+
+impl_unary!(
+    ArcSin<F: Real>, |x| { x.asin() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
+
+        match self.0.to_expr() {
+            Zero => Zero,
+            One => Text(PreWrap {
+                text: "\u{03C0}/2".to_string(),
+                needs_wrap: false,
+            }),
+            Text(pw) => Text(PreWrap {
+                text: format!("acos({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);
+
+impl_unary!(
+    ArcSinh<F: Real>, |x| { x.asinh() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
+
+        match self.0.to_expr() {
+            Zero => Zero,
+            One => Text(PreWrap {
+                text: "asinh(1)".to_string(),
+                needs_wrap: false,
+            }),
+            Text(pw) => Text(PreWrap {
+                text: format!("asinh({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);
+
+impl_unary!(
+    Tan<F: Real>, |x| { x.tan() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
+
+        match self.0.to_expr() {
+            Zero => Zero,
+            One => Text(PreWrap {
+                text: "tan(1)".to_string(),
+                needs_wrap: false,
+            }),
+            Text(pw) => Text(PreWrap {
+                text: format!("tan({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);
+
+impl_unary!(
+    Tanh<F: Real>, |x| { x.tanh() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
+
+        match self.0.to_expr() {
+            Zero => Zero,
+            One => Text(PreWrap {
+                text: "tanh(1)".to_string(),
+                needs_wrap: false,
+            }),
+            Text(pw) => Text(PreWrap {
+                text: format!("tanh({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);
+
+impl_unary!(
+    ArcTan<F: Real>, |x| { x.atan() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
+
+        match self.0.to_expr() {
+            Zero => Zero,
+            One => Text(PreWrap {
+                text: "\u{03C0}/4".to_string(),
+                needs_wrap: false,
+            }),
+            Text(pw) => Text(PreWrap {
+                text: format!("atan({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);
+
+impl_unary!(
+    ArcTanh<F: Real>, |x| { x.atanh() }, |self| {
+        use crate::fmt::{PreWrap, Expr::*};
+
+        match self.0.to_expr() {
+            Zero => Zero,
+            One => Text(PreWrap {
+                text: "\u{221E}".to_string(),
+                needs_wrap: false,
+            }),
+            Text(pw) => Text(PreWrap {
+                text: format!("atanh({})", pw),
+                needs_wrap: false,
+            })
+        }
+    }
+);

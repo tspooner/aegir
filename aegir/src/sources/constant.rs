@@ -9,6 +9,7 @@ use crate::{
         Scalar,
         Spec,
     },
+    fmt::{ToExpr, Expr, PreWrap},
     Contains,
     Database,
     Differentiable,
@@ -100,9 +101,20 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { self.0.fmt(f) }
 }
 
-// impl<B: std::fmt::Display> std::fmt::Display for Constant<B> {
-// fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-// self.0.fmt(f) } }
+impl<B: Buffer + ToString> ToExpr for Constant<B> {
+    fn to_expr(&self) -> Expr {
+        Expr::Text(PreWrap {
+            text: self.0.to_string(),
+            needs_wrap: false,
+        })
+    }
+}
+
+impl<B: Buffer + ToString> std::fmt::Display for Constant<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.to_expr().fmt(f)
+    }
+}
 
 /// Source node for the adjoint of [constants](Constant).
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -172,6 +184,10 @@ where
 
         Ok(shape_value.concat(shape_target))
     }
+}
+
+impl<N: Node, T> ToExpr for ConstantAdjoint<N, T> {
+    fn to_expr(&self) -> Expr { Expr::Zero }
 }
 
 impl<N, T> std::fmt::Display for ConstantAdjoint<N, T> {

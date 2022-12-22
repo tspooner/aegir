@@ -1,6 +1,7 @@
 use crate::{
     buffers::shapes::{ShapeOf, Shaped},
     buffers::{Buffer, Contract as CTrait, FieldOf, IncompatibleShapes, Spec},
+    fmt::{ToExpr, Expr, PreWrap},
     ops::Add,
     BinaryError,
     Contains,
@@ -105,9 +106,28 @@ where
 /// Computes the product (contraction) of two tensor [Buffers](Buffer).
 pub type TensorProduct<L, R> = Contract<0, L, R>;
 
-impl<L: std::fmt::Display, R: std::fmt::Display> std::fmt::Display for TensorProduct<L, R> {
+impl<L: ToExpr, R: ToExpr> ToExpr for TensorProduct<L, R> {
+    fn to_expr(&self) -> Expr {
+        use Expr::*;
+
+        match (self.0.to_expr(), self.1.to_expr()) {
+            (_, Zero) | (Zero, _) => Zero,
+            (One, One) => One,
+
+            (l, One) => l,
+            (One, r) => r,
+
+            (Text(l), Text(r)) => Text(PreWrap {
+                text: format!("{} \u{2297} {}", l.to_safe_string('(', ')'), r.to_safe_string('(', ')')),
+                needs_wrap: true,
+            })
+        }
+    }
+}
+
+impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorProduct<L, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}) \u{2297} ({})", self.0, self.1)
+        self.to_expr().fmt(f)
     }
 }
 
@@ -130,14 +150,52 @@ impl<L: std::fmt::Display, R: std::fmt::Display> std::fmt::Display for TensorPro
 /// ```
 pub type TensorDot<L, R> = Contract<1, L, R>;
 
-impl<L: std::fmt::Display, R: std::fmt::Display> std::fmt::Display for TensorDot<L, R> {
+impl<L: ToExpr, R: ToExpr> ToExpr for TensorDot<L, R> {
+    fn to_expr(&self) -> Expr {
+        use Expr::*;
+
+        match (self.0.to_expr(), self.1.to_expr()) {
+            (_, Zero) | (Zero, _) => Zero,
+            (One, One) => One,
+
+            (l, One) => l,
+            (One, r) => r,
+
+            (Text(l), Text(r)) => Text(PreWrap {
+                text: format!("\u{27E8}{}, {}\u{27E9}", l.to_safe_string('(', ')'), r.to_safe_string('(', ')')),
+                needs_wrap: false,
+            })
+        }
+    }
+}
+
+impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorDot<L, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\u{27E8}{}, {}\u{27E9}", self.0, self.1)
+        self.to_expr().fmt(f)
     }
 }
 
 /// Computes the double dot (contraction) of two tensor [Buffers](Buffer).
 pub type TensorDoubleDot<L, R> = Contract<2, L, R>;
+
+impl<L: ToExpr, R: ToExpr> ToExpr for TensorDoubleDot<L, R> {
+    fn to_expr(&self) -> Expr {
+        use Expr::*;
+
+        match (self.0.to_expr(), self.1.to_expr()) {
+            (_, Zero) | (Zero, _) => Zero,
+            (One, One) => One,
+
+            (l, One) => l,
+            (One, r) => r,
+
+            (Text(l), Text(r)) => Text(PreWrap {
+                text: format!("{} : {}", l.to_safe_string('(', ')'), r.to_safe_string('(', ')')),
+                needs_wrap: true,
+            })
+        }
+    }
+}
 
 impl<L: std::fmt::Display, R: std::fmt::Display> std::fmt::Display for TensorDoubleDot<L, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
