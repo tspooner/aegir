@@ -111,7 +111,7 @@ impl<const N: usize, D> Function<D> for RawAdjoint<N>
 where
     D: Read<X, Buffer = [f64; N]> + Read<W, Buffer = [f64; N]> + Read<Y, Buffer = f64>,
 {
-    type Error = aegir::NoError;
+    type Error = aegir::errors::NoError;
     type Value = [f64; N];
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {

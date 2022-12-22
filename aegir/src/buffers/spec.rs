@@ -1,8 +1,24 @@
 use super::*;
 
+/// Trait for types that can be converted into a [Spec].
+///
+/// The main purpose of this trait is to maintain a clear separation between buffers and specs,
+/// where the latter is a "lifted" variant of the former. Since it is automatically implemented
+/// for `B: Buffer` and `Spec`, we can always be certain that any `T: IntoSpec` is either a buffer
+/// or a spec itself. Therefore, we can use this trait to generalise across "Buffer-Like" types in
+/// in our abstractions.
 pub trait IntoSpec {
     type Buffer: Buffer;
 
+    /// Convert `self` into a [Spec] instance.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::{Spec, IntoSpec};
+    /// let spec = [1, 2, 3, 4, 5].into_spec();
+    ///
+    /// assert_eq!(spec, Spec::Raw([1, 2, 3, 4, 5]));
+    /// ```
     fn into_spec(self) -> Spec<Self::Buffer>;
 }
 
@@ -17,8 +33,8 @@ impl<B: Buffer> IntoSpec for B {
 /// In many cases, a given buffer instance has structural properties that allow us to prune
 /// redundant compute or memory demands. For example, elementwise multiplication of two buffers
 /// when either value is "all-zeroes" is certian to yield another "all-zeroes" buffer. Similarly,
-/// buffer full of only one value need not be representated in a dense form. This type is designed
-/// to facilitate sparse/structural representations throughout `aegir`.
+/// a buffer full of only one value need not be representated in a dense form. This type is designed
+/// to facilitate such sparse/structural representations throughout `aegir`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Spec<B: Buffer> {
@@ -65,7 +81,25 @@ where
     F: Scalar,
     B: Buffer<Field = F>,
 {
+    /// Returns the contained buffer in dense form, consuming `self`.
+    ///
+    /// This method is not necessarily cheap to execute as it often requires
+    /// a call to [Class::build] which allocates memory.
+    #[inline]
+    pub fn unwrap(self) -> B {
+        match self {
+            Spec::Raw(b) => b,
+            Spec::Full(s, x) => <B::Class as Class<B::Shape>>::full(s, x),
+            Spec::Diagonal(s, x) => <B::Class as Class<B::Shape>>::diagonal(s, x),
+        }
+    }
+
     /// Perform an element-wise transformation of the buffer.
+    ///
+    /// This method will always perform the least computation necessary.
+    /// As shown in the example below, Spec::Full is a homogeneous type,
+    /// and thus the resulting type will also be homogeneous. See [Spec::unwrap]
+    /// if you want to perform only dense computations.
     ///
     /// # Examples
     /// ```
@@ -96,37 +130,13 @@ where
         }
     }
 
+    /// Construct a Spec::Full(s, 0) where s is a given shape.
+    #[inline]
     pub fn zeroes(shape: B::Shape) -> Self { Spec::Full(shape, B::Field::zero()) }
 
-    pub fn into_zeroes(self) -> Self {
-        let zero = B::Field::zero();
-
-        match self {
-            Spec::Raw(b) => Spec::Full(b.shape(), zero),
-            Spec::Full(s, _) => Spec::Full(s, zero),
-            Spec::Diagonal(s, _) => Spec::Diagonal(s, zero),
-        }
-    }
-
+    /// Construct a Spec::Full(s, 1) where s is a given shape.
+    #[inline]
     pub fn ones(shape: B::Shape) -> Self { Spec::Full(shape, B::Field::one()) }
-
-    pub fn into_ones(self) -> Self {
-        let one = B::Field::one();
-
-        match self {
-            Spec::Raw(b) => Spec::Full(b.shape(), one),
-            Spec::Full(s, _) => Spec::Full(s, one),
-            Spec::Diagonal(s, _) => Spec::Diagonal(s, one),
-        }
-    }
-
-    pub fn unwrap(self) -> B {
-        match self {
-            Spec::Raw(b) => b,
-            Spec::Full(s, x) => <B::Class as Class<B::Shape>>::full(s, x),
-            Spec::Diagonal(s, x) => <B::Class as Class<B::Shape>>::diagonal(s, x),
-        }
-    }
 }
 
 impl<B: Buffer> From<B> for Spec<B> {

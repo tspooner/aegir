@@ -1,7 +1,6 @@
 use crate::{
-    buffers::shapes::ShapeOf,
     buffers::{
-        shapes::{self, Shape, Zip},
+        shapes::{self, Shape, Zip, Shaped, ShapeOf},
         Buffer,
         Class,
         IncompatibleShapes,
@@ -112,7 +111,7 @@ where
         let exponent = self.1.evaluate_spec(db).map_err(BinaryError::Right)?;
 
         match (base, exponent) {
-            (b, Full(_, fx)) if fx == zero => Ok(b.into_ones()),
+            (b, Full(_, fx)) if fx == zero => Ok(Spec::ones(b.shape())),
 
             (Full(sx, fx), _) if fx == one => Ok(Full(sx, fx)),
             (Full(sx, fx), _) if fx == zero => Ok(Full(sx, fx)),
