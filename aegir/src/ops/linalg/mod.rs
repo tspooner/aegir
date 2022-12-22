@@ -1,5 +1,7 @@
 use crate::{
-    buffers::{Buffer, Contract as CTrait, FieldOf, IncompatibleShapes, ShapeOf},
+    buffers::shapes::{ShapeOf, Shaped},
+    buffers::{Buffer, Contract as CTrait, FieldOf, IncompatibleShapes, Spec},
+    fmt::{ToExpr, Expr, PreWrap},
     ops::Add,
     BinaryError,
     Contains,
@@ -9,47 +11,76 @@ use crate::{
     Identifier,
     Node,
 };
+use num_traits::Zero as _;
 
 #[derive(Copy, Clone, PartialEq, Contains)]
-pub struct Contract<const AXES: usize, N1, N2>(#[op] pub N1, #[op] pub N2);
+pub struct Contract<const AXES: usize, L, R>(#[op] pub L, #[op] pub R);
 
-impl<N1, N2, const AXES: usize> Contract<AXES, N1, N2> {
-    pub fn new(left: N1, right: N2) -> Self { Contract(left, right) }
+impl<L, R, const AXES: usize> Contract<AXES, L, R> {
+    pub fn new(left: L, right: R) -> Self { Contract(left, right) }
 }
 
-impl<N1, N2, const AXES: usize> Node for Contract<AXES, N1, N2> {}
+impl<L: Node, R: Node, const AXES: usize> Node for Contract<AXES, L, R> {}
 
-impl<D, N1, N2, const AXES: usize> Function<D> for Contract<AXES, N1, N2>
+impl<D, L, R, const AXES: usize> Function<D> for Contract<AXES, L, R>
 where
     D: Database,
-    N1: Function<D>,
-    N2: Function<D>,
+    L: Function<D>,
+    R: Function<D>,
 
-    N1::Value: CTrait<N2::Value, AXES>,
-    N2::Value: Buffer<Field = FieldOf<N1::Value>>,
+    L::Value: CTrait<R::Value, AXES>,
+    R::Value: Buffer<Field = FieldOf<L::Value>>,
 {
-    type Error = BinaryError<
-        N1::Error,
-        N2::Error,
-        IncompatibleShapes<ShapeOf<N1::Value>, ShapeOf<N2::Value>>,
-    >;
-    type Value = <N1::Value as CTrait<N2::Value, AXES>>::Output;
+    type Error =
+        BinaryError<L::Error, R::Error, IncompatibleShapes<ShapeOf<L::Value>, ShapeOf<R::Value>>>;
+    type Value = <L::Value as CTrait<R::Value, AXES>>::Output;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
-        let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
+        self.evaluate_spec(db).map(|state| state.unwrap())
+    }
 
-        x.contract(y).map_err(BinaryError::Output)
+    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
+        use Spec::*;
+
+        let x = self.0.evaluate_spec(&db).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_spec(db).map_err(BinaryError::Right)?;
+
+        match (x, y) {
+            (Full(sx, fx), y) if fx.is_zero() => {
+                <L::Value as CTrait<R::Value, AXES>>::contract_shape(sx, y.shape())
+                    .map(Spec::zeroes)
+                    .map_err(BinaryError::Output)
+            },
+
+            (x, Full(sy, fy)) if fy.is_zero() => {
+                <L::Value as CTrait<R::Value, AXES>>::contract_shape(x.shape(), sy)
+                    .map(Spec::zeroes)
+                    .map_err(BinaryError::Output)
+            },
+
+            (x, y) => x
+                .unwrap()
+                .contract(y.unwrap())
+                .map(Spec::Raw)
+                .map_err(BinaryError::Output),
+        }
+    }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let x = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+
+        <L::Value as CTrait<R::Value, AXES>>::contract_shape(x, y).map_err(BinaryError::Output)
     }
 }
 
-impl<T, N1, N2, const AXES: usize> Differentiable<T> for Contract<AXES, N1, N2>
+impl<T, L, R, const AXES: usize> Differentiable<T> for Contract<AXES, L, R>
 where
     T: Identifier,
-    N1: Differentiable<T> + Clone,
-    N2: Differentiable<T> + Clone,
+    L: Differentiable<T> + Clone,
+    R: Differentiable<T> + Clone,
 {
-    type Adjoint = Add<Contract<AXES, N1, N2::Adjoint>, Contract<AXES, N1::Adjoint, N2>>;
+    type Adjoint = Add<Contract<AXES, L, R::Adjoint>, Contract<AXES, L::Adjoint, R>>;
 
     fn adjoint(&self, target: T) -> Self::Adjoint {
         let j1 = self.0.adjoint(target);
@@ -59,10 +90,10 @@ where
     }
 }
 
-impl<N1, N2, const AXES: usize> std::fmt::Debug for Contract<AXES, N1, N2>
+impl<L, R, const AXES: usize> std::fmt::Debug for Contract<AXES, L, R>
 where
-    N1: std::fmt::Debug,
-    N2: std::fmt::Debug,
+    L: std::fmt::Debug,
+    R: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple(&format!("Contract<{}>", AXES))
@@ -73,11 +104,30 @@ where
 }
 
 /// Computes the product (contraction) of two tensor [Buffers](Buffer).
-pub type TensorProduct<N1, N2> = Contract<0, N1, N2>;
+pub type TensorProduct<L, R> = Contract<0, L, R>;
 
-impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for TensorProduct<N1, N2> {
+impl<L: ToExpr, R: ToExpr> ToExpr for TensorProduct<L, R> {
+    fn to_expr(&self) -> Expr {
+        use Expr::*;
+
+        match (self.0.to_expr(), self.1.to_expr()) {
+            (_, Zero) | (Zero, _) => Zero,
+            (One, One) => One,
+
+            (l, One) => l,
+            (One, r) => r,
+
+            (Text(l), Text(r)) => Text(PreWrap {
+                text: format!("{} \u{2297} {}", l.to_safe_string('(', ')'), r.to_safe_string('(', ')')),
+                needs_wrap: true,
+            })
+        }
+    }
+}
+
+impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorProduct<L, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}) \u{2297} ({})", self.0, self.1)
+        self.to_expr().fmt(f)
     }
 }
 
@@ -98,18 +148,56 @@ impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for TensorP
 /// assert_eq!(f.evaluate_dual(X, &db).unwrap(), dual!(5.0, [-1.0, 0.0, 2.0]));
 /// assert_eq!(f.evaluate_dual(Y, &db).unwrap(), dual!(5.0, [1.0, 2.0, 3.0]));
 /// ```
-pub type TensorDot<N1, N2> = Contract<1, N1, N2>;
+pub type TensorDot<L, R> = Contract<1, L, R>;
 
-impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for TensorDot<N1, N2> {
+impl<L: ToExpr, R: ToExpr> ToExpr for TensorDot<L, R> {
+    fn to_expr(&self) -> Expr {
+        use Expr::*;
+
+        match (self.0.to_expr(), self.1.to_expr()) {
+            (_, Zero) | (Zero, _) => Zero,
+            (One, One) => One,
+
+            (l, One) => l,
+            (One, r) => r,
+
+            (Text(l), Text(r)) => Text(PreWrap {
+                text: format!("\u{27E8}{}, {}\u{27E9}", l.to_safe_string('(', ')'), r.to_safe_string('(', ')')),
+                needs_wrap: false,
+            })
+        }
+    }
+}
+
+impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorDot<L, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\u{27E8}{}, {}\u{27E9}", self.0, self.1)
+        self.to_expr().fmt(f)
     }
 }
 
 /// Computes the double dot (contraction) of two tensor [Buffers](Buffer).
-pub type TensorDoubleDot<N1, N2> = Contract<2, N1, N2>;
+pub type TensorDoubleDot<L, R> = Contract<2, L, R>;
 
-impl<N1: std::fmt::Display, N2: std::fmt::Display> std::fmt::Display for TensorDoubleDot<N1, N2> {
+impl<L: ToExpr, R: ToExpr> ToExpr for TensorDoubleDot<L, R> {
+    fn to_expr(&self) -> Expr {
+        use Expr::*;
+
+        match (self.0.to_expr(), self.1.to_expr()) {
+            (_, Zero) | (Zero, _) => Zero,
+            (One, One) => One,
+
+            (l, One) => l,
+            (One, r) => r,
+
+            (Text(l), Text(r)) => Text(PreWrap {
+                text: format!("{} : {}", l.to_safe_string('(', ')'), r.to_safe_string('(', ')')),
+                needs_wrap: true,
+            })
+        }
+    }
+}
+
+impl<L: std::fmt::Display, R: std::fmt::Display> std::fmt::Display for TensorDoubleDot<L, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}) : ({})", self.0, self.1)
     }

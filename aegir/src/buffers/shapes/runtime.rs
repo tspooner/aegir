@@ -25,7 +25,41 @@ impl<const DIM: usize> Shape for SDynamic<DIM> {
         ix.iter().zip(self.0.iter()).all(|(l, r)| l < r)
     }
 
+    fn cardinality(&self) -> usize { self.0.iter().product() }
+
     fn indices(&self) -> Self::IndexIter { multi_product::MultiProduct::new(self.0) }
+}
+
+impl<const DIM: usize> Zip for SDynamic<DIM> {
+    type Shape = SDynamic<DIM>;
+
+    #[inline]
+    fn zip(self, rhs: Self) -> Result<Self, IncompatibleShapes<Self>> {
+        if self == rhs {
+            Ok(self)
+        } else {
+            Err(IncompatibleShapes {
+                left: self,
+                right: rhs,
+            })
+        }
+    }
+}
+
+impl<const DIM: usize> Zip<S0> for SDynamic<DIM> {
+    type Shape = SDynamic<DIM>;
+
+    #[inline]
+    fn zip(self, _: S0) -> Result<Self, IncompatibleShapes<Self, S0>> { Ok(self) }
+}
+
+impl<const DIM: usize> Zip<SDynamic<DIM>> for S0 {
+    type Shape = SDynamic<DIM>;
+
+    #[inline]
+    fn zip(self, rhs: SDynamic<DIM>) -> Result<Self::Shape, IncompatibleShapes<S0, Self::Shape>> {
+        Ok(rhs)
+    }
 }
 
 impl<const DIM: usize> std::fmt::Display for SDynamic<DIM> {

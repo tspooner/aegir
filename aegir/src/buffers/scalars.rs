@@ -1,4 +1,11 @@
-use super::{shapes::S0, Buffer, Class, IncompatibleShapes, ZipFold, ZipMap};
+use super::{
+    shapes::{Shaped, S0},
+    Buffer,
+    Class,
+    IncompatibleShapes,
+    ZipFold,
+    ZipMap,
+};
 use num_traits::Num;
 
 /// Scalar buffer class.
@@ -33,12 +40,17 @@ pub trait Scalar:
 
 macro_rules! impl_scalar {
     ($F:ty) => {
-        impl Buffer for $F {
-            type Class = Scalars;
-            type Field = $F;
+        impl Shaped for $F {
             type Shape = S0;
 
             fn shape(&self) -> S0 { S0 }
+        }
+
+        impl Buffer for $F {
+            type Class = Scalars;
+            type Field = $F;
+
+            fn class() -> Scalars { Scalars }
 
             fn get(&self, _: ()) -> Option<$F> { Some(*self) }
 
@@ -48,33 +60,9 @@ macro_rules! impl_scalar {
 
             fn map_ref<F: Scalar, M: Fn($F) -> F>(&self, f: M) -> F { f(*self) }
 
+            fn mutate<M: Fn($F) -> $F>(&mut self, f: M) { *self = f(*self); }
+
             fn fold<F, M: Fn(F, $F) -> F>(&self, init: F, f: M) -> F { f(init, *self) }
-
-            fn to_owned(&self) -> $F { *self }
-
-            fn into_owned(self) -> $F { self }
-        }
-
-        impl Buffer for &$F {
-            type Class = Scalars;
-            type Field = $F;
-            type Shape = S0;
-
-            fn shape(&self) -> S0 { S0 }
-
-            fn get(&self, _: ()) -> Option<$F> { Some(**self) }
-
-            fn get_unchecked(&self, _: ()) -> $F { **self }
-
-            fn map<F: Scalar, M: Fn($F) -> F>(self, f: M) -> F { f(*self) }
-
-            fn map_ref<F: Scalar, M: Fn($F) -> F>(&self, f: M) -> F { f(**self) }
-
-            fn fold<F, M: Fn(F, $F) -> F>(&self, init: F, f: M) -> F { f(init, **self) }
-
-            fn to_owned(&self) -> $F { **self }
-
-            fn into_owned(self) -> $F { *self }
         }
 
         impl ZipFold for $F {
@@ -95,23 +83,21 @@ macro_rules! impl_scalar {
 
             fn zip_map<A: Scalar, M: Fn($F, $F) -> A>(
                 self,
-                rhs: &$F,
+                rhs: $F,
                 f: M,
             ) -> Result<A, IncompatibleShapes<S0>> {
-                Ok(f(self, *rhs))
+                Ok(f(self, rhs))
             }
 
-            fn zip_map_ref<A: Scalar, M: Fn($F, $F) -> A>(
-                &self,
-                rhs: &$F,
+            fn zip_map_dominate<A: Scalar, M: Fn($F) -> A>(
+                self,
+                _: S0,
                 f: M,
             ) -> Result<A, IncompatibleShapes<S0>> {
-                Ok(f(*self, *rhs))
+                Ok(f(self))
             }
 
-            // fn take_left(lhs: $F) -> $F { lhs }
-
-            // fn take_right(rhs: $F) -> $F { rhs }
+            fn zip_map_dominate_id(self, _: S0) -> Result<$F, IncompatibleShapes<S0>> { Ok(self) }
         }
 
         impl Scalar for $F {}

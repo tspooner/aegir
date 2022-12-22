@@ -12,7 +12,16 @@ impl Shape for S0 {
 
     fn contains(&self, _: ()) -> bool { true }
 
+    fn cardinality(&self) -> usize { 1 }
+
     fn indices(&self) -> std::iter::Once<()> { std::iter::once(()) }
+}
+
+impl Zip for S0 {
+    type Shape = S0;
+
+    #[inline]
+    fn zip(self, _: S0) -> Result<S0, IncompatibleShapes<S0>> { Ok(self) }
 }
 
 impl std::fmt::Display for S0 {
@@ -31,7 +40,30 @@ impl<const A: usize> Shape for S1<A> {
 
     fn contains(&self, ix: usize) -> bool { ix < A }
 
+    fn cardinality(&self) -> usize { A }
+
     fn indices(&self) -> std::ops::Range<usize> { 0..A }
+}
+
+impl<const A: usize> Zip for S1<A> {
+    type Shape = S1<A>;
+
+    #[inline]
+    fn zip(self, _: S1<A>) -> Result<S1<A>, IncompatibleShapes<S1<A>>> { Ok(self) }
+}
+
+impl<const A: usize> Zip<S0> for S1<A> {
+    type Shape = S1<A>;
+
+    #[inline]
+    fn zip(self, _: S0) -> Result<S1<A>, IncompatibleShapes<S1<A>, S0>> { Ok(self) }
+}
+
+impl<const A: usize> Zip<S1<A>> for S0 {
+    type Shape = S1<A>;
+
+    #[inline]
+    fn zip(self, rhs: S1<A>) -> Result<S1<A>, IncompatibleShapes<S0, S1<A>>> { Ok(rhs) }
 }
 
 impl<const A: usize> std::fmt::Display for S1<A> {
@@ -61,9 +93,34 @@ macro_rules! impl_fixed {
                     .all(|(l, r)| l < r)
             }
 
+            fn cardinality(&self) -> usize {
+                IntoIterator::into_iter([$($tp),+]).product()
+            }
+
             fn indices(&self) -> Self::IndexIter {
                 Box::new(iproduct!($(0..$tp),+).map($trans))
             }
+        }
+
+        impl<$(const $tp: usize),+> Zip for $name<$($tp),+> {
+            type Shape = Self;
+
+            #[inline]
+            fn zip(self, _: Self) -> Result<Self, IncompatibleShapes<Self>> { Ok(self) }
+        }
+
+        impl<$(const $tp: usize),+> Zip<S0> for $name<$($tp),+> {
+            type Shape = Self;
+
+            #[inline]
+            fn zip(self, _: S0) -> Result<Self, IncompatibleShapes<Self, S0>> { Ok(self) }
+        }
+
+        impl<$(const $tp: usize),+> Zip<$name<$($tp),+>> for S0 {
+            type Shape = $name<$($tp),+>;
+
+            #[inline]
+            fn zip(self, rhs: $name<$($tp),+>) -> Result<$name<$($tp),+>, IncompatibleShapes<S0, $name<$($tp),+>>> { Ok(rhs) }
         }
 
         impl<$(const $tp: usize),+> std::fmt::Display for $name<$($tp),+> {

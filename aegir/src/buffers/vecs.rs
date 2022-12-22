@@ -1,4 +1,12 @@
-use super::{shapes::SDynamic, Buffer, Class, IncompatibleShapes, Scalar, ZipFold, ZipMap};
+use super::{
+    shapes::{SDynamic, Shaped, S0},
+    Buffer,
+    Class,
+    IncompatibleShapes,
+    Scalar,
+    ZipFold,
+    ZipMap,
+};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Vecs
@@ -31,12 +39,17 @@ impl Class<SDynamic<1>> for Vecs {
     fn full<F: Scalar>(shape: SDynamic<1>, value: F) -> Vec<F> { vec![value; shape[0]] }
 }
 
-impl<F: Scalar> Buffer for Vec<F> {
-    type Class = Vecs;
-    type Field = F;
+impl<F: Scalar> Shaped for Vec<F> {
     type Shape = SDynamic<1>;
 
     fn shape(&self) -> Self::Shape { SDynamic([self.len()]) }
+}
+
+impl<F: Scalar> Buffer for Vec<F> {
+    type Class = Vecs;
+    type Field = F;
+
+    fn class() -> Vecs { Vecs }
 
     fn get_unchecked(&self, ix: [usize; 1]) -> F { self[ix[0]] }
 
@@ -46,13 +59,15 @@ impl<F: Scalar> Buffer for Vec<F> {
         self.iter().map(|x| f(*x)).collect()
     }
 
+    fn mutate<M: Fn(F) -> F>(&mut self, f: M) {
+        for i in 0..self.len() {
+            self[i] = f(self[i]);
+        }
+    }
+
     fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
         self.into_iter().copied().fold(init, f)
     }
-
-    fn to_owned(&self) -> Vec<F> { self.clone() }
-
-    fn into_owned(self) -> Vec<F> { self }
 }
 
 impl<F: Scalar> ZipFold for Vec<F> {
@@ -74,7 +89,10 @@ impl<F: Scalar> ZipFold for Vec<F> {
                 let dx = SDynamic([nx]);
                 let dy = SDynamic([ny]);
 
-                Err(IncompatibleShapes(dx, dy))
+                Err(IncompatibleShapes {
+                    left: dx,
+                    right: dy,
+                })
             },
         }
     }
@@ -83,90 +101,93 @@ impl<F: Scalar> ZipFold for Vec<F> {
 impl<F: Scalar> ZipMap for Vec<F> {
     type Output<A: Scalar> = Vec<A>;
 
+    #[inline]
     fn zip_map<A: Scalar, M: Fn(F, F) -> A>(
         self,
-        rhs: &Vec<F>,
+        rhs: Vec<F>,
         f: M,
     ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
         let buf = self
             .into_iter()
-            .zip(rhs.iter())
-            .map(|(x, y)| f(x, *y))
+            .zip(rhs.into_iter())
+            .map(|(x, y)| f(x, y))
             .collect();
 
         Ok(buf)
     }
 
-    fn zip_map_ref<A: Scalar, M: Fn(F, F) -> A>(
-        &self,
-        rhs: &Vec<F>,
+    #[inline]
+    fn zip_map_dominate<A: Scalar, M: Fn(F) -> A>(
+        self,
+        lim: SDynamic<1>,
         f: M,
     ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
-        let buf = self
-            .iter()
-            .zip(rhs.iter())
-            .map(|(x, y)| f(*x, *y))
-            .collect();
+        Ok(self.into_iter().take(lim[0]).map(f).collect())
+    }
+
+    #[inline]
+    fn zip_map_dominate_id(self, _: SDynamic<1>) -> Result<Self, IncompatibleShapes<SDynamic<1>>> {
+        Ok(self)
+    }
+}
+
+impl<F: Scalar> ZipMap<F> for Vec<F> {
+    type Output<A: Scalar> = Vec<A>;
+
+    #[inline]
+    fn zip_map<A: Scalar, M: Fn(F, F) -> A>(
+        self,
+        rhs: F,
+        f: M,
+    ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>, S0>> {
+        let buf = self.into_iter().map(|x| f(x, rhs)).collect();
 
         Ok(buf)
     }
 
-    // fn take_left(lhs: Self) -> Vec<F> { lhs }
-
-    // fn take_right(rhs: Self) -> Vec<F> { rhs }
-}
-
-impl<F: Scalar> Buffer for &Vec<F> {
-    type Class = Vecs;
-    type Field = F;
-    type Shape = SDynamic<1>;
-
-    fn shape(&self) -> Self::Shape { SDynamic([self.len()]) }
-
-    fn get_unchecked(&self, ix: [usize; 1]) -> F { self[ix[0]] }
-
-    fn to_owned(&self) -> Vec<F> { self.to_vec() }
-
-    fn into_owned(self) -> Vec<F> { self.to_vec() }
-
-    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> Vec<A> {
-        self.into_iter().map(|x| f(*x)).collect()
+    #[inline]
+    fn zip_map_dominate<A: Scalar, M: Fn(F) -> A>(
+        self,
+        _: S0,
+        f: M,
+    ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>, S0>> {
+        Ok(self.into_iter().map(f).collect())
     }
 
-    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> Vec<A> {
-        self.iter().map(|x| f(*x)).collect()
-    }
-
-    fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
-        self.into_iter().copied().fold(init, f)
+    #[inline]
+    fn zip_map_dominate_id(self, _: S0) -> Result<Self, IncompatibleShapes<SDynamic<1>, S0>> {
+        Ok(self)
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Slices
-///////////////////////////////////////////////////////////////////////////////////////////////////
-impl<F: Scalar> Buffer for &[F] {
-    type Class = Vecs;
-    type Field = F;
-    type Shape = SDynamic<1>;
+impl<F: Scalar> ZipMap<Vec<F>> for F {
+    type Output<A: Scalar> = Vec<A>;
 
-    fn shape(&self) -> Self::Shape { SDynamic([self.len()]) }
+    #[inline]
+    fn zip_map<A: Scalar, M: Fn(F, F) -> A>(
+        self,
+        rhs: Vec<F>,
+        f: M,
+    ) -> Result<Vec<A>, IncompatibleShapes<S0, SDynamic<1>>> {
+        let buf = rhs.into_iter().map(|x| f(self, x)).collect();
 
-    fn get_unchecked(&self, ix: [usize; 1]) -> F { self[ix[0]] }
-
-    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> Vec<A> {
-        self.into_iter().map(|x| f(*x)).collect()
+        Ok(buf)
     }
 
-    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> Vec<A> {
-        self.iter().map(|x| f(*x)).collect()
+    #[inline]
+    fn zip_map_dominate<A: Scalar, M: Fn(F) -> A>(
+        self,
+        lim: SDynamic<1>,
+        f: M,
+    ) -> Result<Vec<A>, IncompatibleShapes<S0, SDynamic<1>>> {
+        Ok(vec![f(self); lim[0]])
     }
 
-    fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
-        self.into_iter().copied().fold(init, f)
+    #[inline]
+    fn zip_map_dominate_id(
+        self,
+        lim: SDynamic<1>,
+    ) -> Result<Vec<F>, IncompatibleShapes<S0, SDynamic<1>>> {
+        Ok(vec![self; lim[0]])
     }
-
-    fn to_owned(&self) -> Vec<F> { self.into_iter().copied().collect() }
-
-    fn into_owned(self) -> Vec<F> { self.into_iter().copied().collect() }
 }

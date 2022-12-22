@@ -32,21 +32,16 @@
 //! associated with [Arrays] that has said shape and field, and this type can be
 //! reached via `Class<S, F>::Buffer`.
 //!
-//! There are two key reasons for this construction:
-//! 1. [Classes](Class) afford us the ability to construct new buffers with a
-//! particular shape and    field without knowing the concrete [Buffer] type.
-//! The yields much greater flexibility    and allows us to implement many of
-//! the core "source" types with much greater generality.    For more
-//! information, see e.g. [Class::build]. 2. Because `Class<S, F>::Buffer` is
-//! unique, we can define precedence relations over    [classes](Class). For
-//! example, dynamically allocated arrays should take precedence over
-//!    fixed-length arrays to ensure the widest level of runtime compatibility.
-//! This allows us to    mix-and-match our data structures and, say, perform an
-//! inner product between `[f64; 2]` and    `(f64, f64)`.
+//! #### Advantages
+//! [Classes](Class) afford us the ability to construct new buffers with a
+//! particular shape and field without knowing the concrete [Buffer] type.
+//! The yields much greater flexibility and allows us to implement many of
+//! the core "source" types with much greater generality. For more
+//! information, see e.g. [Class::build].
 pub mod shapes;
 
-use num_traits::{One, Zero};
-use shapes::{Concat, Ix, Shape};
+pub use shapes::IncompatibleShapes;
+use shapes::{Ix, Shape};
 
 /// Marker trait for class subscriptions of [Buffer] types.
 ///
@@ -54,11 +49,6 @@ use shapes::{Concat, Ix, Shape};
 /// For a given class, implementing this trait defines a unique
 /// mapping between a [Shape](Buffer::Shape) and [Field](Buffer::Field),
 /// and a (sized) [Buffer] type.
-///
-/// __Note:__ as [Class::Buffer] must be sized, one can _always_ leverage the
-/// [OwnedOf] type alias to recover a concrete, owned type from a given buffer.
-/// This is particularly useful to establish the return type of methods such as
-/// [Buffer::map].
 ///
 /// # Examples
 /// The Class trait is particularly useful for constructing instances of
@@ -82,7 +72,7 @@ use shapes::{Concat, Ix, Shape};
 /// ```
 pub trait Class<S: Shape> {
     /// The associated buffer types.
-    type Buffer<F: Scalar>: Buffer<Class = Self, Field = F> + Sized;
+    type Buffer<F: Scalar>: Buffer<Class = Self, Shape = S, Field = F>;
 
     /// Construct a [Buffer](Class::Buffer) using a function over indices.
     ///
@@ -170,8 +160,22 @@ pub trait Class<S: Shape> {
     /// ```
     fn full<F: Scalar>(shape: S, value: F) -> Self::Buffer<F> { Self::build(shape, |_| value) }
 
+    /// Construct a [Buffer](Class::Buffer) and populate with zeroes.
+    ///
+    /// # Examples
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::buffers::{Class, Tuples, shapes::{S1, Shape}};
+    /// assert_eq!(Tuples::zeroes(S1), Tuples::full(S1, 0.0));
     fn zeroes<F: Scalar>(shape: S) -> Self::Buffer<F> { Self::full(shape, F::zero()) }
 
+    /// Construct a [Buffer](Class::Buffer) and populate with ones.
+    ///
+    /// # Examples
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::buffers::{Class, Tuples, shapes::{S1, Shape}};
+    /// assert_eq!(Tuples::ones(S1), Tuples::full(S1, 1.0));
     fn ones<F: Scalar>(shape: S) -> Self::Buffer<F> { Self::full(shape, F::one()) }
 
     /// Construct a zeroed [Buffer](Class::Buffer) with a given value along the
@@ -237,31 +241,14 @@ pub type BufferOf<C, S, F> = <C as Class<S>>::Buffer<F>;
 
 /// Trait for types defining a data buffer over a fixed [field](Buffer::Field)
 /// and [shape](Buffer::Shape).
-pub trait Buffer {
+pub trait Buffer: Clone + shapes::Shaped + IntoSpec<Buffer = Self> {
     /// [Class] associated with the buffer.
-    type Class: Class<Self::Shape>;
-
-    /// [Shape](shapes::Shape) associated with the buffer.
-    type Shape: Shape;
+    type Class: Class<Self::Shape, Buffer<Self::Field> = Self>;
 
     /// [Scalar] field associated with the buffer.
     type Field: Scalar;
 
-    /// Return the [Shape](Buffer::Shape) of the buffer.
-    ///
-    /// # Examples
-    /// ```
-    /// # use aegir::buffers::{Buffer, shapes::S2};
-    /// // Take the 2x2 identity matrix...
-    /// let buffer = [
-    ///     [1.0, 0.0],
-    ///     [0.0, 1.0]
-    /// ];
-    ///
-    /// // We can assert that the row/col counts match by the following type annotation:
-    /// let shape: S2<2, 2> = buffer.shape();
-    /// ```
-    fn shape(&self) -> Self::Shape;
+    fn class() -> Self::Class;
 
     /// Return the value of the buffer at index `ix`.
     ///
@@ -303,30 +290,47 @@ pub trait Buffer {
     /// ```
     fn get_unchecked(&self, ix: shapes::IndexOf<Self::Shape>) -> Self::Field;
 
-    /// Perform an element-wise transformation of the buffer (in-place).
+    /// Perform an element-wise transformation of the buffer.
     ///
     /// # Examples
     /// ```
     /// # use aegir::buffers::Buffer;
     /// let buffer = vec![0.0, 1.0, 2.0, 3.0];
-    /// let new_buffer = buffer.map(|el| el * 2.0);
+    /// let new_buffer = buffer.map(|x| x as u8 * 2);
     ///
-    /// assert_eq!(new_buffer[0], 0.0);
-    /// assert_eq!(new_buffer[1], 2.0);
-    /// assert_eq!(new_buffer[2], 4.0);
-    /// assert_eq!(new_buffer[3], 6.0);
+    /// assert_eq!(new_buffer[0], 0);
+    /// assert_eq!(new_buffer[1], 2);
+    /// assert_eq!(new_buffer[2], 4);
+    /// assert_eq!(new_buffer[3], 6);
     /// ```
-    fn map<F: Scalar, M: Fn(Self::Field) -> F>(self, f: M) -> OwnedOf<Self, F>
-    where
-        Self: Sized,
-    {
+    fn map<F: Scalar, M: Fn(Self::Field) -> F>(
+        self,
+        f: M,
+    ) -> <Self::Class as Class<Self::Shape>>::Buffer<F>;
+
+    /// Perform an element-wise transformation of the buffer reference.
+    fn map_ref<F: Scalar, M: Fn(Self::Field) -> F>(
+        &self,
+        f: M,
+    ) -> <Self::Class as Class<Self::Shape>>::Buffer<F> {
         <Self::Class as Class<Self::Shape>>::build(self.shape(), |ix| f(self.get_unchecked(ix)))
     }
 
-    /// Perform an element-wise transformation of the buffer (reference).
-    fn map_ref<F: Scalar, M: Fn(Self::Field) -> F>(&self, f: M) -> OwnedOf<Self, F> {
-        <Self::Class as Class<Self::Shape>>::build(self.shape(), |ix| f(self.get_unchecked(ix)))
-    }
+    /// Perform an element-wise transformation of the buffer in-place.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::Buffer;
+    /// let mut buffer = vec![0.0, 1.0, 2.0, 3.0];
+    ///
+    /// buffer.mutate(|el| -el);
+    ///
+    /// assert_eq!(buffer[0], -0.0);
+    /// assert_eq!(buffer[1], -1.0);
+    /// assert_eq!(buffer[2], -2.0);
+    /// assert_eq!(buffer[3], -3.0);
+    /// ```
+    fn mutate<M: Fn(Self::Field) -> Self::Field>(&mut self, f: M);
 
     /// Perform a fold over the elements of the buffer.
     ///
@@ -355,68 +359,16 @@ pub trait Buffer {
     /// ```
     fn sum(&self) -> Self::Field { self.fold(num_traits::zero(), |init, el| init + el) }
 
-    /// Create an owned instance from a borrowed buffer, usually by cloning.
-    fn to_owned(&self) -> OwnedOf<Self>;
-
-    /// Convert buffer directly into an owned instance, cloning when necessary.
-    fn into_owned(self) -> OwnedOf<Self>;
-
-    /// Create a [Constant](crate::sources::Constant) source node from the
-    /// buffer, usually by cloning.
-    fn to_constant(&self) -> crate::sources::Constant<OwnedOf<Self>> {
-        crate::sources::Constant(self.to_owned())
-    }
-
     /// Convert buffer directly into a [Constant](crate::sources::Constant)
     /// source node.
-    fn into_constant(self) -> crate::sources::Constant<OwnedOf<Self>>
-    where
-        Self: Sized,
-    {
-        crate::sources::Constant(self.into_owned())
-    }
+    fn into_constant(self) -> crate::sources::Constant<Self> { crate::sources::Constant(self) }
 }
-
-/// Type shortcut for the owned variant of a [Buffer].
-pub type OwnedOf<B, F = <B as Buffer>::Field> =
-    <<B as Buffer>::Class as Class<<B as Buffer>::Shape>>::Buffer<F>;
-
-/// Type shortcut for the [Shape] associated with a [Buffer].
-pub type ShapeOf<B> = <B as Buffer>::Shape;
 
 /// Type shortcut for the [Field] associated with a [Buffer].
 pub type FieldOf<B> = <B as Buffer>::Field;
 
 /// Type shortcut for the [Class] associated with a [Buffer].
 pub type ClassOf<B> = <B as Buffer>::Class;
-
-/// Error type for two incompatible buffers based on their shapes.
-#[derive(Copy, Clone, Debug)]
-pub struct IncompatibleShapes<S1, S2 = S1>(pub(crate) S1, pub(crate) S2)
-where
-    S1: shapes::Shape,
-    S2: shapes::Shape;
-
-impl<S1, S2> std::fmt::Display for IncompatibleShapes<S1, S2>
-where
-    S1: shapes::Shape,
-    S2: shapes::Shape,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Buffer shapes are incompatible: {} vs {}.",
-            self.0, self.1
-        )
-    }
-}
-
-impl<S1, S2> std::error::Error for IncompatibleShapes<S1, S2>
-where
-    S1: shapes::Shape,
-    S2: shapes::Shape,
-{
-}
 
 /// Trait for performing a zip and fold over a pair of buffers.
 pub trait ZipFold<RHS: Buffer = Self>: Buffer {
@@ -439,7 +391,22 @@ pub trait ZipFold<RHS: Buffer = Self>: Buffer {
 }
 
 /// Trait for combining two buffers in an elementwise fashion.
-pub trait ZipMap<RHS: Buffer = Self>: Buffer {
+pub trait ZipMap<RHS: Buffer = Self>: Buffer + Sized {
+    // TODO - Implement symmetry in this operation.
+    //
+    // Implementing symmetry in this operation can be done via the following:
+    //  1. Use the shapes::Zip trait as the unified source of truth for the output
+    // shape.  2. Replace Self::Output with Self::ZipClass; i.e. the user
+    // defines only the __Class__ of     the resulting buffer, not the field or
+    // shape. Those will instead be implied by Zip and     by the closure passed
+    // to the function.  3. Add a trait bound such that RHS also implements
+    // ZipMap, and has identical ZipClass.
+    //
+    // This works as of v1.65 - yay! - but unfortunately we end up polluting where
+    // clauses extensively downstream - nay! For now we will just leave it as
+    // unconstrained and leave it to the user to handle that. However, once
+    // RFC-2089 (implied-bounds) lands, we should be able to revisit this and
+    // potentially enforce commutativity.
     type Output<F: Scalar>: Buffer<Field = F>;
 
     /// Combine two buffers in an elementwise fashion.
@@ -450,34 +417,26 @@ pub trait ZipMap<RHS: Buffer = Self>: Buffer {
     /// let b1 = [1.0, 2.0, 3.0];
     /// let b2 = [-1.0, 0.0, 1.0];
     ///
-    /// assert_eq!(b1.zip_map(&b2, |l, r| l * r).unwrap(), [-1.0, 0.0, 3.0]);
+    /// assert_eq!(b1.zip_map(b2, |l, r| l * r).unwrap(), [-1.0, 0.0, 3.0]);
     /// ```
     fn zip_map<F: Scalar, M: Fn(Self::Field, RHS::Field) -> F>(
         self,
-        rhs: &RHS,
-        f: M,
-    ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>
-    where
-        Self: Sized,
-    {
-        self.zip_map_ref(rhs, f)
-    }
-
-    /// Combine two buffers in an elementwise fashion.
-    ///
-    /// # Examples
-    /// ```
-    /// # use aegir::buffers::ZipMap;
-    /// let b1 = [1.0, 2.0, 3.0];
-    /// let b2 = [-1.0, 0.0, 1.0];
-    ///
-    /// assert_eq!(b1.zip_map(&b2, |l, r| l * r).unwrap(), [-1.0, 0.0, 3.0]);
-    /// ```
-    fn zip_map_ref<F: Scalar, M: Fn(Self::Field, RHS::Field) -> F>(
-        &self,
-        rhs: &RHS,
+        rhs: RHS,
         f: M,
     ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
+
+    fn zip_map_dominate<F: Scalar, M: Fn(Self::Field) -> F>(
+        self,
+        rhs_shape: RHS::Shape,
+        f: M,
+    ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
+
+    fn zip_map_dominate_id(
+        self,
+        rhs_shape: RHS::Shape,
+    ) -> Result<Self::Output<Self::Field>, IncompatibleShapes<Self::Shape, RHS::Shape>> {
+        self.zip_map_dominate(rhs_shape, |x| x)
+    }
 }
 
 pub trait Contract<RHS: Buffer<Field = Self::Field>, const AXES: usize = 1>: Buffer {
@@ -487,6 +446,11 @@ pub trait Contract<RHS: Buffer<Field = Self::Field>, const AXES: usize = 1>: Buf
         self,
         rhs: RHS,
     ) -> Result<Self::Output, IncompatibleShapes<Self::Shape, RHS::Shape>>;
+
+    fn contract_shape(
+        lhs: Self::Shape,
+        rhs: RHS::Shape,
+    ) -> Result<shapes::ShapeOf<Self::Output>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
 mod scalars;
@@ -500,6 +464,9 @@ pub use vecs::*;
 
 mod arrays;
 pub use arrays::*;
+
+mod spec;
+pub use spec::{IntoSpec, Spec};
 
 // #[cfg(feature = "ndarray")]
 // mod ndarray;

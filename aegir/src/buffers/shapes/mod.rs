@@ -2,6 +2,34 @@
 use concat_arrays::concat_arrays;
 use std::fmt::{Debug, Display};
 
+/// Error type for two incompatible buffers based on their shapes.
+#[derive(Copy, Clone, Debug)]
+pub struct IncompatibleShapes<L: Shape, R: Shape = L> {
+    pub left: L,
+    pub right: R,
+}
+
+impl<L: Shape, R: Shape> IncompatibleShapes<L, R> {
+    pub fn reverse(self) -> IncompatibleShapes<R, L> {
+        IncompatibleShapes {
+            left: self.right,
+            right: self.left,
+        }
+    }
+}
+
+impl<L: Shape, R: Shape> std::fmt::Display for IncompatibleShapes<L, R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Buffer shapes are incompatible: {} vs {}.",
+            self.left, self.right
+        )
+    }
+}
+
+impl<L: Shape, R: Shape> std::error::Error for IncompatibleShapes<L, R> {}
+
 /// Trait for index types that can be used to access buffer elements.
 pub trait Ix: Eq + Copy + Debug {
     /// Returns true if the index is a diagonal element.
@@ -37,6 +65,30 @@ impl<const DIM: usize> Ix for [usize; DIM] {
     }
 }
 
+pub trait Shaped {
+    /// [Shape](shapes::Shape) associated with this type.
+    type Shape: Shape;
+
+    /// Return the [Shape](Buffer::Shape) associated with the type.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::{Buffer, shapes::{S2, Shaped}};
+    /// // Take the 2x2 identity matrix...
+    /// let buffer = [
+    ///     [1.0, 0.0],
+    ///     [0.0, 1.0]
+    /// ];
+    ///
+    /// // We can assert that the row/col counts match by the following type annotation:
+    /// let shape: S2<2, 2> = buffer.shape();
+    /// ```
+    fn shape(&self) -> Self::Shape;
+}
+
+/// Type shortcut for the [Shape] associated with a [Shaped].
+pub type ShapeOf<B> = <B as Shaped>::Shape;
+
 /// Trait for types that represent the shape of a buffer.
 pub trait Shape: Copy + Debug + Display {
     /// The dimensionality of the shape.
@@ -48,6 +100,8 @@ pub trait Shape: Copy + Debug + Display {
     type IndexIter: Iterator<Item = Self::Index>;
 
     fn contains(&self, ix: Self::Index) -> bool;
+
+    fn cardinality(&self) -> usize;
 
     /// Return an iterator over the indices of the shape.
     ///
@@ -128,17 +182,11 @@ pub trait Concat<RHS: Shape = Self>: Shape {
     fn concat_indices(left: Self::Index, rhs: RHS::Index) -> IndexOf<Self::Shape>;
 }
 
-// TODO - Once impl-spec drops, we can implement this. It'd be useful for
-// simplification code, much        like with operator rewrites.
-// /// Trait for reducing a shape into its simplest form.
-// ///
-// /// This typically involves trimming either end of unitary values.
-// pub trait Reduce: Shape {
-// type Reduced: Shape;
+pub trait Zip<RHS: Shape = Self>: Shape {
+    type Shape: Shape;
 
-// /// Trim the shape.
-// fn reduce(self) -> Self::Reduced;
-// }
+    fn zip(self, rhs: RHS) -> Result<Self::Shape, IncompatibleShapes<Self, RHS>>;
+}
 
 mod multi_product;
 

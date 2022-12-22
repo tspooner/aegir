@@ -1,4 +1,12 @@
-use super::{shapes::S1, Buffer, Class, IncompatibleShapes, OwnedOf, Scalar, ZipFold, ZipMap};
+use super::{
+    shapes::{Shaped, S1},
+    Buffer,
+    Class,
+    IncompatibleShapes,
+    Scalar,
+    ZipFold,
+    ZipMap,
+};
 
 /// Tuple buffer class.
 pub struct Tuples;
@@ -30,12 +38,17 @@ impl Class<S1<2>> for Tuples {
     fn full<F: Scalar>(_: S1<2>, value: F) -> Self::Buffer<F> { (value, value) }
 }
 
-impl<F: Scalar> Buffer for (F, F) {
-    type Class = Tuples;
-    type Field = F;
+impl<F: Scalar> Shaped for (F, F) {
     type Shape = S1<2>;
 
     fn shape(&self) -> Self::Shape { S1 }
+}
+
+impl<F: Scalar> Buffer for (F, F) {
+    type Class = Tuples;
+    type Field = F;
+
+    fn class() -> Tuples { Tuples }
 
     fn get(&self, ix: usize) -> Option<F> {
         match ix {
@@ -53,13 +66,14 @@ impl<F: Scalar> Buffer for (F, F) {
         }
     }
 
-    fn to_owned(&self) -> Self { *self }
-
-    fn into_owned(self) -> Self { self }
-
     fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> (A, A) { (f(self.0), f(self.1)) }
 
     fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> (A, A) { (f(self.0), f(self.1)) }
+
+    fn mutate<M: Fn(F) -> F>(&mut self, f: M) {
+        self.0 = f(self.0);
+        self.1 = f(self.1);
+    }
 
     fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A { f(f(init, self.0), self.1) }
 }
@@ -81,57 +95,26 @@ impl<F: Scalar> ZipFold for (F, F) {
 impl<F: Scalar> ZipMap for (F, F) {
     type Output<A: Scalar> = (A, A);
 
+    #[inline]
     fn zip_map<A: Scalar, M: Fn(F, F) -> A>(
         self,
-        rhs: &(F, F),
+        rhs: (F, F),
         f: M,
     ) -> Result<(A, A), IncompatibleShapes<S1<2>>> {
         Ok((f(self.0, rhs.0), f(self.1, rhs.1)))
     }
 
-    fn zip_map_ref<A: Scalar, M: Fn(F, F) -> A>(
-        &self,
-        rhs: &(F, F),
+    #[inline]
+    fn zip_map_dominate<A: Scalar, M: Fn(F) -> A>(
+        self,
+        _: S1<2>,
         f: M,
     ) -> Result<(A, A), IncompatibleShapes<S1<2>>> {
-        Ok((f(self.0, rhs.0), f(self.1, rhs.1)))
+        Ok((f(self.0), f(self.1)))
     }
 
-    // fn take_left(lhs: Self) -> (F, F) { lhs }
-
-    // fn take_right(rhs: Self) -> (F, F) { rhs }
-}
-
-impl<F: Scalar> Buffer for &(F, F) {
-    type Class = Tuples;
-    type Field = F;
-    type Shape = S1<2>;
-
-    fn shape(&self) -> Self::Shape { S1 }
-
-    fn get(&self, ix: usize) -> Option<F> {
-        match ix {
-            0 => Some(self.0),
-            1 => Some(self.1),
-            _ => None,
-        }
+    #[inline]
+    fn zip_map_dominate_id(self, _: S1<2>) -> Result<(F, F), IncompatibleShapes<S1<2>>> {
+        Ok(self)
     }
-
-    fn get_unchecked(&self, ix: usize) -> F {
-        match ix {
-            0 => self.0,
-            1 => self.1,
-            _ => panic!("Invalid index for tuple."),
-        }
-    }
-
-    fn map<A: Scalar, M: Fn(F) -> A>(self, f: M) -> (A, A) { (f(self.0), f(self.1)) }
-
-    fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> (A, A) { (f(self.0), f(self.1)) }
-
-    fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A { f(f(init, self.0), self.1) }
-
-    fn to_owned(&self) -> OwnedOf<Self> { **self }
-
-    fn into_owned(self) -> OwnedOf<Self> { *self }
 }

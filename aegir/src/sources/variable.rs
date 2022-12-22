@@ -1,16 +1,13 @@
 use super::SourceError;
 use crate::{
     buffers::{
-        shapes::{Concat, Shape},
-        Arrays,
+        shapes::{Concat, Shape, ShapeOf},
         Buffer,
         Class,
-        OwnedOf,
         Scalar,
-        Scalars,
-        Tuples,
-        Vecs,
+        Spec,
     },
+    fmt::{Expr, PreWrap, ToExpr},
     Contains,
     Differentiable,
     Function,
@@ -61,19 +58,30 @@ where
     I: Identifier,
 {
     type Error = SourceError<I>;
-    type Value = OwnedOf<D::Buffer>;
+    type Value = D::Buffer;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
         db.as_ref()
             .read(self.0)
-            .map(|v| v.to_owned())
+            .ok_or_else(|| SourceError::Undefined(self.0))
+    }
+
+    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
+        db.as_ref()
+            .read_spec(self.0)
+            .ok_or_else(|| SourceError::Undefined(self.0))
+    }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        db.as_ref()
+            .read_shape(self.0)
             .ok_or_else(|| SourceError::Undefined(self.0))
     }
 }
 
 impl<I, T> Differentiable<T> for Variable<I>
 where
-    I: Identifier,
+    I: Identifier + PartialEq<T>,
     T: Identifier,
 {
     type Adjoint = VariableAdjoint<I, T>;
@@ -83,6 +91,15 @@ where
             value: self.0,
             target: target,
         }
+    }
+}
+
+impl<I: Identifier> ToExpr for Variable<I> {
+    fn to_expr(&self) -> Expr {
+        Expr::Text(PreWrap {
+            text: ToString::to_string(&self.0),
+            needs_wrap: false,
+        })
     }
 }
 
@@ -110,7 +127,7 @@ impl<I, T> Node for VariableAdjoint<I, T> {}
 
 impl<I, T, A> Contains<A> for VariableAdjoint<I, T>
 where
-    I: Identifier + PartialEq<A>,
+    I: Identifier + PartialEq<T> + PartialEq<A>,
     T: Identifier + PartialEq<A>,
     A: Identifier,
 {
@@ -137,11 +154,17 @@ where
 
     <D as Read<I>>::Buffer: Buffer<Class = CI, Shape = SI, Field = F>,
     <D as Read<T>>::Buffer: Buffer<Class = CT, Shape = ST, Field = F>,
+
+    <CA as Class<SA>>::Buffer<F>: Buffer<Shape = SA>,
 {
     type Error = crate::BinaryError<SourceError<I>, SourceError<T>, crate::NoError>;
     type Value = <CA as Class<SA>>::Buffer<F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        self.evaluate_spec(db).map(|spec| spec.unwrap())
+    }
+
+    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
         let shape_value = db
             .as_ref()
             .read_shape(self.value)
@@ -164,15 +187,36 @@ where
                 .zip(shape_target.indices())
                 .map(|ixs| <SI as Concat<ST>>::concat_indices(ixs.0, ixs.1));
 
-            CA::build_subset(shape_adjoint, num_traits::zero(), ixs, |_| one)
+            Spec::Raw(CA::build_subset(
+                shape_adjoint,
+                F::zero(),
+                ixs,
+                |_| one,
+            ))
         } else {
-            <Self::Value as Buffer>::Class::full(shape_adjoint, num_traits::zero())
+            Spec::zeroes(shape_adjoint)
         })
+    }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<SA, Self::Error> {
+        let shape_value = db
+            .as_ref()
+            .read_shape(self.value)
+            .ok_or(crate::BinaryError::Left(SourceError::Undefined(self.value)))?;
+        let shape_target =
+            db.as_ref()
+                .read_shape(self.target)
+                .ok_or(crate::BinaryError::Right(SourceError::Undefined(
+                    self.target,
+                )))?;
+
+        Ok(shape_value.concat(shape_target))
     }
 }
 
 impl<I, T, A> Differentiable<A> for VariableAdjoint<I, T>
 where
+    I: PartialEq<T>,
     A: Identifier,
 
     Self: Clone,
@@ -187,17 +231,27 @@ where
     }
 }
 
+impl<I, T> ToExpr for VariableAdjoint<I, T>
+where
+    I: Identifier + PartialEq<T>,
+    T: Identifier,
+{
+    fn to_expr(&self) -> Expr {
+        if self.value == self.target {
+            Expr::One
+        } else {
+            Expr::Zero
+        }
+    }
+}
+
 impl<I, T> std::fmt::Display for VariableAdjoint<I, T>
 where
-    I: std::fmt::Display + PartialEq<T>,
-    T: std::fmt::Display,
+    I: Identifier + PartialEq<T>,
+    T: Identifier,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.value == self.target {
-            write!(f, "\u{2202}{}", self.value)
-        } else {
-            write!(f, "0")
-        }
+        self.to_expr().fmt(f)
     }
 }
 

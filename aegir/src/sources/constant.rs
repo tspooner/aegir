@@ -1,17 +1,15 @@
 use super::SourceError;
 use crate::{
     buffers::{
-        shapes::{Concat, Shape},
-        Arrays,
+        shapes::{Concat, Shape, ShapeOf, Shaped},
         Buffer,
         Class,
         FieldOf,
-        OwnedOf,
+        IntoSpec,
         Scalar,
-        Scalars,
-        Tuples,
-        Vecs,
+        Spec,
     },
+    fmt::{ToExpr, Expr, PreWrap},
     Contains,
     Database,
     Differentiable,
@@ -42,28 +40,38 @@ use crate::{
 ///     [0.0, 0.0]
 /// ]);
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Constant<B>(pub B);
+#[derive(Clone)]
+pub struct Constant<S: Shaped + IntoSpec>(pub S);
 
-impl<B> Node for Constant<B> {}
+impl<S: Shaped + IntoSpec> Node for Constant<S> {}
 
-impl<T, B> Contains<T> for Constant<B>
+impl<T, S> Contains<T> for Constant<S>
 where
     T: Identifier,
+    S: Shaped + IntoSpec,
 {
     fn contains(&self, _: T) -> bool { false }
 }
 
-impl<D, B> Function<D> for Constant<B>
+impl<D, S> Function<D> for Constant<S>
 where
     D: Database,
-    B: Buffer,
+    S: Clone + Shaped + IntoSpec,
+    S::Buffer: Shaped<Shape = S::Shape>,
 {
     type Error = SourceError<()>;
-    type Value = OwnedOf<B>;
+    type Value = S::Buffer;
 
-    fn evaluate<DR: AsRef<D>>(&self, _: DR) -> Result<Self::Value, Self::Error> {
-        Ok(self.0.to_owned())
+    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<S::Buffer, Self::Error> {
+        self.evaluate_spec(db).map(|spec| spec.unwrap())
+    }
+
+    fn evaluate_spec<DR: AsRef<D>>(&self, _: DR) -> Result<Spec<S::Buffer>, Self::Error> {
+        Ok(self.0.clone().into_spec())
+    }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, _: DR) -> Result<S::Shape, Self::Error> {
+        Ok(self.0.shape())
     }
 }
 
@@ -74,18 +82,38 @@ where
 
     FieldOf<B>: num_traits::Zero,
 {
-    type Adjoint = ConstantAdjoint<Constant<OwnedOf<B>>, T>;
+    type Adjoint = ConstantAdjoint<Constant<B>, T>;
 
     fn adjoint(&self, ident: T) -> Self::Adjoint {
         ConstantAdjoint {
-            node: Constant(self.0.to_owned()),
+            node: self.clone(),
             target: ident,
         }
     }
 }
 
-impl<B: std::fmt::Display> std::fmt::Display for Constant<B> {
+impl<B> std::fmt::Debug for Constant<B>
+where
+    B: Buffer + std::fmt::Debug,
+    B::Field: std::fmt::Debug,
+    B::Shape: std::fmt::Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { self.0.fmt(f) }
+}
+
+impl<B: Buffer + ToString> ToExpr for Constant<B> {
+    fn to_expr(&self) -> Expr {
+        Expr::Text(PreWrap {
+            text: self.0.to_string(),
+            needs_wrap: false,
+        })
+    }
+}
+
+impl<B: Buffer + ToString> std::fmt::Display for Constant<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.to_expr().fmt(f)
+    }
 }
 
 /// Source node for the adjoint of [constants](Constant).
@@ -130,11 +158,22 @@ where
 
     D: Read<T>,
     D::Buffer: Buffer<Field = F, Shape = ST, Class = CT>,
+
+    <CA as Class<SA>>::Buffer<F>: Buffer<Shape = SA>,
 {
     type Error = crate::BinaryError<N::Error, SourceError<T>, crate::NoError>;
     type Value = <CA as Class<SA>>::Buffer<F>;
 
     fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+        self.evaluate_spec(db).map(|lifted| lifted.unwrap())
+    }
+
+    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
+        self.evaluate_shape(db)
+            .map(|shape| Spec::Full(shape, F::zero()))
+    }
+
+    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<SA, Self::Error> {
         let shape_value = self
             .node
             .evaluate_shape(db.as_ref())
@@ -142,10 +181,13 @@ where
         let shape_target = db.as_ref().read(self.target).map(|buf| buf.shape()).ok_or(
             crate::BinaryError::Right(SourceError::Undefined(self.target)),
         )?;
-        let shape_adjoint = shape_value.concat(shape_target);
 
-        Ok(CA::zeroes::<F>(shape_adjoint))
+        Ok(shape_value.concat(shape_target))
     }
+}
+
+impl<N: Node, T> ToExpr for ConstantAdjoint<N, T> {
+    fn to_expr(&self) -> Expr { Expr::Zero }
 }
 
 impl<N, T> std::fmt::Display for ConstantAdjoint<N, T> {

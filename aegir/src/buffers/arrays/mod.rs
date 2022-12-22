@@ -1,5 +1,5 @@
 use super::{
-    shapes::{IndexOf, Shape, S0, S1, S2, S3, S4, S5},
+    shapes::{IndexOf, Shape, Shaped, S0, S1, S2, S3, S4, S5},
     Buffer,
     Class,
     IncompatibleShapes,
@@ -23,12 +23,6 @@ mod tests {
         use super::*;
 
         const V: [f64; 2] = [1.0, 2.0];
-
-        #[test]
-        fn test_ownership() {
-            assert_eq!(Buffer::to_owned(&V), V);
-            assert_eq!(Buffer::into_owned(V), V);
-        }
 
         // #[test]
         // fn test_replace() {
