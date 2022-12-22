@@ -59,6 +59,12 @@ impl<F: Scalar> Buffer for Vec<F> {
         self.iter().map(|x| f(*x)).collect()
     }
 
+    fn mutate<M: Fn(F) -> F>(&mut self, f: M) {
+        for i in 0..self.len() {
+            self[i] = f(self[i]);
+        }
+    }
+
     fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A {
         self.into_iter().copied().fold(init, f)
     }

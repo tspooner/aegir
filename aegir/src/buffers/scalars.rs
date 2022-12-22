@@ -60,6 +60,8 @@ macro_rules! impl_scalar {
 
             fn map_ref<F: Scalar, M: Fn($F) -> F>(&self, f: M) -> F { f(*self) }
 
+            fn mutate<M: Fn($F) -> $F>(&mut self, f: M) { *self = f(*self); }
+
             fn fold<F, M: Fn(F, $F) -> F>(&self, init: F, f: M) -> F { f(init, *self) }
         }
 

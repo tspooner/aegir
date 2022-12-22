@@ -32,33 +32,33 @@ impl<L: Shape, R: Shape> std::error::Error for IncompatibleShapes<L, R> {}
 
 /// Trait for index types that can be used to access buffer elements.
 pub trait Ix: Eq + Copy + Debug {
-/// Returns true if the index is a diagonal element.
-///
-/// A diagonal element is defined here as an index where all components are
-/// equal.
-///
-/// ```
-/// # #[macro_use] extern crate aegir;
-/// # use aegir::buffers::shapes::Ix;
-/// assert!([1, 1, 1].is_diagonal());
-/// ```
-fn is_diagonal(&self) -> bool;
+    /// Returns true if the index is a diagonal element.
+    ///
+    /// A diagonal element is defined here as an index where all components are
+    /// equal.
+    ///
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::buffers::shapes::Ix;
+    /// assert!([1, 1, 1].is_diagonal());
+    /// ```
+    fn is_diagonal(&self) -> bool;
 }
 
 impl Ix for () {
-fn is_diagonal(&self) -> bool { true }
+    fn is_diagonal(&self) -> bool { true }
 }
 
 impl Ix for usize {
-fn is_diagonal(&self) -> bool { true }
+    fn is_diagonal(&self) -> bool { true }
 }
 
 impl<const DIM: usize> Ix for [usize; DIM] {
-fn is_diagonal(&self) -> bool {
-    let mut it = self.iter();
-    let first = it.next();
+    fn is_diagonal(&self) -> bool {
+        let mut it = self.iter();
+        let first = it.next();
 
-    match first {
+        match first {
             None => true,
             Some(ix) => it.all(|jx| ix == jx),
         }
@@ -73,7 +73,7 @@ pub trait Shaped {
     ///
     /// # Examples
     /// ```
-    /// # use aegir::buffers::{Buffer, shapes::S2};
+    /// # use aegir::buffers::{Buffer, shapes::{S2, Shaped}};
     /// // Take the 2x2 identity matrix...
     /// let buffer = [
     ///     [1.0, 0.0],

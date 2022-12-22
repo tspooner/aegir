@@ -70,6 +70,11 @@ impl<F: Scalar> Buffer for (F, F) {
 
     fn map_ref<A: Scalar, M: Fn(F) -> A>(&self, f: M) -> (A, A) { (f(self.0), f(self.1)) }
 
+    fn mutate<M: Fn(F) -> F>(&mut self, f: M) {
+        self.0 = f(self.0);
+        self.1 = f(self.1);
+    }
+
     fn fold<A, M: Fn(A, F) -> A>(&self, init: A, f: M) -> A { f(f(init, self.0), self.1) }
 }
 

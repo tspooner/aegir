@@ -10,7 +10,9 @@ macro_rules! impl_buffer {
 
         @shape { $s_impl:expr };
         @get_unchecked |$gu_self:ident, $gu_ix:ident| { $gu_impl:expr };
+
         @map |$m_self:ident, $m_func:ident| { $m_impl:expr };
+        @mutate |$mut_self:ident, $mut_func:ident| { $mut_impl:expr };
     ) => {
         // Class implementation:
         impl<$(const $d: usize),+> Class<$shape> for Arrays {
@@ -54,6 +56,8 @@ macro_rules! impl_buffer {
 
             fn map_ref<A: Scalar, M: Fn($f) -> A>(&self, f: M) -> <Arrays as Class<$shape>>::Buffer<A> { array_init::array_init(|i| self[i].map_ref(&f)) }
 
+            fn mutate<M: Fn($f) -> $f>(&mut $mut_self, $mut_func: M) { $mut_impl }
+
             fn fold<A, M: Fn(A, $f) -> A>(&self, mut init: A, f: M) -> A {
                 for i in 0..D1 {
                     init = self[i].fold(init, &f)
@@ -75,7 +79,13 @@ impl_buffer!(
 
     @shape { S1 };
     @get_unchecked |self, ix| { self[ix] };
+
     @map |self, f| { <[F; D1]>::map(self, f) };
+    @mutate |self, f| {
+        for i in 0..D1 {
+            self[i] = f(self[i]);
+        }
+    };
 );
 
 // Rank-2 Tensor:
@@ -88,7 +98,13 @@ impl_buffer!(
 
     @shape { S2 };
     @get_unchecked |self, ix| { self[ix[0]][ix[1]] };
+
     @map |self, f| { <[[F; D2]; D1]>::map(self, |x| Buffer::map(x, &f)) };
+    @mutate |self, f| {
+        for i in 0..D1 {
+            self[i].mutate(&f);
+        }
+    };
 );
 
 // Rank-3 Tensor:
@@ -107,7 +123,13 @@ impl_buffer!(
 
     @shape { S3 };
     @get_unchecked |self, ix| { self[ix[0]][ix[1]][ix[2]] };
+
     @map |self, f| { <[[[F; D3]; D2]; D1]>::map(self, |x| Buffer::map(x, &f)) };
+    @mutate |self, f| {
+        for i in 0..D1 {
+            self[i].mutate(&f);
+        }
+    };
 );
 
 // Rank-4 Tensor:
@@ -128,7 +150,13 @@ impl_buffer!(
 
     @shape { S4 };
     @get_unchecked |self, ix| { self[ix[0]][ix[1]][ix[2]][ix[3]] };
+
     @map |self, f| { <[[[[F; D4]; D3]; D2]; D1]>::map(self, |x| Buffer::map(x, &f)) };
+    @mutate |self, f| {
+        for i in 0..D1 {
+            self[i].mutate(&f);
+        }
+    };
 );
 
 // Rank-5 Tensor:
@@ -151,5 +179,11 @@ impl_buffer!(
 
     @shape { S5 };
     @get_unchecked |self, ix| { self[ix[0]][ix[1]][ix[2]][ix[3]][ix[4]] };
+
     @map |self, f| { <[[[[[F; D5]; D4]; D3]; D2]; D1]>::map(self, |x| Buffer::map(x, &f)) };
+    @mutate |self, f| {
+        for i in 0..D1 {
+            self[i].mutate(&f);
+        }
+    };
 );

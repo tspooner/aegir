@@ -12,11 +12,34 @@ impl<B: Buffer> IntoSpec for B {
     fn into_spec(self) -> Spec<B> { Spec::Raw(self) }
 }
 
+/// A "lifted" buffer representation.
+///
+/// In many cases, a given buffer instance has structural properties that allow us to prune
+/// redundant compute or memory demands. For example, elementwise multiplication of two buffers
+/// when either value is "all-zeroes" is certian to yield another "all-zeroes" buffer. Similarly,
+/// buffer full of only one value need not be representated in a dense form. This type is designed
+/// to facilitate sparse/structural representations throughout `aegir`.
 #[non_exhaustive]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Spec<B: Buffer> {
+    /// The raw buffer instance.
+    ///
+    /// This case is exactly equivalent to the original buffer.
+    /// It incorporates no structural knowledge at all.
     Raw(B),
+
+    /// A homogeneous buffer that is full of a given scalar value.
+    ///
+    /// In this case, we embed the fact that the buffer contains
+    /// the same value in every entry. As a result, we need only store
+    /// the shape of the buffer, and the value itself.
     Full(B::Shape, B::Field),
+
+    /// A buffer with homogeneous diagonal entries only.
+    ///
+    /// In this case, we embed the fact that the buffer is diagonal.
+    /// As a result, we need only store the shape of the buffer, and
+    /// the value along the diagonal.
     Diagonal(B::Shape, B::Field),
 }
 
@@ -42,6 +65,16 @@ where
     F: Scalar,
     B: Buffer<Field = F>,
 {
+    /// Perform an element-wise transformation of the buffer.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::{Buffer, Spec, shapes::S1};
+    /// let spec: Spec<[f64; 20]> = Spec::Full(S1, 0.0f64);
+    /// let new_spec = spec.map(|x| x + 5.0f64);
+    ///
+    /// assert_eq!(new_spec, Spec::Full(S1, 5.0f64));
+    /// ```
     pub fn map<A: Scalar, M: Fn(F) -> A>(
         self,
         f: M,

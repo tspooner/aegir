@@ -290,33 +290,47 @@ pub trait Buffer: Clone + shapes::Shaped + IntoSpec<Buffer = Self> {
     /// ```
     fn get_unchecked(&self, ix: shapes::IndexOf<Self::Shape>) -> Self::Field;
 
-    /// Perform an element-wise transformation of the buffer (in-place).
+    /// Perform an element-wise transformation of the buffer.
     ///
     /// # Examples
     /// ```
     /// # use aegir::buffers::Buffer;
     /// let buffer = vec![0.0, 1.0, 2.0, 3.0];
-    /// let new_buffer = buffer.map(|el| el * 2.0);
+    /// let new_buffer = buffer.map(|x| x as u8 * 2);
     ///
-    /// assert_eq!(new_buffer[0], 0.0);
-    /// assert_eq!(new_buffer[1], 2.0);
-    /// assert_eq!(new_buffer[2], 4.0);
-    /// assert_eq!(new_buffer[3], 6.0);
+    /// assert_eq!(new_buffer[0], 0);
+    /// assert_eq!(new_buffer[1], 2);
+    /// assert_eq!(new_buffer[2], 4);
+    /// assert_eq!(new_buffer[3], 6);
     /// ```
     fn map<F: Scalar, M: Fn(Self::Field) -> F>(
         self,
         f: M,
-    ) -> <Self::Class as Class<Self::Shape>>::Buffer<F> {
-        <Self::Class as Class<Self::Shape>>::build(self.shape(), |ix| f(self.get_unchecked(ix)))
-    }
+    ) -> <Self::Class as Class<Self::Shape>>::Buffer<F>;
 
-    /// Perform an element-wise transformation of the buffer (reference).
+    /// Perform an element-wise transformation of the buffer reference.
     fn map_ref<F: Scalar, M: Fn(Self::Field) -> F>(
         &self,
         f: M,
     ) -> <Self::Class as Class<Self::Shape>>::Buffer<F> {
         <Self::Class as Class<Self::Shape>>::build(self.shape(), |ix| f(self.get_unchecked(ix)))
     }
+
+    /// Perform an element-wise transformation of the buffer in-place.
+    ///
+    /// # Examples
+    /// ```
+    /// # use aegir::buffers::Buffer;
+    /// let mut buffer = vec![0.0, 1.0, 2.0, 3.0];
+    ///
+    /// buffer.mutate(|el| -el);
+    ///
+    /// assert_eq!(buffer[0], -0.0);
+    /// assert_eq!(buffer[1], -1.0);
+    /// assert_eq!(buffer[2], -2.0);
+    /// assert_eq!(buffer[3], -3.0);
+    /// ```
+    fn mutate<M: Fn(Self::Field) -> Self::Field>(&mut self, f: M);
 
     /// Perform a fold over the elements of the buffer.
     ///
