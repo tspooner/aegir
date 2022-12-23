@@ -3,7 +3,7 @@ use quote::quote;
 use syn::fold::Fold;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, parse_quote, token, BinOp, Expr, ExprMethodCall, Ident, Lit, Path};
+use syn::{parse_macro_input, parse_quote, token, BinOp, Expr, ExprMethodCall, Ident, Lit};
 
 struct ConvertToAegir {}
 

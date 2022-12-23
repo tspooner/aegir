@@ -3,7 +3,6 @@ extern crate aegir;
 extern crate rand;
 
 use aegir::{
-    buffers::ZipMap,
     ids::{W, X, Y},
     Differentiable,
     Function,
@@ -12,17 +11,19 @@ use aegir::{
 };
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
+const N: usize = 30;
+
 db!(Database { x: X, y: Y, w: W });
 
 fn main() {
     let mut rng = SmallRng::seed_from_u64(1994);
     let mut db = Database {
-        x: [0.0; 20],
+        x: [1.0; N],
         y: 0.0,
-        w: [0.0; 20],
+        w: [0.0; N],
     };
 
-    let true_weights: [f64; 20] = rng.gen();
+    let true_weights: [f64; N] = rng.gen();
 
     let x = X.into_var();
     let y = Y.into_var();
@@ -32,7 +33,7 @@ fn main() {
     let sse = model.sub(y).squared();
     let adj = sse.adjoint(W);
 
-    for _ in 0..1_000_000 {
+    for _ in 0..10_000_000 {
         // Independent variables:
         db.x = rng.gen();
 
@@ -40,9 +41,9 @@ fn main() {
         db.y = db.x.iter().zip(true_weights.iter()).map(|(x, y)| x * y).sum();
 
         // Evaluate gradient:
-        let g: [f64; 20] = adj.evaluate(&db).unwrap();
+        let g: [f64; N] = adj.evaluate(&db).unwrap();
 
-        for i in 0..20 {
+        for i in 0..N {
             db.w[i] -= 0.01 * g[i];
         }
     }

@@ -62,11 +62,6 @@ impl<V: Buffer, A: Buffer> Dual<V, A> {
     fn map<V_, A_>(self, f: impl Fn(V, A) -> (V_, A_)) -> Dual<V_, A_> {
         f(self.value, self.adjoint).into()
     }
-
-    #[inline]
-    fn map_ref<V_, A_>(&self, f: impl Fn(&V, &A) -> (V_, A_)) -> Dual<V_, A_> {
-        f(&self.value, &self.adjoint).into()
-    }
 }
 
 impl<V, A: Buffer> Dual<V, A>

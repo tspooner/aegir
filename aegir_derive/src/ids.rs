@@ -4,7 +4,6 @@ use syn::parse::Parser;
 
 struct DataIdentifier {
     pub type_id: syn::Ident,
-    pub colon: Option<Token![::]>,
     pub symbol: Option<syn::LitStr>,
 }
 
@@ -59,7 +58,7 @@ impl syn::parse::Parse for DataIdentifier {
         let clook = input.lookahead1();
 
         if clook.peek(Token![::]) {
-            let colon: Option<Token![::]> = input.parse().ok();
+            let _: Option<Token![::]> = input.parse().ok();
             let symbol: syn::LitStr = if input.lookahead1().peek(syn::Ident) {
                 let ident: syn::Ident = input.parse()?;
 
@@ -70,13 +69,11 @@ impl syn::parse::Parse for DataIdentifier {
 
             Ok(DataIdentifier {
                 type_id,
-                colon,
                 symbol: Some(symbol),
             })
         } else {
             Ok(DataIdentifier {
                 type_id,
-                colon: None,
                 symbol: None,
             })
         }

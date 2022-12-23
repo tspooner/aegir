@@ -137,6 +137,10 @@ where
     /// Construct a Spec::Full(s, 1) where s is a given shape.
     #[inline]
     pub fn ones(shape: B::Shape) -> Self { Spec::Full(shape, B::Field::one()) }
+
+    /// Construct a Spec::Diagonal(s, 1) where s is a given shape.
+    #[inline]
+    pub fn eye(shape: B::Shape) -> Self { Spec::Diagonal(shape, B::Field::one()) }
 }
 
 impl<B: Buffer> From<B> for Spec<B> {

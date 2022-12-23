@@ -447,9 +447,14 @@ pub trait Contract<RHS: Buffer<Field = Self::Field>, const AXES: usize = 1>: Buf
         rhs: RHS,
     ) -> Result<Self::Output, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 
+    fn contract_spec(
+        lhs: Spec<Self>,
+        rhs: Spec<RHS>,
+    ) -> Result<Spec<Self::Output>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
+
     fn contract_shape(
-        lhs: Self::Shape,
-        rhs: RHS::Shape,
+        lhs: shapes::ShapeOf<Self>,
+        rhs: shapes::ShapeOf<RHS>,
     ) -> Result<shapes::ShapeOf<Self::Output>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 

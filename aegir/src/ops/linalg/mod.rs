@@ -1,5 +1,5 @@
 use crate::{
-    buffers::shapes::{ShapeOf, Shaped},
+    buffers::shapes::ShapeOf,
     buffers::{Buffer, Contract as CTrait, FieldOf, IncompatibleShapes, Spec},
     fmt::{ToExpr, Expr, PreWrap},
     ops::Add,
@@ -11,7 +11,6 @@ use crate::{
     Identifier,
     Node,
 };
-use num_traits::Zero as _;
 
 #[derive(Copy, Clone, PartialEq, Contains)]
 pub struct Contract<const AXES: usize, L, R>(#[op] pub L, #[op] pub R);
@@ -40,30 +39,10 @@ where
     }
 
     fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
-        use Spec::*;
-
         let x = self.0.evaluate_spec(&db).map_err(BinaryError::Left)?;
         let y = self.1.evaluate_spec(db).map_err(BinaryError::Right)?;
 
-        match (x, y) {
-            (Full(sx, fx), y) if fx.is_zero() => {
-                <L::Value as CTrait<R::Value, AXES>>::contract_shape(sx, y.shape())
-                    .map(Spec::zeroes)
-                    .map_err(BinaryError::Output)
-            },
-
-            (x, Full(sy, fy)) if fy.is_zero() => {
-                <L::Value as CTrait<R::Value, AXES>>::contract_shape(x.shape(), sy)
-                    .map(Spec::zeroes)
-                    .map_err(BinaryError::Output)
-            },
-
-            (x, y) => x
-                .unwrap()
-                .contract(y.unwrap())
-                .map(Spec::Raw)
-                .map_err(BinaryError::Output),
-        }
+        <L::Value as CTrait<R::Value, AXES>>::contract_spec(x, y).map_err(BinaryError::Output)
     }
 
     fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {

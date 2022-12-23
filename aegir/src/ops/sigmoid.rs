@@ -1,8 +1,4 @@
-use crate::{
-    buffers::Buffer,
-    Differentiable,
-    Identifier,
-};
+use crate::{Differentiable, Identifier};
 use num_traits::real::Real;
 
 impl_unary!(

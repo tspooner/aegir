@@ -178,21 +178,25 @@ where
         let shape_adjoint = shape_value.concat(shape_target);
 
         Ok(if self.value == self.target {
-            // In this case, we also know that shape_value == shape_target.
-            // This further implies that shape_adjoint.split() is exactly equal
-            // to (shape_value, shape_adjoint). We exploit this below:
-            let one = num_traits::one();
-            let ixs = shape_value
-                .indices()
-                .zip(shape_target.indices())
-                .map(|ixs| <SI as Concat<ST>>::concat_indices(ixs.0, ixs.1));
+            if SI::DIM + ST::DIM == 2 {
+                Spec::eye(shape_adjoint)
+            } else {
+                // In this case, we also know that shape_value == shape_target.
+                // This further implies that shape_adjoint.split() is exactly equal
+                // to (shape_value, shape_adjoint). We exploit this below:
+                let one = num_traits::one();
+                let ixs = shape_value
+                    .indices()
+                    .zip(shape_target.indices())
+                    .map(|ixs| <SI as Concat<ST>>::concat_indices(ixs.0, ixs.1));
 
-            Spec::Raw(CA::build_subset(
-                shape_adjoint,
-                F::zero(),
-                ixs,
-                |_| one,
-            ))
+                Spec::Raw(CA::build_subset(
+                    shape_adjoint,
+                    F::zero(),
+                    ixs,
+                    |_| one,
+                ))
+            }
         } else {
             Spec::zeroes(shape_adjoint)
         })

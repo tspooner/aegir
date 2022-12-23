@@ -1,7 +1,3 @@
-use crate::{
-    buffers::Buffer,
-    Function,
-};
 use special_fun::FloatSpecial;
 
 // Derive = x.gamma() * x.digamma()

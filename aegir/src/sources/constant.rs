@@ -1,7 +1,7 @@
 use super::SourceError;
 use crate::{
     buffers::{
-        shapes::{Concat, Shape, ShapeOf, Shaped},
+        shapes::{Concat, Shape, Shaped},
         Buffer,
         Class,
         FieldOf,
