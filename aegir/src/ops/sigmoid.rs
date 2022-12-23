@@ -15,7 +15,7 @@ impl_unary!(
     }
 );
 
-fn sigmoid<F: Real>(x: F) -> F {
+pub fn sigmoid<F: Real>(x: F) -> F {
     if x >= num_traits::zero() {
         let l: F = num_traits::one();
 
@@ -75,9 +75,9 @@ where
     T: Identifier,
     N: Differentiable<T> + Clone,
 {
-    type Adjoint = crate::ops::TensorDot<N::Adjoint, Rabbit<Self>>;
+    type Adjoint = crate::ops::Mul<N::Adjoint, Rabbit<Self>>;
 
     fn adjoint(&self, target: T) -> Self::Adjoint {
-        crate::ops::TensorDot::new(self.0.adjoint(target), Rabbit(self.clone()))
+        crate::ops::Mul(self.0.adjoint(target), Rabbit(self.clone()))
     }
 }
