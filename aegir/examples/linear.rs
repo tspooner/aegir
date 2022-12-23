@@ -38,7 +38,7 @@ fn main() {
         db.x = rng.gen();
 
         // Dependent variable:
-        db.y = db.x.iter().zip(true_weights.iter()).map(|(x, y)| x * y).sum();
+        db.y = db.x.iter().zip(true_weights.iter()).map(|(x, tw)| x * tw).sum();
 
         // Evaluate gradient:
         let g: [f64; N] = adj.evaluate(&db).unwrap();

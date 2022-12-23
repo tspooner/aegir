@@ -41,5 +41,9 @@ rand = { version = "0.8", features = ["small_rng"] }
 criterion = "0.4"
 
 [[bench]]
-name = "lr_sgd"
+name = "linear"
+harness = false
+
+[[bench]]
+name = "logistic"
 harness = false

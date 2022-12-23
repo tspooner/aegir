@@ -25,7 +25,7 @@ impl Fold for ConvertToAegir {
                     _ => unimplemented!(),
                 };
 
-                fn is_square(lit: &Lit) -> bool {
+                fn is_two(lit: &Lit) -> bool {
                     match lit {
                         Lit::Float(f) => {
                             let two: syn::LitFloat = parse_quote!(2.0);
@@ -42,7 +42,7 @@ impl Fold for ConvertToAegir {
                 }
 
                 match *b.right {
-                    Expr::Lit(ref l) if method == "pow" && is_square(&l.lit) => {
+                    Expr::Lit(ref l) if method == "pow" && is_two(&l.lit) => {
                         Expr::MethodCall(ExprMethodCall {
                             attrs: b.attrs,
                             receiver: Box::new(self.fold_expr(*b.left)),

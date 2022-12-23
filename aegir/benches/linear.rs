@@ -72,8 +72,7 @@ macro_rules! solve_auto {
         let adj = sse.adjoint(W);
 
         solve!(
-            [$n] | db,
-            xs | {
+            [$n] |db, xs| {
                 db.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
                 db.x = xs;
 
@@ -92,8 +91,7 @@ macro_rules! solve_manual {
         let adj = ops::Mul(ops::Double(ops::Sub(ops::TensorDot::new(x, w), y)), x);
 
         solve!(
-            [$n] | db,
-            xs | {
+            [$n] |db, xs| {
                 db.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
                 db.x = xs;
 
@@ -140,8 +138,7 @@ macro_rules! solve_raw {
         let adj: RawAdjoint<$n> = RawAdjoint;
 
         solve!(
-            [$n] | db,
-            xs | {
+            [$n] |db, xs| {
                 db.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
                 db.x = xs;
 
@@ -152,7 +149,7 @@ macro_rules! solve_raw {
 }
 
 pub fn benchmark_solve(c: &mut Criterion) {
-    let mut group = c.benchmark_group("solve");
+    let mut group = c.benchmark_group("Linear");
 
     group.plot_config(PlotConfiguration::default().summary_scale(AxisScale::Logarithmic));
 
@@ -178,5 +175,5 @@ pub fn benchmark_solve(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(lr_sgd, benchmark_solve);
-criterion_main!(lr_sgd);
+criterion_group!(linear, benchmark_solve);
+criterion_main!(linear);
