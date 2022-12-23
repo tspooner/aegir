@@ -37,18 +37,11 @@ impl_unary!(
     /// # use aegir::{Identifier, Differentiable, ops::Sigmoid, ids::X};
     /// db!(DB { x: X });
     ///
-    /// let db = DB {
-    ///     x: [1.0f64, 2.0f64, 3.0f64]
-    /// };
+    /// let db = DB { x: 1.0f64 };
     /// let dual = Sigmoid(X.into_var()).evaluate_dual(X, &db).unwrap();
     ///
-    /// assert!((dual.value[0] - 0.73106).abs() < 1e-5);
-    /// assert!((dual.value[1] - 0.88080).abs() < 1e-5);
-    /// assert!((dual.value[2] - 0.95258).abs() < 1e-5);
-    ///
-    /// assert!((dual.adjoint[0] - 0.19661).abs() < 1e-5);
-    /// assert!((dual.adjoint[1] - 0.10499).abs() < 1e-5);
-    /// assert!((dual.adjoint[2] - 0.04518).abs() < 1e-5);
+    /// assert!((dual.value - 0.73106).abs() < 1e-5);
+    /// assert!((dual.adjoint - 0.19661).abs() < 1e-5);
     /// ```
     Sigmoid<F: Real>, |x| { sigmoid(x) }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
