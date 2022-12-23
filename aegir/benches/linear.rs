@@ -119,11 +119,9 @@ where
         let ws = dbr.read(W).unwrap();
         let y = dbr.read(Y).unwrap();
 
-        let mut y = 0.0;
         let mut p = 0.0;
 
         for i in 0..N {
-            y += xs[i] * TW[i];
             p += xs[i] * ws[i];
         }
 
