@@ -168,6 +168,13 @@ pub trait Node {
         ops::Power(self, power)
     }
 
+    fn ln(self) -> ops::Ln<Self>
+    where
+        Self: Sized,
+    {
+        ops::Ln(self)
+    }
+
     fn squared(self) -> ops::Square<Self>
     where
         Self: Sized,
@@ -180,6 +187,13 @@ pub trait Node {
         Self: Sized,
     {
         ops::Sum(self)
+    }
+
+    fn sigmoid(self) -> ops::Sigmoid<Self>
+    where
+        Self: Sized,
+    {
+        ops::Sigmoid(self)
     }
 }
 
