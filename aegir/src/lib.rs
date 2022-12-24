@@ -23,6 +23,8 @@
 //! - Decoupled/generic tensor type.
 //! - Monadic runtime optimisation.
 //! - Custom DSL for operator expansion.
+#![warn(missing_docs)]
+
 #[allow(unused_imports)]
 #[macro_use]
 extern crate aegir_derive;
@@ -44,17 +46,18 @@ extern crate itertools;
 pub mod errors;
 use errors::*;
 
-/// Trait for type-level identifiers.
+/// Interface for type-level identifiers.
 ///
-/// This trait should be implemented for every symbol that is to be used in the
-/// computation. For example, one might define identifiers `X` and `Y` for use
-/// in regression models. Implementation, however, is mostly hidden to the
-/// regular user and one doesn't typically implement this manually, but rather
-/// uses the procedural macro [ids!].
-///
-/// Note: some quality-of-life shortcuts are provided in the
+/// This trait should be implemented for symbols that are used to label variable/meta nodes (see
+/// [meta]). For example, one might define `X` and `Y` for use in regression models, or `W` to
+/// denote weights.  To make life easier, we define a large set of "standard" identifiers in the
 /// [ids](ids/index.html) module.
-pub trait Identifier: Eq + Copy + PartialEq + std::fmt::Debug + std::fmt::Display {
+///
+/// Implementation of this trait is mostly uncomplicated, but can be cumbersome. In particular, the
+/// [VariableAdjoint](meta::VariableAdjoint) type relies on `PartialEq` being implemented for the
+/// two identifiers `I` and `T`. The procedural macro [ids!] is provided to make this simpler
+/// should you want to define a custom type.
+pub trait Identifier: Copy + PartialEq + Eq + std::fmt::Debug + std::fmt::Display {
     /// Convert the identifier into a [Variable].
     fn into_var(self) -> meta::Variable<Self> { meta::Variable(self) }
 }
@@ -62,12 +65,12 @@ pub trait Identifier: Eq + Copy + PartialEq + std::fmt::Debug + std::fmt::Displa
 pub mod ids {
     //! Quality-of-life shortcuts for commonly-used identifiers.
     ids!(
+        // Latin alphabet:
         A::a, B::b, C::c, D::d, E::e, F::f, G::g, H::h, I::i,
         J::j, K::k, L::l, M::m, N::n, O::o, P::p, Q::q, R::r,
-        S::s, T::t, U::u, V::v, W::w, X::x, Y::y, Z::z
-    );
+        S::s, T::t, U::u, V::v, W::w, X::x, Y::y, Z::z,
 
-    ids!(
+        // Greek alphabet:
         Alpha::"\u{03B1}", Beta::"\u{03B2}", Gamma::"\u{03B3}", Delta::"\u{03B4}",
         Epsilon::"\u{03B5}", Zeta::"\u{03B6}", Eta::"\u{03B7}", Theta::"\u{03B8}",
         Iota::"\u{03B9}", Kappa::"\u{03BA}", Lambda::"\u{03BB}", Mu::"\u{03BC}",
