@@ -17,8 +17,8 @@ ctx!(Ctx { x: X, y: Y, w: W });
 
 fn main() {
     let mut rng = SmallRng::seed_from_u64(1994);
-    let mut db = Ctx {
-        x: [1.0; N],
+    let mut ctx = Ctx {
+        x: [0.0; N],
         y: 0.0,
         w: [0.0; N],
     };
@@ -35,18 +35,18 @@ fn main() {
 
     for _ in 0..10_000_000 {
         // Independent variables:
-        db.x = rng.gen();
+        ctx.x = rng.gen();
 
         // Dependent variable:
-        db.y = db.x.iter().zip(true_weights.iter()).map(|(x, tw)| x * tw).sum();
+        ctx.y = ctx.x.iter().zip(true_weights.iter()).map(|(x, tw)| x * tw).sum();
 
         // Evaluate gradient:
-        let g: [f64; N] = adj.evaluate(&db).unwrap();
+        let g: [f64; N] = adj.evaluate(&ctx).unwrap();
 
         for i in 0..N {
-            db.w[i] -= 0.01 * g[i];
+            ctx.w[i] -= 0.01 * g[i];
         }
     }
 
-    println!("{:?}", db.w.to_vec());
+    println!("{:?}", ctx.w.to_vec());
 }

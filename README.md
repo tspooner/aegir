@@ -34,10 +34,15 @@ extern crate rand;
 
 use aegir::{Differentiable, Function, Identifier, Node, ids::{X, Y, W}};
 
-db!(Database { x: X, y: Y, w: W });
+ctx!(Ctx { x: X, y: Y, w: W });
 
 fn main() {
-    let mut weights = [0.0, 0.0];
+    let mut rng = rand::thread_rng();
+    let mut ctx = Ctx {
+        x: [0.0; N],
+        y: 0.0,
+        w: [0.0; N],
+    };
 
     let x = X.into_var();
     let y = Y.into_var();
@@ -53,24 +58,21 @@ fn main() {
     let sse = aegir!((model - y) ^ 2);
     let adj = sse.adjoint(W);
 
-    for _ in 0..100000 {
-        let [x1, x2] = [rand::random::<f64>(), rand::random::<f64>()];
+    for _ in 0..1_000_00 {
+        // Independent variables:
+        ctx.x = rng.gen();
 
-        let g = adj.evaluate(Database {
-            // Independent variables:
-            x: [x1, x2],
+        // Dependent variable:
+        ctx.y = ctx.x[0] * 2.0 - ctx.x[1] * 4.0;
 
-            // Dependent variable:
-            y: x1 * 2.0 - x2 * 4.0,
+        // Evaluate gradient:
+        let g: [f64; N] = adj.evaluate(&ctx).unwrap();
 
-            // Model weights:
-            w: &weights,
-        }).unwrap();
-
-        weights[0] -= 0.01 * g[0];
-        weights[1] -= 0.01 * g[1];
+        // Update weights:
+        ctx.w[0] -= 0.01 * g[0];
+        ctx.w[1] -= 0.01 * g[1];
     }
 
-    println!("{:?}", weights.to_vec());
+    println!("{:?}", ctx.w.to_vec());
 }
 ```
