@@ -127,12 +127,12 @@ pub fn expand_contains(ast: &syn::DeriveInput) -> TokenStream {
 
     let mut trait_generics = op_fields.extend_generics(
         ast.generics.clone(),
-        parse_quote! { ::aegir::Contains<__TARGET> },
+        parse_quote! { ::aegir::Contains<I> },
     );
 
     trait_generics
         .params
-        .push(parse_quote! { __TARGET: ::aegir::Identifier });
+        .push(parse_quote! { I: ::aegir::Identifier });
 
     let (impl_generics, _, where_clause) = trait_generics.split_for_impl();
     let (_, ty_generics, _) = ast.generics.split_for_impl();
@@ -147,8 +147,8 @@ pub fn expand_contains(ast: &syn::DeriveInput) -> TokenStream {
         .collect();
 
     quote! {
-        impl #impl_generics ::aegir::Contains<__TARGET> for #name #ty_generics #where_clause {
-            fn contains(&self, target: __TARGET) -> bool { #predicate }
+        impl #impl_generics ::aegir::Contains<I> for #name #ty_generics #where_clause {
+            fn contains(&self, target: I) -> bool { #predicate }
         }
     }
 }

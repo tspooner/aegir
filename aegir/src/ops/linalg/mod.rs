@@ -82,7 +82,7 @@ where
     }
 }
 
-/// Computes the product (contraction) of two tensor [Buffers](Buffer).
+/// Operator alias that applies the tensor product between two buffers.
 pub type TensorProduct<L, R> = Contract<0, L, R>;
 
 impl<L: ToExpr, R: ToExpr> ToExpr for TensorProduct<L, R> {
@@ -110,7 +110,7 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorProduct<L, R> {
     }
 }
 
-/// Computes the dot product (contraction) of two tensor [Buffers](Buffer).
+/// Operator alias that applies the tensor dot product between two buffers.
 ///
 /// # Examples
 /// ```
@@ -154,7 +154,7 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorDot<L, R> {
     }
 }
 
-/// Computes the double dot (contraction) of two tensor [Buffers](Buffer).
+/// Operator alias that applies the tensor double dot product between two buffers.
 pub type TensorDoubleDot<L, R> = Contract<2, L, R>;
 
 impl<L: ToExpr, R: ToExpr> ToExpr for TensorDoubleDot<L, R> {
