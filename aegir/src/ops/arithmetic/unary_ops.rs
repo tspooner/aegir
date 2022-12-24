@@ -1,7 +1,7 @@
 use crate::{
     buffers::{Buffer, Scalar, Spec, shapes::{S0, Shape, ShapeOf}},
     Contains,
-    Database,
+    Context,
     Differentiable,
     Function,
     Identifier,
@@ -17,13 +17,13 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::SubOne, ids::X};
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
     /// let f = SubOne(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(0.0, 1.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(-1.0, 1.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: -1.0 }).unwrap(), dual!(-2.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(0.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(-1.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(-2.0, 1.0));
     /// ```
     SubOne<F: Scalar>, |x| { x - F::one() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -59,13 +59,13 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::OneSub, ids::X};
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
     /// let f = OneSub(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(0.0, -1.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(1.0, -1.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: -1.0 }).unwrap(), dual!(2.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(0.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(1.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(2.0, -1.0));
     /// ```
     OneSub<F: Scalar>, |x| { F::one() - x }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -98,13 +98,13 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::AddOne, ids::X};
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
     /// let f = AddOne(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(2.0, 1.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(1.0, 1.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: -1.0 }).unwrap(), dual!(0.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(2.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(1.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(0.0, 1.0));
     /// ```
     AddOne<F: Scalar>, |x| { x + F::one() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -140,14 +140,14 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::Square, ids::X};
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
     /// let f = Square(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: -1.0 }).unwrap(), dual!(1.0, -2.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(0.0, 0.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(1.0, 2.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 2.0 }).unwrap(), dual!(4.0, 4.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(1.0, -2.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(0.0, 0.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(1.0, 2.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 2.0 }).unwrap(), dual!(4.0, 4.0));
     /// ```
     Square<F: num_traits::Pow<F, Output = F>>, |x| { x.pow(F::one() + F::one()) }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -182,13 +182,13 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::Double, ids::X};
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
     /// let f = Double(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: -1.0 }).unwrap(), dual!(-2.0, 2.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(0.0, 2.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(2.0, 2.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(-2.0, 2.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(0.0, 2.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(2.0, 2.0));
     /// ```
     Double<F: Scalar>, |x| { (F::one() + F::one()) * x }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -223,12 +223,12 @@ where
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, ops::Sum, ids::X};
-/// db!(DB { x: X });
+/// ctx!(Ctx { x: X });
 ///
 /// let f = Sum(X.into_var());
 ///
 /// assert_eq!(
-///     f.evaluate_dual(X, &DB { x: [1.0, 2.0, 3.0] }).unwrap(),
+///     f.evaluate_dual(X, &Ctx { x: [1.0, 2.0, 3.0] }).unwrap(),
 ///     dual!(6.0, [
 ///         [1.0, 0.0, 0.0],
 ///         [0.0, 1.0, 0.0],
@@ -241,10 +241,10 @@ pub struct Sum<N>(#[op] pub N);
 
 impl<N: Node> Node for Sum<N> {}
 
-impl<D, N, F> Function<D> for Sum<N>
+impl<C, N, F> Function<C> for Sum<N>
 where
-    D: Database,
-    N: Function<D>,
+    C: Context,
+    N: Function<C>,
     F: Scalar + FromPrimitive,
 
     N::Value: Buffer<Field = F>,
@@ -252,14 +252,14 @@ where
     type Error = N::Error;
     type Value = F;
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.0.evaluate(db).map(|buf| buf.sum())
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+        self.0.evaluate(ctx).map(|buf| buf.sum())
     }
 
-    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         use Spec::*;
 
-        Ok(match self.0.evaluate_spec(db)? {
+        Ok(match self.0.evaluate_spec(ctx)? {
             // TODO: replace unwrap with error propagation.
             Full(sh, val) => Full(S0, F::from_usize(sh.cardinality()).unwrap() * val),
             spec => Raw(spec.unwrap().sum()),
@@ -267,7 +267,7 @@ where
     }
 
     #[inline]
-    fn evaluate_shape<DR: AsRef<D>>(&self, _: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+    fn evaluate_shape<CR: AsRef<C>>(&self, _: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
         Ok(S0)
     }
 }
@@ -295,12 +295,12 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::Negate, ids::X};
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
     /// let f = Negate(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(-1.0, -1.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: -1.0 }).unwrap(), dual!(1.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(-1.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(1.0, -1.0));
     /// ```
     Negate<F: num_traits::real::Real>, |x| { -x }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -337,13 +337,13 @@ impl_unary!(
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Function, Dual, ops::Dirac, ids::X};
     /// # use std::f64::INFINITY;
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
     /// let f = Dirac(X.into_var());
     ///
-    /// assert_eq!(f.evaluate(&DB { x: -1.0 }).unwrap(), 0.0);
-    /// assert_eq!(f.evaluate(&DB { x: 0.0 }).unwrap(), INFINITY);
-    /// assert_eq!(f.evaluate(&DB { x: 1.0 }).unwrap(), 0.0);
+    /// assert_eq!(f.evaluate(&Ctx { x: -1.0 }).unwrap(), 0.0);
+    /// assert_eq!(f.evaluate(&Ctx { x: 0.0 }).unwrap(), INFINITY);
+    /// assert_eq!(f.evaluate(&Ctx { x: 1.0 }).unwrap(), 0.0);
     /// ```
     Dirac<F: num_traits::Float>, |x| {
         match x {
@@ -368,13 +368,13 @@ impl_unary!(
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::Sign, ids::X};
     /// # use std::f64::INFINITY;
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
     /// let f = Sign(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: -1.0 }).unwrap(), dual!(-1.0, 0.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(0.0, INFINITY));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(1.0, 0.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(-1.0, 0.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(0.0, INFINITY));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(1.0, 0.0));
     /// ```
     Sign<F: num_traits::Float>, |x| {
         if num_traits::Zero::is_zero(&x) { x } else { x.signum() }
@@ -407,13 +407,13 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::Abs, ids::X};
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
     /// let f = Abs(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: -1.0 }).unwrap(), dual!(1.0, -1.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(0.0, 0.0));
-    /// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(1.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(1.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(0.0, 0.0));
+    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(1.0, 1.0));
     /// ```
     Abs<F: Real>, |x| { x.abs() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};

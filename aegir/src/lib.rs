@@ -23,6 +23,8 @@
 //! - Decoupled/generic tensor type.
 //! - Monadic runtime optimisation.
 //! - Custom DSL for operator expansion.
+#![warn(missing_docs)]
+
 #[allow(unused_imports)]
 #[macro_use]
 extern crate aegir_derive;
@@ -44,30 +46,31 @@ extern crate itertools;
 pub mod errors;
 use errors::*;
 
-/// Trait for type-level identifiers.
+/// Interface for type-level identifiers.
 ///
-/// This trait should be implemented for every symbol that is to be used in the
-/// computation. For example, one might define identifiers `X` and `Y` for use
-/// in regression models. Implementation, however, is mostly hidden to the
-/// regular user and one doesn't typically implement this manually, but rather
-/// uses the procedural macro [ids!].
-///
-/// Note: some quality-of-life shortcuts are provided in the
+/// This trait should be implemented for symbols that are used to label variable/meta nodes (see
+/// [meta]). For example, one might define `X` and `Y` for use in regression models, or `W` to
+/// denote weights.  To make life easier, we define a large set of "standard" identifiers in the
 /// [ids](ids/index.html) module.
-pub trait Identifier: Eq + Copy + PartialEq + std::fmt::Debug + std::fmt::Display {
+///
+/// Implementation of this trait is mostly uncomplicated, but can be cumbersome. In particular, the
+/// [VariableAdjoint](meta::VariableAdjoint) type relies on `PartialEq` being implemented for the
+/// two identifiers `I` and `T`. The procedural macro [ids!] is provided to make this simpler
+/// should you want to define a custom type.
+pub trait Identifier: Copy + PartialEq + Eq + std::fmt::Debug + std::fmt::Display {
     /// Convert the identifier into a [Variable].
-    fn into_var(self) -> Variable<Self> { Variable(self) }
+    fn into_var(self) -> meta::Variable<Self> { meta::Variable(self) }
 }
 
 pub mod ids {
     //! Quality-of-life shortcuts for commonly-used identifiers.
     ids!(
+        // Latin alphabet:
         A::a, B::b, C::c, D::d, E::e, F::f, G::g, H::h, I::i,
         J::j, K::k, L::l, M::m, N::n, O::o, P::p, Q::q, R::r,
-        S::s, T::t, U::u, V::v, W::w, X::x, Y::y, Z::z
-    );
+        S::s, T::t, U::u, V::v, W::w, X::x, Y::y, Z::z,
 
-    ids!(
+        // Greek alphabet:
         Alpha::"\u{03B1}", Beta::"\u{03B2}", Gamma::"\u{03B3}", Delta::"\u{03B4}",
         Epsilon::"\u{03B5}", Zeta::"\u{03B6}", Eta::"\u{03B7}", Theta::"\u{03B8}",
         Iota::"\u{03B9}", Kappa::"\u{03BA}", Lambda::"\u{03BB}", Mu::"\u{03BC}",
@@ -78,10 +81,10 @@ pub mod ids {
 }
 
 /// Trait for types that store data [buffers](buffers::Buffer).
-pub trait Database: AsRef<Self> {}
+pub trait Context: AsRef<Self> {}
 
-/// Trait for reading entries out of a [Database].
-pub trait Read<I: Identifier>: Database {
+/// Trait for reading entries out of a [Context].
+pub trait Read<I: Identifier>: Context {
     type Buffer: buffers::Buffer;
 
     fn read(&self, ident: I) -> Option<Self::Buffer>;
@@ -97,12 +100,12 @@ pub trait Read<I: Identifier>: Database {
     }
 }
 
-/// Helper macro for simple, auto-magical [Database] types.
+/// Helper macro for simple, auto-magical [Context] types.
 #[macro_export]
-macro_rules! db {
+macro_rules! ctx {
     ($name:ident { $($entity_name:ident: $entity_type:ident),+ }) => {
         paste! {
-            #[derive(Database)]
+            #[derive(Context)]
             pub struct $name<$([<__ $entity_type>]),+> {
                 $(#[id($entity_type)] pub $entity_name: [<__ $entity_type>]),+
             }
@@ -203,8 +206,8 @@ pub trait Contains<T: Identifier>: Node {
     fn contains(&self, ident: T) -> bool;
 }
 
-/// Trait for operator [Nodes](Node) that can be evaluated against a [Database].
-pub trait Function<D: Database>: Node {
+/// Trait for operator [Nodes](Node) that can be evaluated against a [Context].
+pub trait Function<C: Context>: Node {
     /// The codomain of the function.
     type Value: buffers::Buffer;
 
@@ -218,17 +221,17 @@ pub trait Function<D: Database>: Node {
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Function, ids::X};
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
-    /// assert_eq!(X.into_var().evaluate(DB { x: 1.0 }).unwrap(), 1.0);
+    /// assert_eq!(X.into_var().evaluate(Ctx { x: 1.0 }).unwrap(), 1.0);
     /// ```
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> AegirResult<Self, D>;
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> AegirResult<Self, C>;
 
-    fn evaluate_spec<DR: AsRef<D>>(
+    fn evaluate_spec<CR: AsRef<C>>(
         &self,
-        db: DR,
+        ctx: CR,
     ) -> Result<buffers::Spec<Self::Value>, Self::Error> {
-        self.evaluate(db).map(buffers::Spec::Raw)
+        self.evaluate(ctx).map(buffers::Spec::Raw)
     }
 
     /// Evaluate the function and return the shape of the
@@ -237,11 +240,11 @@ pub trait Function<D: Database>: Node {
     /// __Note:__ by default, this method performs a full evaluation and calls
     /// the shape method on the buffer. This should be overridden in your
     /// implementation for better efficiency.
-    fn evaluate_shape<DR: AsRef<D>>(
+    fn evaluate_shape<CR: AsRef<C>>(
         &self,
-        db: DR,
+        ctx: CR,
     ) -> Result<buffers::shapes::ShapeOf<Self::Value>, Self::Error> {
-        self.evaluate(db)
+        self.evaluate(ctx)
             .map(|ref buf| buffers::shapes::Shaped::shape(buf))
     }
 }
@@ -263,12 +266,12 @@ pub trait Differentiable<T: Identifier>: Node {
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Node, Identifier, Differentiable, Function, buffers::Buffer, ids::X};
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
     /// let c = 2.0f64.into_constant();
     /// let grad = X.into_var().mul(c).adjoint(X);
     ///
-    /// assert_eq!(grad.evaluate(DB { x: 10.0 }).unwrap(), 2.0);
+    /// assert_eq!(grad.evaluate(Ctx { x: 10.0 }).unwrap(), 2.0);
     /// ```
     fn adjoint(&self, target: T) -> Self::Adjoint;
 
@@ -277,64 +280,60 @@ pub trait Differentiable<T: Identifier>: Node {
     /// __Note:__ this method can be more efficient than explicitly solving for
     /// the adjoint tree. In particular, this method can be implemented
     /// using direct numerical calculations.
-    fn evaluate_adjoint<D: Database, DR: AsRef<D>>(
+    fn evaluate_adjoint<C: Context, CR: AsRef<C>>(
         &self,
         target: T,
-        db: DR,
-    ) -> AegirResult<Self::Adjoint, D>
+        ctx: CR,
+    ) -> AegirResult<Self::Adjoint, C>
     where
-        Self::Adjoint: Function<D>,
+        Self: Function<C>,
+        Self::Adjoint: Function<C>,
     {
-        self.adjoint(target).evaluate(db)
+        self.adjoint(target).evaluate(ctx)
     }
 
     /// Helper method that evaluates the function and its adjoint, wrapping up
     /// in a [Dual].
-    fn evaluate_dual<D: Database, DR: AsRef<D>>(
+    fn evaluate_dual<C: Context, CR: AsRef<C>>(
         &self,
         target: T,
-        db: DR,
+        ctx: CR,
     ) -> Result<
-        DualOf<Self, D, T>,
-        BinaryError<Self::Error, <AdjointOf<Self, T> as Function<D>>::Error, NoError>,
+        DualOf<Self, C, T>,
+        BinaryError<Self::Error, <AdjointOf<Self, T> as Function<C>>::Error, NoError>,
     >
     where
-        Self: Function<D>,
-        Self::Adjoint: Function<D>,
+        Self: Function<C>,
+        Self::Adjoint: Function<C>,
     {
-        let value = self.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
-        let adjoint = self
-            .adjoint(target)
-            .evaluate(db)
-            .map_err(BinaryError::Right)?;
+        let value = self.evaluate(&ctx).map_err(BinaryError::Left)?;
+        let adjoint = self.evaluate_adjoint(target, ctx).map_err(BinaryError::Right)?;
 
         Ok(dual!(value, adjoint))
     }
 }
 
 /// Alias for the error type associated with a function.
-pub type ErrorOf<F, D> = <F as Function<D>>::Error;
+pub type ErrorOf<F, C> = <F as Function<C>>::Error;
 
 /// Alias for the value type associated with a function.
-pub type ValueOf<F, D> = <F as Function<D>>::Value;
+pub type ValueOf<F, C> = <F as Function<C>>::Value;
 
 /// Alias for the result type associated with a function.
-pub type AegirResult<F, D> = Result<ValueOf<F, D>, ErrorOf<F, D>>;
+pub type AegirResult<F, C> = Result<ValueOf<F, C>, ErrorOf<F, C>>;
 
 /// Alias for the adjoint of a function.
 pub type AdjointOf<F, T> = <F as Differentiable<T>>::Adjoint;
 
 /// Alias for the dual associated with a function.
-pub type DualOf<F, D, T> = Dual<ValueOf<F, D>, ValueOf<AdjointOf<F, T>, D>>;
+pub type DualOf<F, C, T> = Dual<ValueOf<F, C>, ValueOf<AdjointOf<F, T>, C>>;
 
 extern crate self as aegir;
 
 mod dual;
 pub use self::dual::Dual;
 
-mod sources;
-pub use self::sources::{Constant, ConstantAdjoint, SourceError, Variable, VariableAdjoint};
-
 pub mod fmt;
 pub mod buffers;
+pub mod meta;
 pub mod ops;

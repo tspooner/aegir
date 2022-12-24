@@ -35,10 +35,10 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, ops::Sigmoid, ids::X};
-    /// db!(DB { x: X });
+    /// ctx!(Ctx { x: X });
     ///
-    /// let db = DB { x: 1.0f64 };
-    /// let dual = Sigmoid(X.into_var()).evaluate_dual(X, &db).unwrap();
+    /// let op = Sigmoid(X.into_var());
+    /// let dual = op.evaluate_dual(X, Ctx { x: 1.0f64, }).unwrap();
     ///
     /// assert!((dual.value - 0.73106).abs() < 1e-5);
     /// assert!((dual.adjoint - 0.19661).abs() < 1e-5);

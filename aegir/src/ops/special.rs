@@ -68,5 +68,6 @@ impl_unary!(
 );
 
 impl<N> Erf<N> {
-    pub fn complementary(self) -> crate::ops::Negate<Self> { crate::ops::Negate(self) }
+    /// Transform `erf(.)` operator into the complement `erfc(.)`.
+    pub fn complementary(self) -> crate::ops::OneSub<Self> { crate::ops::OneSub(self) }
 }

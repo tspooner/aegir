@@ -38,12 +38,12 @@ const TW: [f64; 20] = [
     0.1265687185, 0.6177711088
 ];
 
-db!(Database { x: X, y: Y, w: W });
+ctx!(Ctx { x: X, y: Y, w: W });
 
 macro_rules! solve {
-    ([$n:literal] |$db:ident, $xs:ident| $grad:block) => {{
+    ([$n:literal] |$ctx:ident, $xs:ident| $grad:block) => {{
         let mut rng = SmallRng::seed_from_u64(1994);
-        let mut $db = Database {
+        let mut $ctx = Ctx {
             x: [0.0; $n],
             y: 0.0,
             w: [0.0; $n],
@@ -53,11 +53,11 @@ macro_rules! solve {
             let g: [f64; $n] = $grad;
 
             for i in 0..$n {
-                $db.w[i] -= 0.01 * g[i];
+                $ctx.w[i] -= 0.01 * g[i];
             }
         }
 
-        $db
+        $ctx
     }};
 }
 
@@ -72,11 +72,11 @@ macro_rules! solve_auto {
         let adj = sse.adjoint(W);
 
         solve!(
-            [$n] |db, xs| {
-                db.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
-                db.x = xs;
+            [$n] |ctx, xs| {
+                ctx.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
+                ctx.x = xs;
 
-                adj.evaluate(&db).unwrap()
+                adj.evaluate(&ctx).unwrap()
             }
         );
     }}
@@ -91,11 +91,11 @@ macro_rules! solve_manual {
         let adj = ops::Mul(ops::Double(ops::Sub(ops::TensorDot::new(x, w), y)), x);
 
         solve!(
-            [$n] |db, xs| {
-                db.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
-                db.x = xs;
+            [$n] |ctx, xs| {
+                ctx.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
+                ctx.x = xs;
 
-                adj.evaluate(&db).unwrap()
+                adj.evaluate(&ctx).unwrap()
             }
         );
     }}
@@ -105,19 +105,19 @@ pub struct RawAdjoint<const N: usize>;
 
 impl<const N: usize> Node for RawAdjoint<N> {}
 
-impl<const N: usize, D> Function<D> for RawAdjoint<N>
+impl<const N: usize, C> Function<C> for RawAdjoint<N>
 where
-    D: Read<X, Buffer = [f64; N]> + Read<W, Buffer = [f64; N]> + Read<Y, Buffer = f64>,
+    C: Read<X, Buffer = [f64; N]> + Read<W, Buffer = [f64; N]> + Read<Y, Buffer = f64>,
 {
     type Error = aegir::errors::NoError;
     type Value = [f64; N];
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let dbr = db.as_ref();
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+        let ctxr = ctx.as_ref();
 
-        let xs = dbr.read(X).unwrap();
-        let ws = dbr.read(W).unwrap();
-        let y = dbr.read(Y).unwrap();
+        let xs = ctxr.read(X).unwrap();
+        let ws = ctxr.read(W).unwrap();
+        let y = ctxr.read(Y).unwrap();
 
         let mut p = 0.0;
 
@@ -136,11 +136,11 @@ macro_rules! solve_raw {
         let adj: RawAdjoint<$n> = RawAdjoint;
 
         solve!(
-            [$n] |db, xs| {
-                db.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
-                db.x = xs;
+            [$n] |ctx, xs| {
+                ctx.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
+                ctx.x = xs;
 
-                adj.evaluate(&db).unwrap()
+                adj.evaluate(&ctx).unwrap()
             }
         );
     }}

@@ -19,7 +19,7 @@ use crate::{
 /// Source node for numerical variables.
 ///
 /// This node implements both [Function] and [Differentiable]. The former reads
-/// from the provided [Database] and returns the buffer assigned to `I`, and the
+/// from the provided [Context] and returns the buffer assigned to `I`, and the
 /// latter returns an an instance of [VariableAdjoint]. You should use this type
 /// as the entry point for all "symbolic" entities in the constructed operator
 /// tree.
@@ -27,14 +27,14 @@ use crate::{
 /// # Examples
 /// ```
 /// # #[macro_use] extern crate aegir;
-/// # use aegir::{Variable, Function, Differentiable, ids::X};
-/// db!(DB { x: X });
+/// # use aegir::{Function, Differentiable, ids::X, meta::Variable};
+/// ctx!(Ctx { x: X });
 ///
 /// let var = Variable(X);
 /// let jac = var.adjoint(X);
 ///
-/// assert_eq!(var.evaluate(DB { x: [1.0, 2.0] }).unwrap(), [1.0, 2.0]);
-/// assert_eq!(jac.evaluate(DB { x: [1.0, 2.0] }).unwrap(), [
+/// assert_eq!(var.evaluate(Ctx { x: [1.0, 2.0] }).unwrap(), [1.0, 2.0]);
+/// assert_eq!(jac.evaluate(Ctx { x: [1.0, 2.0] }).unwrap(), [
 ///     [1.0, 0.0],
 ///     [0.0, 1.0]
 /// ]);
@@ -52,28 +52,28 @@ where
     fn contains(&self, ident: T) -> bool { self.0 == ident }
 }
 
-impl<D, I> Function<D> for Variable<I>
+impl<C, I> Function<C> for Variable<I>
 where
-    D: Read<I>,
+    C: Read<I>,
     I: Identifier,
 {
     type Error = SourceError<I>;
-    type Value = D::Buffer;
+    type Value = C::Buffer;
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        db.as_ref()
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+        ctx.as_ref()
             .read(self.0)
             .ok_or_else(|| SourceError::Undefined(self.0))
     }
 
-    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
-        db.as_ref()
+    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+        ctx.as_ref()
             .read_spec(self.0)
             .ok_or_else(|| SourceError::Undefined(self.0))
     }
 
-    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        db.as_ref()
+    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        ctx.as_ref()
             .read_shape(self.0)
             .ok_or_else(|| SourceError::Undefined(self.0))
     }
@@ -134,12 +134,12 @@ where
     fn contains(&self, ident: A) -> bool { self.value == ident || self.target == ident }
 }
 
-impl<I, T, D, F, SI, CI, ST, CT, SA, CA> Function<D> for VariableAdjoint<I, T>
+impl<I, T, C, F, SI, CI, ST, CT, SA, CA> Function<C> for VariableAdjoint<I, T>
 where
     I: Identifier + PartialEq<T>,
     T: Identifier,
 
-    D: Read<I> + Read<T>,
+    C: Read<I> + Read<T>,
     F: Scalar,
 
     SI: Concat<SI> + Concat<ST, Shape = SA>,
@@ -152,25 +152,25 @@ where
 
     super::Prec: super::Precedence<CI, CT, Class = CA>,
 
-    <D as Read<I>>::Buffer: Buffer<Class = CI, Shape = SI, Field = F>,
-    <D as Read<T>>::Buffer: Buffer<Class = CT, Shape = ST, Field = F>,
+    <C as Read<I>>::Buffer: Buffer<Class = CI, Shape = SI, Field = F>,
+    <C as Read<T>>::Buffer: Buffer<Class = CT, Shape = ST, Field = F>,
 
     <CA as Class<SA>>::Buffer<F>: Buffer<Shape = SA>,
 {
     type Error = crate::BinaryError<SourceError<I>, SourceError<T>, crate::NoError>;
     type Value = <CA as Class<SA>>::Buffer<F>;
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.evaluate_spec(db).map(|spec| spec.unwrap())
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+        self.evaluate_spec(ctx).map(|spec| spec.unwrap())
     }
 
-    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
-        let shape_value = db
+    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+        let shape_value = ctx
             .as_ref()
             .read_shape(self.value)
             .ok_or(crate::BinaryError::Left(SourceError::Undefined(self.value)))?;
         let shape_target =
-            db.as_ref()
+            ctx.as_ref()
                 .read_shape(self.target)
                 .ok_or(crate::BinaryError::Right(SourceError::Undefined(
                     self.target,
@@ -202,13 +202,13 @@ where
         })
     }
 
-    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<SA, Self::Error> {
-        let shape_value = db
+    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<SA, Self::Error> {
+        let shape_value = ctx
             .as_ref()
             .read_shape(self.value)
             .ok_or(crate::BinaryError::Left(SourceError::Undefined(self.value)))?;
         let shape_target =
-            db.as_ref()
+            ctx.as_ref()
                 .read_shape(self.target)
                 .ok_or(crate::BinaryError::Right(SourceError::Undefined(
                     self.target,
@@ -269,8 +269,8 @@ mod tests {
         Identifier,
     };
 
-    #[derive(Database)]
-    struct DB<A, B> {
+    #[derive(Context)]
+    struct Ctx<A, B> {
         #[id(X)]
         pub x: A,
 
@@ -282,9 +282,9 @@ mod tests {
     fn test_variable() {
         let var = X.into_var();
 
-        assert_eq!(var.evaluate(&DB { x: 1.0, y: 0.0 }).unwrap(), 1.0);
+        assert_eq!(var.evaluate(&Ctx { x: 1.0, y: 0.0 }).unwrap(), 1.0);
         assert_eq!(
-            var.evaluate(&DB {
+            var.evaluate(&Ctx {
                 x: [-10.0, 5.0],
                 y: 0.0
             })
@@ -292,7 +292,7 @@ mod tests {
             [-10.0, 5.0]
         );
         assert_eq!(
-            var.evaluate(&DB {
+            var.evaluate(&Ctx {
                 x: (-1.0, 50.0),
                 y: 0.0
             })
@@ -300,7 +300,7 @@ mod tests {
             (-1.0, 50.0)
         );
         assert_eq!(
-            var.evaluate(&DB {
+            var.evaluate(&Ctx {
                 x: vec![1.0, 2.0],
                 y: 0.0
             })
@@ -313,10 +313,10 @@ mod tests {
     fn test_adjoint_zero() {
         let g = X.into_var().adjoint(Y);
 
-        assert_eq!(g.evaluate(&DB { x: 1.0, y: 0.0 }).unwrap(), 0.0);
-        // assert_eq!(g.evaluate(&DB { x: [-10.0, 5.0], y: 0.0 }).unwrap(),
-        // [0.0; 2]); assert_eq!(g.evaluate(&DB { x: (-1.0, 50.0), y:
-        // 0.0 }).unwrap(), (0.0, 0.0)); assert_eq!(g.evaluate(&DB { x:
+        assert_eq!(g.evaluate(&Ctx { x: 1.0, y: 0.0 }).unwrap(), 0.0);
+        // assert_eq!(g.evaluate(&Ctx { x: [-10.0, 5.0], y: 0.0 }).unwrap(),
+        // [0.0; 2]); assert_eq!(g.evaluate(&Ctx { x: (-1.0, 50.0), y:
+        // 0.0 }).unwrap(), (0.0, 0.0)); assert_eq!(g.evaluate(&Ctx { x:
         // vec![1.0, 2.0], y: 0.0 }).unwrap(), vec![0.0; 2]);
     }
 
@@ -324,10 +324,10 @@ mod tests {
     fn test_adjoint_one() {
         let g = X.into_var().adjoint(X);
 
-        assert_eq!(g.evaluate(&DB { x: 1.0, y: 0.0 }).unwrap(), 1.0);
-        // assert_eq!(g.evaluate(&DB { x: [-10.0, 5.0] }).unwrap(), [1.0; 2]);
-        // assert_eq!(g.evaluate(&DB { x: (-1.0, 50.0) }).unwrap(), (1.0, 1.0));
-        // assert_eq!(g.evaluate(&DB { x: vec![1.0, 2.0] }).unwrap(), vec![1.0;
+        assert_eq!(g.evaluate(&Ctx { x: 1.0, y: 0.0 }).unwrap(), 1.0);
+        // assert_eq!(g.evaluate(&Ctx { x: [-10.0, 5.0] }).unwrap(), [1.0; 2]);
+        // assert_eq!(g.evaluate(&Ctx { x: (-1.0, 50.0) }).unwrap(), (1.0, 1.0));
+        // assert_eq!(g.evaluate(&Ctx { x: vec![1.0, 2.0] }).unwrap(), vec![1.0;
         // 2]);
     }
 }

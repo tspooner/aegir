@@ -359,9 +359,9 @@ pub trait Buffer: Clone + shapes::Shaped + IntoSpec<Buffer = Self> {
     /// ```
     fn sum(&self) -> Self::Field { self.fold(num_traits::zero(), |init, el| init + el) }
 
-    /// Convert buffer directly into a [Constant](crate::sources::Constant)
+    /// Convert buffer directly into a [Constant](crate::meta::Constant)
     /// source node.
-    fn into_constant(self) -> crate::sources::Constant<Self> { crate::sources::Constant(self) }
+    fn into_constant(self) -> crate::meta::Constant<Self> { crate::meta::Constant(self) }
 }
 
 /// Type shortcut for the [Field] associated with a [Buffer].

@@ -13,11 +13,11 @@ use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 const N: usize = 30;
 
-db!(Database { x: X, y: Y, w: W });
+ctx!(Ctx { x: X, y: Y, w: W });
 
 fn main() {
     let mut rng = SmallRng::seed_from_u64(1994);
-    let mut db = Database {
+    let mut db = Ctx {
         x: [1.0; N],
         y: 0.0,
         w: [0.0; N],

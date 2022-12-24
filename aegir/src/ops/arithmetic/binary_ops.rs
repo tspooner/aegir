@@ -12,7 +12,7 @@ use crate::{
     ops::SafeXlnX,
     BinaryError,
     Contains,
-    Database,
+    Context,
     Differentiable,
     Function,
     Identifier,
@@ -20,10 +20,10 @@ use crate::{
 };
 use std::fmt;
 
-type Error<D, L, R> = BinaryError<
-    <L as Function<D>>::Error,
-    <R as Function<D>>::Error,
-    IncompatibleShapes<ShapeOf<<L as Function<D>>::Value>, ShapeOf<<R as Function<D>>::Value>>,
+type Error<C, L, R> = BinaryError<
+    <L as Function<C>>::Error,
+    <R as Function<C>>::Error,
+    IncompatibleShapes<ShapeOf<<L as Function<C>>::Value>, ShapeOf<<R as Function<C>>::Value>>,
 >;
 
 /// Computes the power of a [Buffer] to a [Field].
@@ -33,14 +33,14 @@ type Error<D, L, R> = BinaryError<
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, buffers::Buffer, ops::Power, ids::X};
-/// db!(DB { x: X });
+/// ctx!(Ctx { x: X });
 ///
 /// let f = Power(X.into_var(), 2.0f64.into_constant());
 ///
-/// assert_eq!(f.evaluate_dual(X, &DB { x: -1.0 }).unwrap(), dual!(1.0, -2.0));
-/// assert_eq!(f.evaluate_dual(X, &DB { x: 0.0 }).unwrap(), dual!(0.0, 0.0));
-/// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0 }).unwrap(), dual!(1.0, 2.0));
-/// assert_eq!(f.evaluate_dual(X, &DB { x: 2.0 }).unwrap(), dual!(4.0, 4.0));
+/// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(1.0, -2.0));
+/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(0.0, 0.0));
+/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(1.0, 2.0));
+/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 2.0 }).unwrap(), dual!(4.0, 4.0));
 /// ```
 ///
 /// ## x^y
@@ -48,18 +48,18 @@ type Error<D, L, R> = BinaryError<
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, buffers::Buffer, ops::Power, ids::{X, Y}};
 /// # use aegir::{Function};
-/// db!(DB { x: X, y: Y });
+/// ctx!(Ctx { x: X, y: Y });
 ///
 /// let f = Power(X.into_var(), Y.into_var());
 ///
 /// assert!((
-///     f.evaluate(&DB { x: 2.0, y: 1.5, }).unwrap() - 2.0f64.powf(1.5)
+///     f.evaluate(&Ctx { x: 2.0, y: 1.5, }).unwrap() - 2.0f64.powf(1.5)
 /// ) < 1e-5);
 /// assert!((
-///     f.evaluate_adjoint(X, &DB { x: 2.0, y: 1.5, }).unwrap() - 1.5 * 2.0f64.powf(0.5)
+///     f.evaluate_adjoint(X, &Ctx { x: 2.0, y: 1.5, }).unwrap() - 1.5 * 2.0f64.powf(0.5)
 /// ) < 1e-5);
 /// assert!((
-///     f.evaluate_adjoint(Y, &DB { x: 2.0, y: 1.5, }).unwrap() - 2.0f64.powf(1.5) * 2.0f64.ln()
+///     f.evaluate_adjoint(Y, &Ctx { x: 2.0, y: 1.5, }).unwrap() - 2.0f64.powf(1.5) * 2.0f64.ln()
 /// ) < 1e-5);
 /// ```
 ///
@@ -87,29 +87,29 @@ pub struct Power<N, E>(#[op] pub N, #[op] pub E);
 
 impl<N: Node, E: Node> Node for Power<N, E> {}
 
-impl<F, D, N, E> Function<D> for Power<N, E>
+impl<F, C, N, E> Function<C> for Power<N, E>
 where
     F: Scalar + num_traits::Pow<F, Output = F>,
-    D: Database,
+    C: Context,
 
-    N: Function<D, Value = F>,
-    E: Function<D, Value = F>,
+    N: Function<C, Value = F>,
+    E: Function<C, Value = F>,
 {
     type Error = BinaryError<N::Error, E::Error, crate::NoError>;
     type Value = N::Value;
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.evaluate_spec(db).map(|state| state.unwrap())
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+        self.evaluate_spec(ctx).map(|state| state.unwrap())
     }
 
-    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         use Spec::*;
 
         let zero = F::zero();
         let one = F::one();
 
-        let base = self.0.evaluate_spec(&db).map_err(BinaryError::Left)?;
-        let exponent = self.1.evaluate_spec(db).map_err(BinaryError::Right)?;
+        let base = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
+        let exponent = self.1.evaluate_spec(ctx).map_err(BinaryError::Right)?;
 
         match (base, exponent) {
             (b, Full(_, fx)) if fx == zero => Ok(Spec::ones(b.shape())),
@@ -128,7 +128,7 @@ where
         }
     }
 
-    fn evaluate_shape<DR: AsRef<D>>(&self, _: DR) -> Result<shapes::S0, Self::Error> {
+    fn evaluate_shape<CR: AsRef<C>>(&self, _: CR) -> Result<shapes::S0, Self::Error> {
         Ok(shapes::S0)
     }
 }
@@ -183,57 +183,57 @@ impl<X: ToExpr, E: ToExpr> fmt::Display for Power<X, E> {
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, ops::Add, ids::{X, Y}};
-/// db!(DB { x: X, y: Y });
+/// ctx!(Ctx { x: X, y: Y });
 ///
 /// let f = Add(X.into_var(), Y.into_var());
 ///
-/// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(3.0, 1.0));
-/// assert_eq!(f.evaluate_dual(Y, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(3.0, 1.0));
+/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(3.0, 1.0));
+/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(3.0, 1.0));
 /// ```
 ///
 /// ## x + y^2
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Node, Differentiable, Dual, buffers::Buffer, ops::Add, ids::{X, Y}};
-/// db!(DB { x: X, y: Y });
+/// ctx!(Ctx { x: X, y: Y });
 ///
 /// let f = Add(X.into_var(), Y.into_var().pow(2.0f64.into_constant()));
 ///
-/// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(5.0, 1.0));
-/// assert_eq!(f.evaluate_dual(Y, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(5.0, 4.0));
+/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(5.0, 1.0));
+/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(5.0, 4.0));
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Add<L, R>(#[op] pub L, #[op] pub R);
 
 impl<L: Node, R: Node> Node for Add<L, R> {}
 
-impl<D, F, L, LV, R, RV, OV> Function<D> for Add<L, R>
+impl<C, F, L, LV, R, RV, OV> Function<C> for Add<L, R>
 where
-    D: Database,
+    C: Context,
     F: Scalar,
 
-    L: Function<D, Value = LV>,
+    L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
 
-    R: Function<D, Value = RV>,
+    R: Function<C, Value = RV>,
     RV: Buffer<Field = F>,
 
     OV: Buffer<Field = F>,
 
     LV::Shape: Zip<RV::Shape, Shape = OV::Shape>,
 {
-    type Error = Error<D, L, R>;
+    type Error = Error<C, L, R>;
     type Value = OV;
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.evaluate_spec(db).map(|state| state.unwrap())
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+        self.evaluate_spec(ctx).map(|state| state.unwrap())
     }
 
-    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         use Spec::*;
 
-        let x = self.0.evaluate_spec(&db).map_err(BinaryError::Left)?;
-        let y = self.1.evaluate_spec(db).map_err(BinaryError::Right)?;
+        let x = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_spec(ctx).map_err(BinaryError::Right)?;
 
         match (x, y) {
             (Full(sx, fx), Full(sy, fy)) if (fx + fy).is_zero() => {
@@ -260,9 +260,9 @@ where
         }
     }
 
-    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        let l_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
-        let r_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
+        let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
         l_shape.zip(r_shape).map_err(BinaryError::Output)
     }
@@ -329,57 +329,57 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for Add<L, R> {
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, buffers::Buffer, ops::Sub, ids::{X, Y}};
-/// db!(DB { x: X, y: Y });
+/// ctx!(Ctx { x: X, y: Y });
 ///
 /// let f = Sub(X.into_var(), Y.into_var());
 ///
-/// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(-1.0, 1.0));
-/// assert_eq!(f.evaluate_dual(Y, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(-1.0, -1.0));
+/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(-1.0, 1.0));
+/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(-1.0, -1.0));
 /// ```
 ///
 /// ## x - y^2
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Node, Differentiable, Dual, buffers::Buffer, ops::Sub, ids::{X, Y}};
-/// db!(DB { x: X, y: Y });
+/// ctx!(Ctx { x: X, y: Y });
 ///
 /// let f = Sub(X.into_var(), Y.into_var().pow(2.0f64.into_constant()));
 ///
-/// assert_eq!(f.evaluate_dual(X, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(-3.0, 1.0));
-/// assert_eq!(f.evaluate_dual(Y, &DB { x: 1.0, y: 2.0, }).unwrap(), dual!(-3.0, -4.0));
+/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(-3.0, 1.0));
+/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(-3.0, -4.0));
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Sub<L, R>(#[op] pub L, #[op] pub R);
 
 impl<L: Node, R: Node> Node for Sub<L, R> {}
 
-impl<D, F, L, LV, R, RV, OV> Function<D> for Sub<L, R>
+impl<C, F, L, LV, R, RV, OV> Function<C> for Sub<L, R>
 where
-    D: Database,
+    C: Context,
     F: Scalar,
 
-    L: Function<D, Value = LV>,
+    L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
 
-    R: Function<D, Value = RV>,
+    R: Function<C, Value = RV>,
     RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
 
     OV: Buffer<Field = F>,
 
     LV::Shape: Zip<RV::Shape, Shape = OV::Shape>,
 {
-    type Error = Error<D, L, R>;
+    type Error = Error<C, L, R>;
     type Value = OV;
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.evaluate_spec(db).map(|state| state.unwrap())
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+        self.evaluate_spec(ctx).map(|state| state.unwrap())
     }
 
-    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         use Spec::*;
 
-        let x = self.0.evaluate_spec(&db).map_err(BinaryError::Left)?;
-        let y = self.1.evaluate_spec(db).map_err(BinaryError::Right)?;
+        let x = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_spec(ctx).map_err(BinaryError::Right)?;
 
         match (x, y) {
             (Full(sx, fx), Full(sy, fy)) if (fx - fy).is_zero() => {
@@ -399,9 +399,9 @@ where
         }
     }
 
-    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        let l_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
-        let r_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
+        let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
         l_shape.zip(r_shape).map_err(BinaryError::Output)
     }
@@ -472,39 +472,39 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for Sub<L, R> {
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, buffers::Buffer, ops::Mul, ids::{X, Y}};
-/// db!(DB { x: X, y: Y });
+/// ctx!(Ctx { x: X, y: Y });
 ///
 /// let f = Mul(X.into_var(), Y.into_var());
 ///
-/// assert_eq!(f.evaluate_dual(X, &DB { x: 3.0, y: 2.0, }).unwrap(), dual!(6.0, 2.0));
-/// assert_eq!(f.evaluate_dual(Y, &DB { x: 3.0, y: 2.0, }).unwrap(), dual!(6.0, 3.0));
+/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 3.0, y: 2.0, }).unwrap(), dual!(6.0, 2.0));
+/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 3.0, y: 2.0, }).unwrap(), dual!(6.0, 3.0));
 /// ```
 ///
 /// ## x . y^2
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Node, Differentiable, Dual, buffers::Buffer, ops::Mul, ids::{X, Y}};
-/// db!(DB { x: X, y: Y });
+/// ctx!(Ctx { x: X, y: Y });
 ///
 /// let f = Mul(X.into_var(), Y.into_var().pow(2.0f64.into_constant()));
 ///
-/// assert_eq!(f.evaluate_dual(X, &DB { x: 3.0, y: 2.0, }).unwrap(), dual!(12.0, 4.0));
-/// assert_eq!(f.evaluate_dual(Y, &DB { x: 3.0, y: 2.0, }).unwrap(), dual!(12.0, 12.0));
+/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 3.0, y: 2.0, }).unwrap(), dual!(12.0, 4.0));
+/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 3.0, y: 2.0, }).unwrap(), dual!(12.0, 12.0));
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Mul<L, R>(#[op] pub L, #[op] pub R);
 
 impl<L: Node, R: Node> Node for Mul<L, R> {}
 
-impl<D, F, L, LV, R, RV, OS, OC, OV> Function<D> for Mul<L, R>
+impl<C, F, L, LV, R, RV, OS, OC, OV> Function<C> for Mul<L, R>
 where
-    D: Database,
+    C: Context,
     F: Scalar,
 
-    L: Function<D, Value = LV>,
+    L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
 
-    R: Function<D, Value = RV>,
+    R: Function<C, Value = RV>,
     RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
 
     OS: Shape,
@@ -513,18 +513,18 @@ where
 
     LV::Shape: shapes::Zip<RV::Shape, Shape = OS>,
 {
-    type Error = Error<D, L, R>;
+    type Error = Error<C, L, R>;
     type Value = OV;
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.evaluate_spec(db).map(|state| state.unwrap())
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+        self.evaluate_spec(ctx).map(|state| state.unwrap())
     }
 
-    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         use Spec::*;
 
-        let x = self.0.evaluate_spec(&db).map_err(BinaryError::Left)?;
-        let y = self.1.evaluate_spec(&db).map_err(BinaryError::Right)?;
+        let x = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_spec(&ctx).map_err(BinaryError::Right)?;
 
         match (x, y) {
             // If either value is zero, we can just short-circuit...
@@ -559,9 +559,9 @@ where
         }
     }
 
-    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        let l_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
-        let r_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
+        let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
         l_shape.zip(r_shape).map_err(BinaryError::Output)
     }
@@ -617,34 +617,34 @@ pub struct Div<L, R>(#[op] pub L, #[op] pub R);
 
 impl<L: Node, R: Node> Node for Div<L, R> {}
 
-impl<D, F, L, LV, R, RV, OV> Function<D> for Div<L, R>
+impl<C, F, L, LV, R, RV, OV> Function<C> for Div<L, R>
 where
-    D: Database,
+    C: Context,
     F: Scalar,
 
-    L: Function<D, Value = LV>,
+    L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
 
-    R: Function<D, Value = RV>,
+    R: Function<C, Value = RV>,
     RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
 
     OV: Buffer<Field = F>,
 
     LV::Shape: Zip<RV::Shape, Shape = OV::Shape>,
 {
-    type Error = Error<D, L, R>;
+    type Error = Error<C, L, R>;
     type Value = OV;
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        let x = self.0.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
-        let y = self.1.evaluate(db).map_err(BinaryError::Right)?;
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+        let x = self.0.evaluate(ctx.as_ref()).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate(ctx).map_err(BinaryError::Right)?;
 
         x.zip_map(y, |xi, yi| xi / yi).map_err(BinaryError::Output)
     }
 
-    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        let l_shape = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
-        let r_shape = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
+        let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
         l_shape.zip(r_shape).map_err(BinaryError::Output)
     }

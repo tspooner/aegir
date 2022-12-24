@@ -1,3 +1,4 @@
+//! Module containing meta operators.
 use crate::buffers::{Arrays, Scalars, Tuples, Vecs};
 
 pub struct Prec;

@@ -7,10 +7,10 @@ macro_rules! impl_unary {
 
         impl<N: crate::Node> crate::Node for $name<N> {}
 
-        impl<D, N, $F> crate::Function<D> for $name<N>
+        impl<C, N, $F> crate::Function<C> for $name<N>
         where
-            D: crate::Database,
-            N: crate::Function<D>,
+            C: crate::Context,
+            N: crate::Function<C>,
             $F: crate::buffers::Scalar + $field_type,
 
             N::Value: crate::buffers::Buffer<Field = $F>,
@@ -18,16 +18,16 @@ macro_rules! impl_unary {
             type Error = N::Error;
             type Value = N::Value;
 
-            fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
+            fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
                 use crate::buffers::Buffer;
 
-                self.0.evaluate(db).map(|mut buf| { buf.mutate(|$x| $f); buf })
+                self.0.evaluate(ctx).map(|mut buf| { buf.mutate(|$x| $f); buf })
             }
 
-            fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<crate::buffers::Spec<Self::Value>, Self::Error> {
+            fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<crate::buffers::Spec<Self::Value>, Self::Error> {
                 use crate::buffers::{Buffer, Spec::*};
 
-                Ok(match self.0.evaluate_spec(db)? {
+                Ok(match self.0.evaluate_spec(ctx)? {
                     Full(sh, $x) => Full(sh, $f),
                     spec => Raw({
                         let mut buf = spec.unwrap();
@@ -39,8 +39,8 @@ macro_rules! impl_unary {
                 })
             }
 
-            fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<crate::buffers::shapes::ShapeOf<Self::Value>, Self::Error> {
-                self.0.evaluate_shape(db)
+            fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<crate::buffers::shapes::ShapeOf<Self::Value>, Self::Error> {
+                self.0.evaluate_shape(ctx)
             }
         }
 

@@ -5,7 +5,7 @@ use crate::{
     ops::Add,
     BinaryError,
     Contains,
-    Database,
+    Context,
     Differentiable,
     Function,
     Identifier,
@@ -21,11 +21,11 @@ impl<L, R, const AXES: usize> Contract<AXES, L, R> {
 
 impl<L: Node, R: Node, const AXES: usize> Node for Contract<AXES, L, R> {}
 
-impl<D, L, R, const AXES: usize> Function<D> for Contract<AXES, L, R>
+impl<C, L, R, const AXES: usize> Function<C> for Contract<AXES, L, R>
 where
-    D: Database,
-    L: Function<D>,
-    R: Function<D>,
+    C: Context,
+    L: Function<C>,
+    R: Function<C>,
 
     L::Value: CTrait<R::Value, AXES>,
     R::Value: Buffer<Field = FieldOf<L::Value>>,
@@ -34,20 +34,20 @@ where
         BinaryError<L::Error, R::Error, IncompatibleShapes<ShapeOf<L::Value>, ShapeOf<R::Value>>>;
     type Value = <L::Value as CTrait<R::Value, AXES>>::Output;
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.evaluate_spec(db).map(|state| state.unwrap())
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+        self.evaluate_spec(ctx).map(|state| state.unwrap())
     }
 
-    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
-        let x = self.0.evaluate_spec(&db).map_err(BinaryError::Left)?;
-        let y = self.1.evaluate_spec(db).map_err(BinaryError::Right)?;
+    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+        let x = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_spec(ctx).map_err(BinaryError::Right)?;
 
         <L::Value as CTrait<R::Value, AXES>>::contract_spec(x, y).map_err(BinaryError::Output)
     }
 
-    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        let x = self.0.evaluate_shape(&db).map_err(BinaryError::Left)?;
-        let y = self.1.evaluate_shape(db).map_err(BinaryError::Right)?;
+    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let x = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
         <L::Value as CTrait<R::Value, AXES>>::contract_shape(x, y).map_err(BinaryError::Output)
     }
@@ -116,16 +116,16 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorProduct<L, R> {
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, ops::TensorDot, ids::{X, Y}};
-/// db!(DB { x: X, y: Y });
+/// ctx!(Ctx { x: X, y: Y });
 ///
 /// let f = TensorDot::new(X.into_var(), Y.into_var());
-/// let db = DB {
+/// let ctx = Ctx {
 ///     x: [1.0, 2.0, 3.0],
 ///     y: [-1.0, 0.0, 2.0]
 /// };
 ///
-/// assert_eq!(f.evaluate_dual(X, &db).unwrap(), dual!(5.0, [-1.0, 0.0, 2.0]));
-/// assert_eq!(f.evaluate_dual(Y, &db).unwrap(), dual!(5.0, [1.0, 2.0, 3.0]));
+/// assert_eq!(f.evaluate_dual(X, &ctx).unwrap(), dual!(5.0, [-1.0, 0.0, 2.0]));
+/// assert_eq!(f.evaluate_dual(Y, &ctx).unwrap(), dual!(5.0, [1.0, 2.0, 3.0]));
 /// ```
 pub type TensorDot<L, R> = Contract<1, L, R>;
 
