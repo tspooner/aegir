@@ -33,14 +33,12 @@ type Error<C, L, R> = BinaryError<
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, buffers::Buffer, ops::Power, ids::X};
-/// ctx!(Ctx { x: X });
-///
 /// let f = Power(X.into_var(), 2.0f64.into_constant());
 ///
-/// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(1.0, -2.0));
-/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(0.0, 0.0));
-/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(1.0, 2.0));
-/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 2.0 }).unwrap(), dual!(4.0, 4.0));
+/// assert_eq!(f.evaluate_dual(X, ctx!{X = -1.0}).unwrap(), dual!(1.0, -2.0));
+/// assert_eq!(f.evaluate_dual(X, ctx!{X = 0.0}).unwrap(), dual!(0.0, 0.0));
+/// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0}).unwrap(), dual!(1.0, 2.0));
+/// assert_eq!(f.evaluate_dual(X, ctx!{X = 2.0}).unwrap(), dual!(4.0, 4.0));
 /// ```
 ///
 /// ## x^y
@@ -48,18 +46,16 @@ type Error<C, L, R> = BinaryError<
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, buffers::Buffer, ops::Power, ids::{X, Y}};
 /// # use aegir::{Function};
-/// ctx!(Ctx { x: X, y: Y });
-///
 /// let f = Power(X.into_var(), Y.into_var());
 ///
 /// assert!((
-///     f.evaluate(&Ctx { x: 2.0, y: 1.5, }).unwrap() - 2.0f64.powf(1.5)
+///     f.evaluate(ctx!{X = 2.0, Y = 1.5}).unwrap() - 2.0f64.powf(1.5)
 /// ) < 1e-5);
 /// assert!((
-///     f.evaluate_adjoint(X, &Ctx { x: 2.0, y: 1.5, }).unwrap() - 1.5 * 2.0f64.powf(0.5)
+///     f.evaluate_adjoint(X, ctx!{X = 2.0, Y = 1.5}).unwrap() - 1.5 * 2.0f64.powf(0.5)
 /// ) < 1e-5);
 /// assert!((
-///     f.evaluate_adjoint(Y, &Ctx { x: 2.0, y: 1.5, }).unwrap() - 2.0f64.powf(1.5) * 2.0f64.ln()
+///     f.evaluate_adjoint(Y, ctx!{X = 2.0, Y = 1.5}).unwrap() - 2.0f64.powf(1.5) * 2.0f64.ln()
 /// ) < 1e-5);
 /// ```
 ///
@@ -183,24 +179,20 @@ impl<X: ToExpr, E: ToExpr> fmt::Display for Power<X, E> {
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, ops::Add, ids::{X, Y}};
-/// ctx!(Ctx { x: X, y: Y });
-///
 /// let f = Add(X.into_var(), Y.into_var());
 ///
-/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(3.0, 1.0));
-/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(3.0, 1.0));
+/// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0, Y = 2.0}).unwrap(), dual!(3.0, 1.0));
+/// assert_eq!(f.evaluate_dual(Y, ctx!{X = 1.0, Y = 2.0}).unwrap(), dual!(3.0, 1.0));
 /// ```
 ///
 /// ## x + y^2
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Node, Differentiable, Dual, buffers::Buffer, ops::Add, ids::{X, Y}};
-/// ctx!(Ctx { x: X, y: Y });
-///
 /// let f = Add(X.into_var(), Y.into_var().pow(2.0f64.into_constant()));
 ///
-/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(5.0, 1.0));
-/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(5.0, 4.0));
+/// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0, Y = 2.0}).unwrap(), dual!(5.0, 1.0));
+/// assert_eq!(f.evaluate_dual(Y, ctx!{X = 1.0, Y = 2.0}).unwrap(), dual!(5.0, 4.0));
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Add<L, R>(#[op] pub L, #[op] pub R);
@@ -329,24 +321,20 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for Add<L, R> {
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, buffers::Buffer, ops::Sub, ids::{X, Y}};
-/// ctx!(Ctx { x: X, y: Y });
-///
 /// let f = Sub(X.into_var(), Y.into_var());
 ///
-/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(-1.0, 1.0));
-/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(-1.0, -1.0));
+/// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0, Y = 2.0}).unwrap(), dual!(-1.0, 1.0));
+/// assert_eq!(f.evaluate_dual(Y, ctx!{X = 1.0, Y = 2.0}).unwrap(), dual!(-1.0, -1.0));
 /// ```
 ///
 /// ## x - y^2
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Node, Differentiable, Dual, buffers::Buffer, ops::Sub, ids::{X, Y}};
-/// ctx!(Ctx { x: X, y: Y });
-///
 /// let f = Sub(X.into_var(), Y.into_var().pow(2.0f64.into_constant()));
 ///
-/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(-3.0, 1.0));
-/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 1.0, y: 2.0, }).unwrap(), dual!(-3.0, -4.0));
+/// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0, Y = 2.0}).unwrap(), dual!(-3.0, 1.0));
+/// assert_eq!(f.evaluate_dual(Y, ctx!{X = 1.0, Y = 2.0}).unwrap(), dual!(-3.0, -4.0));
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Contains)]
 pub struct Sub<L, R>(#[op] pub L, #[op] pub R);
@@ -472,24 +460,20 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for Sub<L, R> {
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, buffers::Buffer, ops::Mul, ids::{X, Y}};
-/// ctx!(Ctx { x: X, y: Y });
-///
 /// let f = Mul(X.into_var(), Y.into_var());
 ///
-/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 3.0, y: 2.0, }).unwrap(), dual!(6.0, 2.0));
-/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 3.0, y: 2.0, }).unwrap(), dual!(6.0, 3.0));
+/// assert_eq!(f.evaluate_dual(X, ctx!{X = 3.0, Y = 2.0}).unwrap(), dual!(6.0, 2.0));
+/// assert_eq!(f.evaluate_dual(Y, ctx!{X = 3.0, Y = 2.0}).unwrap(), dual!(6.0, 3.0));
 /// ```
 ///
 /// ## x . y^2
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Node, Differentiable, Dual, buffers::Buffer, ops::Mul, ids::{X, Y}};
-/// ctx!(Ctx { x: X, y: Y });
-///
 /// let f = Mul(X.into_var(), Y.into_var().pow(2.0f64.into_constant()));
 ///
-/// assert_eq!(f.evaluate_dual(X, &Ctx { x: 3.0, y: 2.0, }).unwrap(), dual!(12.0, 4.0));
-/// assert_eq!(f.evaluate_dual(Y, &Ctx { x: 3.0, y: 2.0, }).unwrap(), dual!(12.0, 12.0));
+/// assert_eq!(f.evaluate_dual(X, ctx!{X = 3.0, Y = 2.0}).unwrap(), dual!(12.0, 4.0));
+/// assert_eq!(f.evaluate_dual(Y, ctx!{X = 3.0, Y = 2.0}).unwrap(), dual!(12.0, 12.0));
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Mul<L, R>(#[op] pub L, #[op] pub R);

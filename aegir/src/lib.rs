@@ -102,15 +102,28 @@ pub trait Read<I: Identifier>: Context {
 
 /// Helper macro for simple, auto-magical [Context] types.
 #[macro_export]
-macro_rules! ctx {
-    ($name:ident { $($entity_name:ident: $entity_type:ident),+ }) => {
+macro_rules! ctx_type {
+    ($name:ident { $($buf_name:ident: $buf_ident:ident),+ }) => {
         paste! {
             #[derive(Context)]
-            pub struct $name<$([<__ $entity_type>]),+> {
-                $(#[id($entity_type)] pub $entity_name: [<__ $entity_type>]),+
+            pub struct $name<$([<__ $buf_ident>]),+> {
+                $(#[id($buf_ident)] pub $buf_name: [<__ $buf_ident>]),+
             }
         }
     }
+}
+
+#[macro_export]
+macro_rules! ctx {
+    ($($key:ident = $value:expr),+) => {{
+        paste! {
+            ctx_type!(Ctx { $([<_ $key:lower>]: $key),+ });
+
+            Ctx {
+                $([<_ $key:lower>]: $value),+
+            }
+        }
+    }}
 }
 
 /// Base trait for operator nodes.
@@ -221,9 +234,7 @@ pub trait Function<C: Context>: Node {
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Function, ids::X};
-    /// ctx!(Ctx { x: X });
-    ///
-    /// assert_eq!(X.into_var().evaluate(Ctx { x: 1.0 }).unwrap(), 1.0);
+    /// assert_eq!(X.into_var().evaluate(ctx!{X = 1.0}).unwrap(), 1.0);
     /// ```
     fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> AegirResult<Self, C>;
 
@@ -266,12 +277,10 @@ pub trait Differentiable<T: Identifier>: Node {
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Node, Identifier, Differentiable, Function, buffers::Buffer, ids::X};
-    /// ctx!(Ctx { x: X });
-    ///
     /// let c = 2.0f64.into_constant();
     /// let grad = X.into_var().mul(c).adjoint(X);
     ///
-    /// assert_eq!(grad.evaluate(Ctx { x: 10.0 }).unwrap(), 2.0);
+    /// assert_eq!(grad.evaluate(ctx!{X = 10.0}).unwrap(), 2.0);
     /// ```
     fn adjoint(&self, target: T) -> Self::Adjoint;
 

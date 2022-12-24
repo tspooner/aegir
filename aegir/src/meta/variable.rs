@@ -28,13 +28,11 @@ use crate::{
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Function, Differentiable, ids::X, meta::Variable};
-/// ctx!(Ctx { x: X });
-///
 /// let var = Variable(X);
 /// let jac = var.adjoint(X);
 ///
-/// assert_eq!(var.evaluate(Ctx { x: [1.0, 2.0] }).unwrap(), [1.0, 2.0]);
-/// assert_eq!(jac.evaluate(Ctx { x: [1.0, 2.0] }).unwrap(), [
+/// assert_eq!(var.evaluate(ctx!{X = [1.0, 2.0]}).unwrap(), [1.0, 2.0]);
+/// assert_eq!(jac.evaluate(ctx!{X = [1.0, 2.0]}).unwrap(), [
 ///     [1.0, 0.0],
 ///     [0.0, 1.0]
 /// ]);

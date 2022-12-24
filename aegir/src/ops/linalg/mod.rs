@@ -116,12 +116,10 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorProduct<L, R> {
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, ops::TensorDot, ids::{X, Y}};
-/// ctx!(Ctx { x: X, y: Y });
-///
 /// let f = TensorDot::new(X.into_var(), Y.into_var());
-/// let ctx = Ctx {
-///     x: [1.0, 2.0, 3.0],
-///     y: [-1.0, 0.0, 2.0]
+/// let ctx = ctx!{
+///     X = [1.0, 2.0, 3.0],
+///     Y = [-1.0, 0.0, 2.0]
 /// };
 ///
 /// assert_eq!(f.evaluate_dual(X, &ctx).unwrap(), dual!(5.0, [-1.0, 0.0, 2.0]));

@@ -9,13 +9,11 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Function, ids::X, ops::Gamma};
-    /// ctx!(Ctx { x: X });
-    ///
     /// let op = Gamma(X.into_var());
     ///
-    /// assert_eq!(op.evaluate(Ctx { x: 2.0f64, }).unwrap(), 1.0);
-    /// assert_eq!(op.evaluate(Ctx { x: 3.0f64, }).unwrap(), 2.0);
-    /// assert_eq!(op.evaluate(Ctx { x: 4.0f64, }).unwrap(), 6.0);
+    /// assert_eq!(op.evaluate(ctx!{X = 2.0f64}).unwrap(), 1.0);
+    /// assert_eq!(op.evaluate(ctx!{X = 3.0f64}).unwrap(), 2.0);
+    /// assert_eq!(op.evaluate(ctx!{X = 4.0f64}).unwrap(), 6.0);
     /// ```
     Gamma<F: FloatSpecial>, |x| { x.gamma() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -103,12 +101,10 @@ where
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Function, ids::X, ops::Factorial};
-/// ctx!(Ctx { x: X });
-///
 /// let op = Factorial::factorial(X.into_var());
 ///
-/// assert_eq!(op.evaluate(Ctx { x: 1.0f64, }).unwrap(), 1.0);
-/// assert_eq!(op.evaluate(Ctx { x: 5.0f64, }).unwrap(), 120.0);
+/// assert_eq!(op.evaluate(ctx!{X = 1.0f64}).unwrap(), 1.0);
+/// assert_eq!(op.evaluate(ctx!{X = 5.0f64}).unwrap(), 120.0);
 /// ```
 pub type Factorial<N> = Gamma<AddOne<N>>;
 
@@ -128,14 +124,12 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Function, ids::X, ops::Erf};
-    /// ctx!(Ctx { x: X });
-    ///
     /// let op = Erf(X.into_var());
     /// let opc = op.complement();
     ///
     /// assert_eq!(
-    ///     op.evaluate(Ctx { x: 1.0f64, }).unwrap(),
-    ///     1.0 - opc.evaluate(Ctx { x: 1.0f64, }).unwrap()
+    ///     op.evaluate(ctx!{X = 1.0f64}).unwrap(),
+    ///     1.0 - opc.evaluate(ctx!{X = 1.0f64}).unwrap()
     /// );
     /// ```
     Erf<F: FloatSpecial>, |x| { x.erf() }, |self| {
@@ -159,14 +153,12 @@ impl<N> Erf<N> {
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Function, ids::X, ops::Erf};
-    /// ctx!(Ctx { x: X });
-    ///
     /// let op = Erf(X.into_var());
     /// let opc = op.complement();
     ///
     /// assert_eq!(
-    ///     op.evaluate(Ctx { x: 1.0f64, }).unwrap(),
-    ///     1.0 - opc.evaluate(Ctx { x: 1.0f64, }).unwrap()
+    ///     op.evaluate(ctx!{X = 1.0f64}).unwrap(),
+    ///     1.0 - opc.evaluate(ctx!{X = 1.0f64}).unwrap()
     /// );
     /// ```
     pub fn complement(self) -> OneSub<Self> { OneSub(self) }

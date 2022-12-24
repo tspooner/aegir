@@ -29,13 +29,11 @@ use crate::{
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Function, Differentiable, ids::X, meta::Constant};
-/// ctx!(Ctx { x: X });
-///
 /// let cns = Constant([10.0, 10.0]);
 /// let jac = cns.adjoint(X);
 ///
-/// assert_eq!(cns.evaluate(Ctx { x: [1.0, 2.0] }).unwrap(), [10.0, 10.0]);
-/// assert_eq!(jac.evaluate(Ctx { x: [1.0, 2.0] }).unwrap(), [
+/// assert_eq!(cns.evaluate(ctx!{X = [1.0, 2.0]}).unwrap(), [10.0, 10.0]);
+/// assert_eq!(jac.evaluate(ctx!{X = [1.0, 2.0]}).unwrap(), [
 ///     [0.0, 0.0],
 ///     [0.0, 0.0]
 /// ]);

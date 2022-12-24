@@ -13,7 +13,7 @@ use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 const N: usize = 30;
 
-ctx!(Ctx { x: X, y: Y, w: W });
+ctx_type!(Ctx { x: X, y: Y, w: W });
 
 fn main() {
     let mut rng = SmallRng::seed_from_u64(1994);

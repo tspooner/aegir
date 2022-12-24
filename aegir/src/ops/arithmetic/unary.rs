@@ -17,13 +17,11 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::SubOne, ids::X};
-    /// ctx!(Ctx { x: X });
-    ///
     /// let f = SubOne(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(0.0, 1.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(-1.0, 1.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(-2.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0}).unwrap(), dual!(0.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 0.0}).unwrap(), dual!(-1.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = -1.0}).unwrap(), dual!(-2.0, 1.0));
     /// ```
     SubOne<F: Scalar>, |x| { x - F::one() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -59,13 +57,11 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::OneSub, ids::X};
-    /// ctx!(Ctx { x: X });
-    ///
     /// let f = OneSub(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(0.0, -1.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(1.0, -1.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(2.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0}).unwrap(), dual!(0.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 0.0}).unwrap(), dual!(1.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = -1.0}).unwrap(), dual!(2.0, -1.0));
     /// ```
     OneSub<F: Scalar>, |x| { F::one() - x }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -98,13 +94,11 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::AddOne, ids::X};
-    /// ctx!(Ctx { x: X });
-    ///
     /// let f = AddOne(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(2.0, 1.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(1.0, 1.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(0.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0}).unwrap(), dual!(2.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 0.0}).unwrap(), dual!(1.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = -1.0}).unwrap(), dual!(0.0, 1.0));
     /// ```
     AddOne<F: Scalar>, |x| { x + F::one() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -140,14 +134,12 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::Square, ids::X};
-    /// ctx!(Ctx { x: X });
-    ///
     /// let f = Square(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(1.0, -2.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(0.0, 0.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(1.0, 2.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 2.0 }).unwrap(), dual!(4.0, 4.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = -1.0}).unwrap(), dual!(1.0, -2.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 0.0}).unwrap(), dual!(0.0, 0.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0}).unwrap(), dual!(1.0, 2.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 2.0}).unwrap(), dual!(4.0, 4.0));
     /// ```
     Square<F: num_traits::Pow<F, Output = F>>, |x| { x.pow(F::one() + F::one()) }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -182,13 +174,11 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::Double, ids::X};
-    /// ctx!(Ctx { x: X });
-    ///
     /// let f = Double(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(-2.0, 2.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(0.0, 2.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(2.0, 2.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = -1.0}).unwrap(), dual!(-2.0, 2.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 0.0}).unwrap(), dual!(0.0, 2.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0}).unwrap(), dual!(2.0, 2.0));
     /// ```
     Double<F: Scalar>, |x| { (F::one() + F::one()) * x }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -223,12 +213,10 @@ where
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, ops::Sum, ids::X};
-/// ctx!(Ctx { x: X });
-///
 /// let f = Sum(X.into_var());
 ///
 /// assert_eq!(
-///     f.evaluate_dual(X, &Ctx { x: [1.0, 2.0, 3.0] }).unwrap(),
+///     f.evaluate_dual(X, ctx!{X = [1.0, 2.0, 3.0]}).unwrap(),
 ///     dual!(6.0, [
 ///         [1.0, 0.0, 0.0],
 ///         [0.0, 1.0, 0.0],
@@ -295,12 +283,10 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::Negate, ids::X};
-    /// ctx!(Ctx { x: X });
-    ///
     /// let f = Negate(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(-1.0, -1.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(1.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0}).unwrap(), dual!(-1.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = -1.0}).unwrap(), dual!(1.0, -1.0));
     /// ```
     Negate<F: num_traits::real::Real>, |x| { -x }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
@@ -337,13 +323,11 @@ impl_unary!(
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Function, Dual, ops::Dirac, ids::X};
     /// # use std::f64::INFINITY;
-    /// ctx!(Ctx { x: X });
-    ///
     /// let f = Dirac(X.into_var());
     ///
-    /// assert_eq!(f.evaluate(&Ctx { x: -1.0 }).unwrap(), 0.0);
-    /// assert_eq!(f.evaluate(&Ctx { x: 0.0 }).unwrap(), INFINITY);
-    /// assert_eq!(f.evaluate(&Ctx { x: 1.0 }).unwrap(), 0.0);
+    /// assert_eq!(f.evaluate(ctx!{X = -1.0}).unwrap(), 0.0);
+    /// assert_eq!(f.evaluate(ctx!{X = 0.0}).unwrap(), INFINITY);
+    /// assert_eq!(f.evaluate(ctx!{X = 1.0}).unwrap(), 0.0);
     /// ```
     Dirac<F: num_traits::Float>, |x| {
         match x {
@@ -368,13 +352,11 @@ impl_unary!(
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::Sign, ids::X};
     /// # use std::f64::INFINITY;
-    /// ctx!(Ctx { x: X });
-    ///
     /// let f = Sign(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(-1.0, 0.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(0.0, INFINITY));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(1.0, 0.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = -1.0}).unwrap(), dual!(-1.0, 0.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 0.0}).unwrap(), dual!(0.0, INFINITY));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0}).unwrap(), dual!(1.0, 0.0));
     /// ```
     Sign<F: num_traits::Float>, |x| {
         if num_traits::Zero::is_zero(&x) { x } else { x.signum() }
@@ -407,13 +389,11 @@ impl_unary!(
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Differentiable, Dual, ops::Abs, ids::X};
-    /// ctx!(Ctx { x: X });
-    ///
     /// let f = Abs(X.into_var());
     ///
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: -1.0 }).unwrap(), dual!(1.0, -1.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 0.0 }).unwrap(), dual!(0.0, 0.0));
-    /// assert_eq!(f.evaluate_dual(X, &Ctx { x: 1.0 }).unwrap(), dual!(1.0, 1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = -1.0}).unwrap(), dual!(1.0, -1.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 0.0}).unwrap(), dual!(0.0, 0.0));
+    /// assert_eq!(f.evaluate_dual(X, ctx!{X = 1.0}).unwrap(), dual!(1.0, 1.0));
     /// ```
     Abs<F: Real>, |x| { x.abs() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};

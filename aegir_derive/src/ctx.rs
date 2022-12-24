@@ -80,16 +80,19 @@ fn ctx_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStream 
             impl #impl_generics ::aegir::Read<#field_id> for #name #ty_generics #wc {
                 type Buffer = <#ty as ::aegir::buffers::IntoSpec>::Buffer;
 
+                #[inline]
                 fn read(&self, fid: #field_id) -> Option<Self::Buffer> {
                     self.read_spec(fid).map(|spec| spec.unwrap())
                 }
 
+                #[inline]
                 fn read_spec(&self, _: #field_id) -> Option<::aegir::buffers::Spec<Self::Buffer>> {
                     use ::aegir::buffers::IntoSpec;
 
                     Some(self.#field_name.clone().into_spec())
                 }
 
+                #[inline]
                 fn read_shape(&self, _: #field_id) -> Option<::aegir::buffers::shapes::ShapeOf<#ty>> {
                     use ::aegir::buffers::shapes::Shaped;
 
