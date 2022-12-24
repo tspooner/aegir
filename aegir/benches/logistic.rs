@@ -38,12 +38,12 @@ const TW: [f64; 20] = [
     0.1265687185, 0.6177711088
 ];
 
-db!(Database { x: X, y: Y, w: W });
+ctx!(Ctx { x: X, y: Y, w: W });
 
 macro_rules! solve {
-    ([$n:literal] |$db:ident, $rng:ident| $grad:block) => {{
+    ([$n:literal] |$ctx:ident, $rng:ident| $grad:block) => {{
         let mut $rng = SmallRng::seed_from_u64(1994);
-        let mut $db = Database {
+        let mut $ctx = Ctx {
             x: [0.0; $n],
             y: 0.0,
             w: [0.0; $n],
@@ -53,11 +53,11 @@ macro_rules! solve {
             let g: [f64; $n] = $grad;
 
             for i in 0..$n {
-                $db.w[i] += 0.001 * g[i];
+                $ctx.w[i] += 0.001 * g[i];
             }
         }
 
-        $db
+        $ctx
     }};
 }
 
@@ -72,14 +72,14 @@ macro_rules! solve_auto {
         let adj = likelihood.adjoint(W);
 
         solve!(
-            [$n] |db, rng| {
-                db.x = rng.gen::<[f64; $n]>();
+            [$n] |ctx, rng| {
+                ctx.x = rng.gen::<[f64; $n]>();
 
-                let yy = db.x.iter().zip(TW.iter().take($n)).map(|(x, tw)| x * tw).sum();
+                let yy = ctx.x.iter().zip(TW.iter().take($n)).map(|(x, tw)| x * tw).sum();
 
-                db.y = rng.gen_bool(ops::sigmoid(yy)) as u8 as f64;
+                ctx.y = rng.gen_bool(ops::sigmoid(yy)) as u8 as f64;
 
-                adj.evaluate(&db).unwrap()
+                adj.evaluate(&ctx).unwrap()
             }
         );
     }}
@@ -97,14 +97,14 @@ macro_rules! solve_manual {
         let adj = l.sub(r).mul(x);
 
         solve!(
-            [$n] |db, rng| {
-                db.x = rng.gen::<[f64; $n]>();
+            [$n] |ctx, rng| {
+                ctx.x = rng.gen::<[f64; $n]>();
 
-                let yy = db.x.iter().zip(TW.iter().take($n)).map(|(x, tw)| x * tw).sum();
+                let yy = ctx.x.iter().zip(TW.iter().take($n)).map(|(x, tw)| x * tw).sum();
 
-                db.y = rng.gen_bool(ops::sigmoid(yy)) as u8 as f64;
+                ctx.y = rng.gen_bool(ops::sigmoid(yy)) as u8 as f64;
 
-                adj.evaluate(&db).unwrap()
+                adj.evaluate(&ctx).unwrap()
             }
         );
     }}

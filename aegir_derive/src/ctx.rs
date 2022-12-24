@@ -3,7 +3,7 @@ use quote::ToTokens;
 
 pub fn expand(ast: &syn::DeriveInput) -> TokenStream {
     match &ast.data {
-        syn::Data::Struct(ref ds) => db_struct_impl(ast, ds),
+        syn::Data::Struct(ref ds) => ctx_struct_impl(ast, ds),
         _ => unimplemented!(),
     }
     .into_token_stream()
@@ -33,7 +33,7 @@ fn parse_id_attr(attr_meta: &syn::Attribute) -> Result<syn::Ident, String> {
     }
 }
 
-fn db_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStream {
+fn ctx_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStream {
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
@@ -42,7 +42,7 @@ fn db_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStream {
             fn as_ref(&self) -> &Self { self }
         }
 
-        impl #impl_generics ::aegir::Database for #name #ty_generics #where_clause {}
+        impl #impl_generics ::aegir::Context for #name #ty_generics #where_clause {}
     };
 
     let id_fields = ds.fields.iter().filter_map(|f| {

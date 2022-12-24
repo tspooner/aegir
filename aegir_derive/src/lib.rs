@@ -8,17 +8,17 @@ use proc_macro::TokenStream;
 
 mod ids;
 
-mod db;
+mod ctx;
 mod ops;
 
 #[proc_macro]
 pub fn ids(tokens: TokenStream) -> TokenStream { ids::expand(tokens).into() }
 
-#[proc_macro_derive(Database, attributes(id))]
-pub fn derive_db(tokens: TokenStream) -> TokenStream {
+#[proc_macro_derive(Context, attributes(id))]
+pub fn derive_ctx(tokens: TokenStream) -> TokenStream {
     let ast = syn::parse2(tokens.into()).unwrap();
 
-    db::expand(&ast).into()
+    ctx::expand(&ast).into()
 }
 
 #[proc_macro_derive(Contains, attributes(op))]

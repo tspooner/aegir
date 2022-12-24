@@ -11,7 +11,7 @@ use crate::{
     },
     fmt::{ToExpr, Expr, PreWrap},
     Contains,
-    Database,
+    Context,
     Differentiable,
     Function,
     Identifier,
@@ -28,14 +28,14 @@ use crate::{
 /// # Examples
 /// ```
 /// # #[macro_use] extern crate aegir;
-/// # use aegir::{Constant, Function, Differentiable, ids::X};
-/// db!(DB { x: X });
+/// # use aegir::{Function, Differentiable, ids::X, meta::Constant};
+/// ctx!(Ctx { x: X });
 ///
 /// let cns = Constant([10.0, 10.0]);
 /// let jac = cns.adjoint(X);
 ///
-/// assert_eq!(cns.evaluate(DB { x: [1.0, 2.0] }).unwrap(), [10.0, 10.0]);
-/// assert_eq!(jac.evaluate(DB { x: [1.0, 2.0] }).unwrap(), [
+/// assert_eq!(cns.evaluate(Ctx { x: [1.0, 2.0] }).unwrap(), [10.0, 10.0]);
+/// assert_eq!(jac.evaluate(Ctx { x: [1.0, 2.0] }).unwrap(), [
 ///     [0.0, 0.0],
 ///     [0.0, 0.0]
 /// ]);
@@ -53,24 +53,24 @@ where
     fn contains(&self, _: T) -> bool { false }
 }
 
-impl<D, S> Function<D> for Constant<S>
+impl<C, S> Function<C> for Constant<S>
 where
-    D: Database,
+    C: Context,
     S: Clone + Shaped + IntoSpec,
     S::Buffer: Shaped<Shape = S::Shape>,
 {
     type Error = SourceError<()>;
     type Value = S::Buffer;
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<S::Buffer, Self::Error> {
-        self.evaluate_spec(db).map(|spec| spec.unwrap())
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<S::Buffer, Self::Error> {
+        self.evaluate_spec(ctx).map(|spec| spec.unwrap())
     }
 
-    fn evaluate_spec<DR: AsRef<D>>(&self, _: DR) -> Result<Spec<S::Buffer>, Self::Error> {
+    fn evaluate_spec<CR: AsRef<C>>(&self, _: CR) -> Result<Spec<S::Buffer>, Self::Error> {
         Ok(self.0.clone().into_spec())
     }
 
-    fn evaluate_shape<DR: AsRef<D>>(&self, _: DR) -> Result<S::Shape, Self::Error> {
+    fn evaluate_shape<CR: AsRef<C>>(&self, _: CR) -> Result<S::Shape, Self::Error> {
         Ok(self.0.shape())
     }
 }
@@ -137,7 +137,7 @@ where
     fn contains(&self, ident: A) -> bool { self.node.contains(ident) || self.target == ident }
 }
 
-impl<N, T, D, F, SN, CN, ST, CT, SA, CA> Function<D> for ConstantAdjoint<N, T>
+impl<N, T, C, F, SN, CN, ST, CT, SA, CA> Function<C> for ConstantAdjoint<N, T>
 where
     F: Scalar,
 
@@ -151,34 +151,34 @@ where
 
     super::Prec: super::Precedence<CN, CT, Class = CA>,
 
-    N: Function<D>,
+    N: Function<C>,
     N::Value: Buffer<Field = F, Shape = SN, Class = CN>,
 
     T: Identifier,
 
-    D: Read<T>,
-    D::Buffer: Buffer<Field = F, Shape = ST, Class = CT>,
+    C: Read<T>,
+    C::Buffer: Buffer<Field = F, Shape = ST, Class = CT>,
 
     <CA as Class<SA>>::Buffer<F>: Buffer<Shape = SA>,
 {
     type Error = crate::BinaryError<N::Error, SourceError<T>, crate::NoError>;
     type Value = <CA as Class<SA>>::Buffer<F>;
 
-    fn evaluate<DR: AsRef<D>>(&self, db: DR) -> Result<Self::Value, Self::Error> {
-        self.evaluate_spec(db).map(|lifted| lifted.unwrap())
+    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+        self.evaluate_spec(ctx).map(|lifted| lifted.unwrap())
     }
 
-    fn evaluate_spec<DR: AsRef<D>>(&self, db: DR) -> Result<Spec<Self::Value>, Self::Error> {
-        self.evaluate_shape(db)
+    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+        self.evaluate_shape(ctx)
             .map(|shape| Spec::Full(shape, F::zero()))
     }
 
-    fn evaluate_shape<DR: AsRef<D>>(&self, db: DR) -> Result<SA, Self::Error> {
+    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<SA, Self::Error> {
         let shape_value = self
             .node
-            .evaluate_shape(db.as_ref())
+            .evaluate_shape(ctx.as_ref())
             .map_err(crate::BinaryError::Left)?;
-        let shape_target = db.as_ref().read(self.target).map(|buf| buf.shape()).ok_or(
+        let shape_target = ctx.as_ref().read(self.target).map(|buf| buf.shape()).ok_or(
             crate::BinaryError::Right(SourceError::Undefined(self.target)),
         )?;
 
@@ -204,8 +204,8 @@ mod tests {
         Identifier,
     };
 
-    #[derive(Database)]
-    struct DB<A, B> {
+    #[derive(Context)]
+    struct Ctx<A, B> {
         #[id(X)]
         pub x: A,
 
@@ -217,9 +217,9 @@ mod tests {
     fn test_constant() {
         let c = 2.0f64.into_constant();
 
-        assert_eq!(c.evaluate(&DB { x: 1.0, y: 0.0 }).unwrap(), 2.0);
+        assert_eq!(c.evaluate(&Ctx { x: 1.0, y: 0.0 }).unwrap(), 2.0);
         assert_eq!(
-            c.evaluate(&DB {
+            c.evaluate(&Ctx {
                 x: [-10.0, 5.0],
                 y: 0.0
             })
@@ -227,7 +227,7 @@ mod tests {
             2.0
         );
         assert_eq!(
-            c.evaluate(&DB {
+            c.evaluate(&Ctx {
                 x: (-1.0, 50.0),
                 y: 0.0
             })
@@ -235,7 +235,7 @@ mod tests {
             2.0
         );
         assert_eq!(
-            c.evaluate(&DB {
+            c.evaluate(&Ctx {
                 x: vec![1.0, 2.0],
                 y: 0.0
             })
