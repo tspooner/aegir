@@ -75,12 +75,12 @@ impl Fold for ConvertToAegir {
             Expr::Lit(l) => match l.lit {
                 Lit::Int(val) => {
                     parse_quote!({
-                        aegir::Constant::<i64>(#val)
+                        aegir::meta::Constant::<i64>(#val)
                     })
                 },
                 Lit::Float(val) => {
                     parse_quote!({
-                        aegir::Constant::<f64>(#val)
+                        aegir::meta::Constant::<f64>(#val)
                     })
                 },
                 _ => Expr::Lit(l),

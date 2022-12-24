@@ -1,5 +1,5 @@
-mod unary_ops;
-pub use self::unary_ops::*;
+mod unary;
+pub use self::unary::*;
 
-mod binary_ops;
-pub use self::binary_ops::*;
+mod binary;
+pub use self::binary::*;

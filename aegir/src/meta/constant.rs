@@ -40,7 +40,7 @@ use crate::{
 ///     [0.0, 0.0]
 /// ]);
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Constant<S: Shaped + IntoSpec>(pub S);
 
 impl<S: Shaped + IntoSpec> Node for Constant<S> {}
@@ -117,7 +117,7 @@ impl<B: Buffer + ToString> std::fmt::Display for Constant<B> {
 }
 
 /// Source node for the adjoint of [constants](Constant).
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ConstantAdjoint<N, T> {
     /// The original source [Node].
     pub node: N,

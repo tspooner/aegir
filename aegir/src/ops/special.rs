@@ -1,8 +1,22 @@
-use aegir::{Node, Identifier, Differentiable};
+use aegir::{Node, Identifier, Differentiable, ops::{Mul, OneSub, AddOne}};
 use special_fun::FloatSpecial;
 
-// Derive = x.gamma() * x.digamma()
 impl_unary!(
+    /// Operator that applies the gamma function element-wise over a buffer.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::{Identifier, Function, ids::X, ops::Gamma};
+    /// ctx!(Ctx { x: X });
+    ///
+    /// let op = Gamma(X.into_var());
+    ///
+    /// assert_eq!(op.evaluate(Ctx { x: 2.0f64, }).unwrap(), 1.0);
+    /// assert_eq!(op.evaluate(Ctx { x: 3.0f64, }).unwrap(), 2.0);
+    /// assert_eq!(op.evaluate(Ctx { x: 4.0f64, }).unwrap(), 6.0);
+    /// ```
     Gamma<F: FloatSpecial>, |x| { x.gamma() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -20,7 +34,20 @@ impl_unary!(
     }
 );
 
+impl<N, I> Differentiable<I> for Gamma<N>
+where
+    N: Clone + Differentiable<I>,
+    I: Identifier,
+{
+    type Adjoint = Mul<Mul<N::Adjoint, DiGamma<N>>, Gamma<N>>;
+
+    fn adjoint(&self, target: I) -> Self::Adjoint {
+        self.0.adjoint(target).mul(DiGamma(self.0.clone())).mul(self.clone())
+    }
+}
+
 impl_unary!(
+    /// Operator that applies the di-gamma function element-wise over a buffer.
     DiGamma<F: FloatSpecial>, |x| { x.digamma() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -39,6 +66,7 @@ impl_unary!(
 );
 
 impl_unary!(
+    /// Operator that applies the log-gamma function element-wise over a buffer.
     LogGamma<F: FloatSpecial>, |x| { x.loggamma() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -61,7 +89,7 @@ where
     N: Clone + Differentiable<I>,
     I: Identifier,
 {
-    type Adjoint = crate::ops::Mul<N::Adjoint, DiGamma<N>>;
+    type Adjoint = Mul<N::Adjoint, DiGamma<N>>;
 
     fn adjoint(&self, target: I) -> Self::Adjoint {
         self.0.adjoint(target).mul(DiGamma(self.0.clone()))
@@ -69,11 +97,24 @@ where
 }
 
 /// Operator alias that applies the factorial element-wise over a buffer.
-pub type Factorial<N> = crate::ops::AddOne<Gamma<N>>;
+///
+/// # Examples
+///
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # use aegir::{Identifier, Function, ids::X, ops::Factorial};
+/// ctx!(Ctx { x: X });
+///
+/// let op = Factorial::factorial(X.into_var());
+///
+/// assert_eq!(op.evaluate(Ctx { x: 1.0f64, }).unwrap(), 1.0);
+/// assert_eq!(op.evaluate(Ctx { x: 5.0f64, }).unwrap(), 120.0);
+/// ```
+pub type Factorial<N> = Gamma<AddOne<N>>;
 
 impl<N> Factorial<N> {
     /// Create an instance of [Factorial].
-    pub fn factorial(node: N) -> Self { crate::ops::AddOne(Gamma(node)) }
+    pub fn factorial(node: N) -> Self { Gamma(AddOne(node)) }
 }
 
 impl_unary!(
@@ -128,13 +169,13 @@ impl<N> Erf<N> {
     ///     1.0 - opc.evaluate(Ctx { x: 1.0f64, }).unwrap()
     /// );
     /// ```
-    pub fn complement(self) -> crate::ops::OneSub<Self> { crate::ops::OneSub(self) }
+    pub fn complement(self) -> OneSub<Self> { OneSub(self) }
 }
 
 /// Operator alias that applies `erfc(.)` element-wise over a buffer.
-pub type Erfc<N> = crate::ops::OneSub<Erf<N>>;
+pub type Erfc<N> = OneSub<Erf<N>>;
 
 impl<N> Erfc<N> {
     /// Create an instance of [Erfc].
-    pub fn erfc(node: N) -> Erfc<N> { crate::ops::OneSub(Erf(node)) }
+    pub fn erfc(node: N) -> Erfc<N> { OneSub(Erf(node)) }
 }

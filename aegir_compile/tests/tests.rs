@@ -4,7 +4,7 @@ extern crate aegir_compile;
 
 use aegir::{
     ids::{A, B, C},
-    Constant,
+    meta::Constant,
     Identifier,
     Node,
 };
