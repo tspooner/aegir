@@ -56,7 +56,7 @@ use errors::*;
 /// [ids](ids/index.html) module.
 pub trait Identifier: Eq + Copy + PartialEq + std::fmt::Debug + std::fmt::Display {
     /// Convert the identifier into a [Variable].
-    fn into_var(self) -> Variable<Self> { Variable(self) }
+    fn into_var(self) -> meta::Variable<Self> { meta::Variable(self) }
 }
 
 pub mod ids {
@@ -330,9 +330,7 @@ extern crate self as aegir;
 mod dual;
 pub use self::dual::Dual;
 
-mod sources;
-pub use self::sources::{Constant, ConstantAdjoint, SourceError, Variable, VariableAdjoint};
-
 pub mod fmt;
 pub mod buffers;
+pub mod meta;
 pub mod ops;
