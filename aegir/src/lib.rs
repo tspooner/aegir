@@ -283,6 +283,7 @@ pub trait Differentiable<T: Identifier>: Node {
         db: DR,
     ) -> AegirResult<Self::Adjoint, D>
     where
+        Self: Function<D>,
         Self::Adjoint: Function<D>,
     {
         self.adjoint(target).evaluate(db)
@@ -302,11 +303,8 @@ pub trait Differentiable<T: Identifier>: Node {
         Self: Function<D>,
         Self::Adjoint: Function<D>,
     {
-        let value = self.evaluate(db.as_ref()).map_err(BinaryError::Left)?;
-        let adjoint = self
-            .adjoint(target)
-            .evaluate(db)
-            .map_err(BinaryError::Right)?;
+        let value = self.evaluate(&db).map_err(BinaryError::Left)?;
+        let adjoint = self.evaluate_adjoint(target, db).map_err(BinaryError::Right)?;
 
         Ok(dual!(value, adjoint))
     }
