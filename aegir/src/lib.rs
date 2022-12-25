@@ -23,7 +23,7 @@
 //! - Decoupled/generic tensor type.
 //! - Monadic runtime optimisation.
 //! - Custom DSL for operator expansion.
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 
 #[allow(unused_imports)]
 #[macro_use]
@@ -85,14 +85,18 @@ pub trait Context: AsRef<Self> {}
 
 /// Trait for reading entries out of a [Context].
 pub trait Read<I: Identifier>: Context {
+    /// The buffer type associated with the identifier `I`.
     type Buffer: buffers::Buffer;
 
+    /// Returns a copy of the value associated with `ident`, if it exists.
     fn read(&self, ident: I) -> Option<Self::Buffer>;
 
+    /// Returns a specification of the value associated with `ident`, if it exists.
     fn read_spec(&self, ident: I) -> Option<buffers::Spec<Self::Buffer>> {
         self.read(ident).map(buffers::Spec::Raw)
     }
 
+    /// Returns the shape of the value associated with `ident`, if it exists.
     fn read_shape(&self, ident: I) -> Option<buffers::shapes::ShapeOf<Self::Buffer>> {
         use buffers::shapes::Shaped;
 

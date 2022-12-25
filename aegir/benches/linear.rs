@@ -38,7 +38,7 @@ const TW: [f64; 20] = [
     0.1265687185, 0.6177711088
 ];
 
-ctx!(Ctx { x: X, y: Y, w: W });
+ctx_type!(Ctx { x: X, y: Y, w: W });
 
 macro_rules! solve {
     ([$n:literal] |$ctx:ident, $xs:ident| $grad:block) => {{

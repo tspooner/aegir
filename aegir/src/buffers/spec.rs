@@ -32,12 +32,15 @@ impl<B: Buffer> IntoSpec for B {
 ///
 /// In many cases, a given buffer instance has structural properties that allow us to prune
 /// redundant compute or memory demands. For example, elementwise multiplication of two buffers
-/// when either value is "all-zeroes" is certian to yield another "all-zeroes" buffer. Similarly,
-/// a buffer full of only one value need not be representated in a dense form. This type is designed
+/// when either value is "all-zeroes" is certian to yield another "all-zeroes" buffer. Similarly, a
+/// buffer full of only one value need not be representated in a dense form. This type is designed
 /// to facilitate such sparse/structural representations throughout `aegir`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Spec<B: Buffer> {
+    // TODO - think of ways to reduce memory overhead. The whole purpose of this type is to avoid
+    // redundant compute, but we still allocate memory on the stack for these intermediate results,
+    // even if they're never materialised.
     /// The raw buffer instance.
     ///
     /// This case is exactly equivalent to the original buffer.
