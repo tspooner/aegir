@@ -23,7 +23,7 @@
 //! - Decoupled/generic tensor type.
 //! - Monadic runtime optimisation.
 //! - Custom DSL for operator expansion.
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 
 #[allow(unused_imports)]
 #[macro_use]

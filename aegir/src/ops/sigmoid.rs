@@ -3,17 +3,18 @@ use num_traits::real::Real;
 
 impl_unary!(
     /// Operator that applies the sigmoid function element-wise over a buffer.
-    // ///
-    // /// # Examples
-    // ///
-    // /// ```
-    // /// # #[macro_use] extern crate aegir;
-    // /// # use aegir::{Identifier, Differentiable, ops::Sigmoid, ids::X};
-    // /// let op = Rabbit(X.into_var());
-    // ///
-    // /// assert!((dual.value - 0.73106).abs() < 1e-5);
-    // /// assert!((dual.adjoint - 0.19661).abs() < 1e-5);
-    // /// ```
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::{Identifier, Differentiable, ops::Rabbit, ids::X};
+    /// let op = Rabbit(X.into_var());
+    /// let dual = op.evaluate_dual(X, ctx!{X = 0.5f64}).unwrap();
+    ///
+    /// assert!((dual.value - 0.25).abs() < 1e-5);
+    /// assert!((dual.adjoint - 0.0).abs() < 1e-5);
+    /// ```
     Rabbit<F: crate::buffers::Scalar>, |x| { x * (F::one() - x) }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
