@@ -2,7 +2,7 @@ use crate::{Node, Differentiable, Identifier, ops::{OneSub, Double, Mul}};
 use num_traits::real::Real;
 
 impl_unary!(
-    /// Operator that applies the sigmoid function element-wise over a buffer.
+    /// Operator that applies `f[g](x) = g(x) * (1 - g(x))` element-wise to a buffer.
     ///
     /// # Examples
     ///
@@ -55,7 +55,7 @@ pub fn sigmoid<F: Real>(x: F) -> F {
 }
 
 impl_unary!(
-    /// Computes the element-wise sigmoid of a [Buffer].
+    /// Operator that applies `f[g](x) = 1 / (1 + exp(-f(x)))` element-wise to a buffer.
     ///
     /// # Examples
     ///

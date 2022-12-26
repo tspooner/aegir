@@ -168,14 +168,22 @@ impl_contract!(1; <F: Scalar, N, M> [[F; M]; N], [F; N]; |self, x, y| -> [F; M] 
     }
 }; S1);
 
-impl_contract!(1; <F: Scalar, N, M, Z> [[F; Z]; N], [[F; M]; Z]; |self, x, y| -> [[F; M]; N] {
+impl_contract!(1; <F: FromPrimitive, N, M, Z> [[F; Z]; N], [[F; M]; Z]; |self, x, y| -> [[F; M]; N] {
     Ok(array_init::array_init(|i| {
         array_init::array_init(|j| {
             (0..Z).fold(F::zero(), |acc, z| acc + self[i][z] * y[z][j])
         })
     }))
 }, {
-    x.unwrap().contract(y.unwrap()).map(Spec::Raw)
+    use Spec::*;
+
+    match (x, y) {
+        (Full(_, fx), Full(_, fy)) => Ok(Full(S2, F::from_usize(Z).unwrap() * fx * fy)),
+
+        (Diagonal(_, fx), Diagonal(_, fy)) if N == Z && M == N => Ok(Diagonal(S2, fx * fy)),
+
+        (x, y) => x.unwrap().contract(y.unwrap()).map(Spec::Raw),
+    }
 }; S2);
 
 impl_contract!(1; <F: Scalar, N, M> [F; N], [[F; M]; N]; |self, x, y| -> [F; M] {

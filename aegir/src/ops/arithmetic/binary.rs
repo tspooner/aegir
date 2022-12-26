@@ -1,15 +1,14 @@
 use crate::{
     buffers::{
-        shapes::{self, Shape, Zip, Shaped, ShapeOf},
+        shapes::{self, Shape, Zip, Shaped, ShapeOf, IncompatibleShapes as IncShapes},
         Buffer,
         Class,
-        IncompatibleShapes,
         Scalar,
         Spec,
         ZipMap,
     },
     fmt::{ToExpr, Expr, PreWrap},
-    ops::SafeXlnX,
+    ops::XLnX,
     BinaryError,
     Contains,
     Context,
@@ -23,13 +22,15 @@ use std::fmt;
 type Error<C, L, R> = BinaryError<
     <L as Function<C>>::Error,
     <R as Function<C>>::Error,
-    IncompatibleShapes<ShapeOf<<L as Function<C>>::Value>, ShapeOf<<R as Function<C>>::Value>>,
+    IncShapes<ShapeOf<<L as Function<C>>::Value>, ShapeOf<<R as Function<C>>::Value>>,
 >;
 
-/// Computes the power of a [Buffer] to a [Field].
+/// Operator that applies `f[b,e](x) = b(x) ^ e(x)` element-wise to a buffer.
+///
+/// This operator supports any base, but only scalar exponents.
 ///
 /// # Examples
-/// ## x^2
+/// ## `f(x) = x^2`
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, buffers::Buffer, ops::Power, ids::X};
@@ -41,7 +42,7 @@ type Error<C, L, R> = BinaryError<
 /// assert_eq!(f.evaluate_dual(X, ctx!{X = 2.0}).unwrap(), dual!(4.0, 4.0));
 /// ```
 ///
-/// ## x^y
+/// ## `f(x, y) = x^y`
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, buffers::Buffer, ops::Power, ids::{X, Y}};
@@ -63,21 +64,19 @@ type Error<C, L, R> = BinaryError<
 /// We can derive the gradient computation as follows.
 ///
 /// First, let
-///      z(x) := f(x) ^ g(x).
+///      `z(x) := f(x) ^ g(x)`.
 /// Then, to get the derivative we first take logarithms,
-///      ln z(x) = g(x) * ln f(x),
+///      `ln z(x) = g(x) * ln f(x)`,
 /// such that
-///      z'(x) / z(x) = g'(x) * ln f(x) + f'(x) * g(x) / f(x).
+///      `z'(x) / z(x) = g'(x) * ln f(x) + f'(x) * g(x) / f(x)`.
 /// It then follows that
-///      z'(x) = z(x) * [g'(x) * ln f(x) + f'(x) * g(x) / f(x)]
-/// as desired.
-///
-/// For simplicity, let
-///      l(x) := z(x) * g'(x) * ln f(x),
+///      `z'(x) = z(x) * [g'(x) * ln f(x) + f'(x) * g(x) / f(x)]`
+/// as desired. For simplicity, let
+///      `l(x) := z(x) * g'(x) * ln f(x)`,
 /// and
-///      r(x) := z(x) * f'(x) * g(x) / f(x).
+///      `r(x) := z(x) * f'(x) * g(x) / f(x)`.
 /// Then
-///      z'(x) = l(x) + r(x).
+///      `z'(x) = l(x) + r(x)`.
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Power<N, E>(#[op] pub N, #[op] pub E);
 
@@ -137,13 +136,13 @@ where
 {
     type Adjoint = Mul<
         Power<N, crate::ops::SubOne<E>>,
-        Add<Mul<E, N::Adjoint>, Mul<SafeXlnX<N>, E::Adjoint>>,
+        Add<Mul<E, N::Adjoint>, Mul<XLnX<N>, E::Adjoint>>,
     >;
 
     fn adjoint(&self, target: T) -> Self::Adjoint {
         let l = Power(self.0.clone(), crate::ops::SubOne(self.1.clone()));
         let r_l = Mul(self.1.clone(), self.0.adjoint(target));
-        let r_r = Mul(SafeXlnX(self.0.clone()), self.1.adjoint(target));
+        let r_r = Mul(XLnX(self.0.clone()), self.1.adjoint(target));
 
         l.mul(r_l.add(r_r))
     }
@@ -172,7 +171,7 @@ impl<X: ToExpr, E: ToExpr> fmt::Display for Power<X, E> {
     }
 }
 
-/// Computes the (elementwise) addition of two compatible [Buffer] types.
+/// Operator that applies `f[g,h](x) = g(x) + h(x)` element-wise to a buffer.
 ///
 /// # Examples
 /// ## x + y
@@ -314,7 +313,7 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for Add<L, R> {
     }
 }
 
-/// Computes the (elementwise) subtraction of two compatible [Buffer] types.
+/// Operator that applies `f[g,h](x) = g(x) - h(x)` element-wise to a buffer.
 ///
 /// # Examples
 /// ## x - y
@@ -453,10 +452,10 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for Sub<L, R> {
     }
 }
 
-/// Computes the (elementwise) product of two compatible [Buffer] types.
+/// Operator that applies `f[g,h](x) = g(x) · h(x)` element-wise to a buffer.
 ///
 /// # Examples
-/// ## x . y
+/// ## x · y
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, buffers::Buffer, ops::Mul, ids::{X, Y}};
@@ -466,7 +465,7 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for Sub<L, R> {
 /// assert_eq!(f.evaluate_dual(Y, ctx!{X = 3.0, Y = 2.0}).unwrap(), dual!(6.0, 3.0));
 /// ```
 ///
-/// ## x . y^2
+/// ## x · y^2
 /// ```
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Node, Differentiable, Dual, buffers::Buffer, ops::Mul, ids::{X, Y}};
@@ -595,7 +594,7 @@ impl<L: ToExpr, R: ToExpr> fmt::Display for Mul<L, R> {
     }
 }
 
-/// Computes the (elementwise) quotient of two compatible [Buffer] types.
+/// Operator that applies `f[g,h](x) = g(x) / h(x)` element-wise to a buffer.
 #[derive(Copy, Clone, Debug, PartialEq, Contains)]
 pub struct Div<L, R>(#[op] pub L, #[op] pub R);
 
@@ -678,8 +677,8 @@ impl<L: ToExpr, R: ToExpr> ToExpr for Div<L, R> {
     }
 }
 
-impl<L: fmt::Display, R: Node + fmt::Display> fmt::Display for Div<L, R> {
+impl<L: ToExpr, R: ToExpr> fmt::Display for Div<L, R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}) / ({})", self.0, self.1)
+        self.to_expr().fmt(f)
     }
 }

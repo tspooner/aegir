@@ -8,6 +8,7 @@ use super::*;
 /// or a spec itself. Therefore, we can use this trait to generalise across "Buffer-Like" types in
 /// in our abstractions.
 pub trait IntoSpec {
+    /// The corresponding buffer type underlying the `Spec`.
     type Buffer: Buffer;
 
     /// Convert `self` into a [Spec] instance.
@@ -86,8 +87,7 @@ where
 {
     /// Returns the contained buffer in dense form, consuming `self`.
     ///
-    /// This method is not necessarily cheap to execute as it often requires
-    /// a call to [Class::build] which allocates memory.
+    /// This method is not necessarily cheap to execute as it may require a call to [Class::build].
     #[inline]
     pub fn unwrap(self) -> B {
         match self {
@@ -133,15 +133,15 @@ where
         }
     }
 
-    /// Construct a Spec::Full(s, 0) where s is a given shape.
+    /// Construct a `Spec::Full(s, 0)` where s is a given shape.
     #[inline]
     pub fn zeroes(shape: B::Shape) -> Self { Spec::Full(shape, B::Field::zero()) }
 
-    /// Construct a Spec::Full(s, 1) where s is a given shape.
+    /// Construct a `Spec::Full(s, 1)` where s is a given shape.
     #[inline]
     pub fn ones(shape: B::Shape) -> Self { Spec::Full(shape, B::Field::one()) }
 
-    /// Construct a Spec::Diagonal(s, 1) where s is a given shape.
+    /// Construct a `Spec::Diagonal(s, 1)` where s is a given shape.
     #[inline]
     pub fn eye(shape: B::Shape) -> Self { Spec::Diagonal(shape, B::Field::one()) }
 }

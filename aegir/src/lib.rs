@@ -58,7 +58,7 @@ use errors::*;
 /// two identifiers `I` and `T`. The procedural macro [ids!] is provided to make this simpler
 /// should you want to define a custom type.
 pub trait Identifier: Copy + PartialEq + Eq + std::fmt::Debug + std::fmt::Display {
-    /// Convert the identifier into a [Variable].
+    /// Convert the identifier into a [Variable](meta::Variable).
     fn into_var(self) -> meta::Variable<Self> { meta::Variable(self) }
 }
 

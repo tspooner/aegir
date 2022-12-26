@@ -1,14 +1,15 @@
+//! Module containing special function operators.
 use aegir::{Node, Identifier, Differentiable, ops::{Mul, OneSub, AddOne}};
 use special_fun::FloatSpecial;
 
 impl_unary!(
-    /// Operator that applies the gamma function element-wise over a buffer.
+    /// Operator that applies `f[g](x) = Γ(f(x)) = (f(x) - 1)!` element-wise to a buffer.
     ///
     /// # Examples
     ///
     /// ```
     /// # #[macro_use] extern crate aegir;
-    /// # use aegir::{Identifier, Function, ids::X, ops::Gamma};
+    /// # use aegir::{Identifier, Function, ids::X, ops::special::Gamma};
     /// let op = Gamma(X.into_var());
     ///
     /// assert_eq!(op.evaluate(ctx!{X = 2.0f64}).unwrap(), 1.0);
@@ -45,7 +46,7 @@ where
 }
 
 impl_unary!(
-    /// Operator that applies the di-gamma function element-wise over a buffer.
+    /// Operator that applies `f[g](x) = ψ(g(x)) = Γ'(g(x)) / Γ(g(x))` element-wise to a buffer.
     DiGamma<F: FloatSpecial>, |x| { x.digamma() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -64,7 +65,7 @@ impl_unary!(
 );
 
 impl_unary!(
-    /// Operator that applies the log-gamma function element-wise over a buffer.
+    /// Operator that applies `f[g](x) = ln Γ(g(x))` element-wise to a buffer.
     LogGamma<F: FloatSpecial>, |x| { x.loggamma() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -94,13 +95,13 @@ where
     }
 }
 
-/// Operator alias that applies the factorial element-wise over a buffer.
+/// Operator alias that applies `f[g](x) = g(x)!` element-wise to a buffer.
 ///
 /// # Examples
 ///
 /// ```
 /// # #[macro_use] extern crate aegir;
-/// # use aegir::{Identifier, Function, ids::X, ops::Factorial};
+/// # use aegir::{Identifier, Function, ids::X, ops::special::Factorial};
 /// let op = Factorial::factorial(X.into_var());
 ///
 /// assert_eq!(op.evaluate(ctx!{X = 1.0f64}).unwrap(), 1.0);
@@ -114,7 +115,7 @@ impl<N> Factorial<N> {
 }
 
 impl_unary!(
-    /// Operator that applies `erf(.)` element-wise over a buffer.
+    /// Operator that applies `f[g](x) = erf(g(x))` element-wise to a buffer.
     ///
     /// The error function is defined as 2 * Phi(sqrt(2) * x) - 1 where Phi(.) is the standard
     /// normal CDF.
@@ -123,7 +124,7 @@ impl_unary!(
     ///
     /// ```
     /// # #[macro_use] extern crate aegir;
-    /// # use aegir::{Identifier, Function, ids::X, ops::Erf};
+    /// # use aegir::{Identifier, Function, ids::X, ops::special::Erf};
     /// let op = Erf(X.into_var());
     /// let opc = op.complement();
     ///
@@ -146,13 +147,13 @@ impl_unary!(
 );
 
 impl<N> Erf<N> {
-    /// Transform `erf(.)` operator into the complement `erfc(.)`.
+    /// Transform operator into its complement `Erfc`.
     ///
     /// # Examples
     ///
     /// ```
     /// # #[macro_use] extern crate aegir;
-    /// # use aegir::{Identifier, Function, ids::X, ops::Erf};
+    /// # use aegir::{Identifier, Function, ids::X, ops::special::Erf};
     /// let op = Erf(X.into_var());
     /// let opc = op.complement();
     ///
@@ -164,7 +165,7 @@ impl<N> Erf<N> {
     pub fn complement(self) -> OneSub<Self> { OneSub(self) }
 }
 
-/// Operator alias that applies `erfc(.)` element-wise over a buffer.
+/// Operator alias that applies `f[g](x) = erfc(g(x))` element-wise to a buffer.
 pub type Erfc<N> = OneSub<Erf<N>>;
 
 impl<N> Erfc<N> {

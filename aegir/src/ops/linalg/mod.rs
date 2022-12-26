@@ -1,6 +1,6 @@
 use crate::{
-    buffers::shapes::ShapeOf,
-    buffers::{Buffer, Contract as CTrait, FieldOf, IncompatibleShapes, Spec},
+    buffers::shapes::{ShapeOf, IncompatibleShapes as IncShapes},
+    buffers::{Buffer, Contract as CTrait, FieldOf, Spec},
     fmt::{ToExpr, Expr, PreWrap},
     ops::Add,
     BinaryError,
@@ -12,10 +12,26 @@ use crate::{
     Node,
 };
 
+/// Operator that applies `fₐ[g,h](x) = g(x) ⊗ₐ h(x)` element-wise over a buffer.
+///
+/// # Examples
+///
+/// ```
+/// # #[macro_use] extern crate aegir;
+/// # use aegir::{Identifier, Function, ops::Contract, ids::{X, Y}, Read};
+/// let op: Contract<1, _, _> = Contract(X.into_var(), Y.into_var());
+/// let ctx = ctx!{
+///     X = [1.0f64, 2.0f64],
+///     Y = [-1.0f64, 1.0f64]
+/// };
+///
+/// assert_eq!(op.evaluate(ctx).unwrap(), 1.0);
+/// ```
 #[derive(Copy, Clone, PartialEq, Contains)]
 pub struct Contract<const AXES: usize, L, R>(#[op] pub L, #[op] pub R);
 
 impl<L, R, const AXES: usize> Contract<AXES, L, R> {
+    /// Construct a new instance of [Contract].
     pub fn new(left: L, right: R) -> Self { Contract(left, right) }
 }
 
@@ -31,7 +47,7 @@ where
     R::Value: Buffer<Field = FieldOf<L::Value>>,
 {
     type Error =
-        BinaryError<L::Error, R::Error, IncompatibleShapes<ShapeOf<L::Value>, ShapeOf<R::Value>>>;
+        BinaryError<L::Error, R::Error, IncShapes<ShapeOf<L::Value>, ShapeOf<R::Value>>>;
     type Value = <L::Value as CTrait<R::Value, AXES>>::Output;
 
     fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
@@ -82,7 +98,7 @@ where
     }
 }
 
-/// Operator alias that applies the tensor product between two buffers.
+/// Operator alias that applies `f[g,h](x) = h(x) ⊗ g(x)` element-wise to a buffer.
 pub type TensorProduct<L, R> = Contract<0, L, R>;
 
 impl<L: ToExpr, R: ToExpr> ToExpr for TensorProduct<L, R> {
@@ -110,7 +126,7 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorProduct<L, R> {
     }
 }
 
-/// Operator alias that applies the tensor dot product between two buffers.
+/// Operator alias that applies `f[g,h](x) = h(x) · g(x)` element-wise to a buffer.
 ///
 /// # Examples
 /// ```
@@ -152,7 +168,7 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorDot<L, R> {
     }
 }
 
-/// Operator alias that applies the tensor double dot product between two buffers.
+/// Operator alias that applies `f[g,h](x) = h(x) : g(x)` element-wise to a buffer.
 pub type TensorDoubleDot<L, R> = Contract<2, L, R>;
 
 impl<L: ToExpr, R: ToExpr> ToExpr for TensorDoubleDot<L, R> {

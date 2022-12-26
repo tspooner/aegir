@@ -67,11 +67,8 @@ pub use self::linalg::*;
 mod logarithmic;
 pub use self::logarithmic::*;
 
-mod trig;
-pub use self::trig::*;
-
 mod sigmoid;
 pub use self::sigmoid::*;
 
-mod special;
-pub use self::special::*;
+pub mod trig;
+pub mod special;

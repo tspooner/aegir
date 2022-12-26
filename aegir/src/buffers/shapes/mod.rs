@@ -2,14 +2,18 @@
 use concat_arrays::concat_arrays;
 use std::fmt::{Debug, Display};
 
-/// Error type for two incompatible buffers based on their shapes.
+/// Error type for two incompatible shapes.
 #[derive(Copy, Clone, Debug)]
 pub struct IncompatibleShapes<L: Shape, R: Shape = L> {
+    /// Shape of the left-hand term.
     pub left: L,
+
+    /// Shape of the right-hand term.
     pub right: R,
 }
 
 impl<L: Shape, R: Shape> IncompatibleShapes<L, R> {
+    /// Return a new error with left/right reversed.
     pub fn reverse(self) -> IncompatibleShapes<R, L> {
         IncompatibleShapes {
             left: self.right,
@@ -65,11 +69,12 @@ impl<const DIM: usize> Ix for [usize; DIM] {
     }
 }
 
+/// Trait for types that have a well-defined shape.
 pub trait Shaped {
-    /// [Shape](shapes::Shape) associated with this type.
+    /// Shape associated with this type.
     type Shape: Shape;
 
-    /// Return the [Shape](Buffer::Shape) associated with the type.
+    /// Return the type's shape.
     ///
     /// # Examples
     /// ```

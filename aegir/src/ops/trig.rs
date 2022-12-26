@@ -1,3 +1,4 @@
+//! Module containing trigonometric operators.
 use crate::{
     ops::{Mul, Negate},
     Differentiable,
@@ -6,6 +7,7 @@ use crate::{
 use num_traits::real::Real;
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = cos(g(x))` element-wise to a buffer.
     Cos<F: Real>, |x| { x.cos() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -36,6 +38,7 @@ where
 }
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = cosh(g(x))` element-wise to a buffer.
     Cosh<F: Real>, |x| { x.cosh() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -54,6 +57,7 @@ impl_unary!(
 );
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = acos(g(x))` element-wise to a buffer.
     ArcCos<F: Real>, |x| { x.acos() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -72,6 +76,7 @@ impl_unary!(
 );
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = acosh(g(x))` element-wise to a buffer.
     ArcCosh<F: Real>, |x| { x.acosh() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -90,6 +95,7 @@ impl_unary!(
 );
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = sin(g(x))` element-wise to a buffer.
     Sin<F: Real>, |x| { x.sin() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -120,6 +126,7 @@ where
 }
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = sinh(g(x))` element-wise to a buffer.
     Sinh<F: Real>, |x| { x.sinh() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -138,6 +145,7 @@ impl_unary!(
 );
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = asin(g(x))` element-wise to a buffer.
     ArcSin<F: Real>, |x| { x.asin() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -156,6 +164,7 @@ impl_unary!(
 );
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = asinh(g(x))` element-wise to a buffer.
     ArcSinh<F: Real>, |x| { x.asinh() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -174,6 +183,7 @@ impl_unary!(
 );
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = tan(g(x))` element-wise to a buffer.
     Tan<F: Real>, |x| { x.tan() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -192,6 +202,7 @@ impl_unary!(
 );
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = tanh(g(x))` element-wise to a buffer.
     Tanh<F: Real>, |x| { x.tanh() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -210,6 +221,7 @@ impl_unary!(
 );
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = atan(g(x))` element-wise to a buffer.
     ArcTan<F: Real>, |x| { x.atan() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 
@@ -228,6 +240,7 @@ impl_unary!(
 );
 
 impl_unary!(
+    /// Operator that applies `f[g](x) = atanh(g(x))` element-wise to a buffer.
     ArcTanh<F: Real>, |x| { x.atanh() }, |self| {
         use crate::fmt::{PreWrap, Expr::*};
 

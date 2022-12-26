@@ -11,7 +11,7 @@ use num_traits::{real::Real, FromPrimitive};
 use std::fmt;
 
 impl_unary!(
-    /// Subtracts 1 from a [Buffer]; i.e. the additive inverse.
+    /// Operator that applies `f[g](x) = g(x) - 1` element-wise to a buffer.
     ///
     /// # Examples
     /// ```
@@ -51,7 +51,7 @@ where
 }
 
 impl_unary!(
-    /// Computes the subtraction of one from a [Buffer].
+    /// Operator that applies `f[g](x) = 1 - g(x)` element-wise to a buffer.
     ///
     /// # Examples
     /// ```
@@ -88,7 +88,7 @@ where
 }
 
 impl_unary!(
-    /// Adds one to a [Buffer].
+    /// Operator that applies `f[g](x) = g(x) + 1` element-wise to a buffer.
     ///
     /// # Examples
     /// ```
@@ -128,7 +128,7 @@ where
 }
 
 impl_unary!(
-    /// Computes the square of a [Buffer].
+    /// Operator that applies `f[g](x) = g(x) ^ 2` element-wise to a buffer.
     ///
     /// # Examples
     /// ```
@@ -168,7 +168,7 @@ where
 }
 
 impl_unary!(
-    /// Computes the double of a [Buffer].
+    /// Operator that applies `f[g](x) = 2 · g(x)` element-wise to a buffer.
     ///
     /// # Examples
     /// ```
@@ -207,7 +207,7 @@ where
     fn adjoint(&self, target: T) -> Self::Adjoint { Double(self.0.adjoint(target)) }
 }
 
-/// Compute the sum over elements in a [Buffer].
+/// Operator that applies `f[g](x) = Σᵢ gᵢ(x)` to a buffer.
 ///
 /// # Examples
 /// ```
@@ -277,7 +277,7 @@ impl<N: fmt::Display> fmt::Display for Sum<N> {
 }
 
 impl_unary!(
-    /// Computes the additive inverse of a [Buffer].
+    /// Operator that applies `f[g](x) = -g(x)` to a buffer.
     ///
     /// # Examples
     /// ```
@@ -316,7 +316,7 @@ where
 }
 
 impl_unary!(
-    /// Computes the dirac delta about zero of a [Buffer].
+    /// Operator that applies `f[g](x) = δ(g(x) - x)` to a buffer.
     ///
     /// # Examples
     /// ```
@@ -345,7 +345,7 @@ impl_unary!(
 );
 
 impl_unary!(
-    /// Computes the sign of a [Buffer].
+    /// Operator that applies `f[g](x) = sgn(g(x))` to a buffer.
     ///
     /// # Examples
     /// ```
@@ -383,7 +383,7 @@ where
 }
 
 impl_unary!(
-    /// Computes the absolute value of a [Buffer].
+    /// Operator that applies `f[g](x) = |g(x)|` to a buffer.
     ///
     /// # Examples
     /// ```

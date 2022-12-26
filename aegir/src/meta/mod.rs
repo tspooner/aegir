@@ -1,9 +1,12 @@
 //! Module containing meta operators.
 use crate::buffers::{Arrays, Scalars, Tuples, Vecs};
 
+/// Dummy type for implementing [Precedence].
 pub struct Prec;
 
+/// Trait for defining precedence relations between buffer classes.
 pub trait Precedence<C1, C2> {
+    /// Class with higher precedence between `C1` and `C2`.
     type Class;
 }
 
