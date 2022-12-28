@@ -21,18 +21,9 @@ macro_rules! impl_map {
             }
 
             #[inline]
-            fn zip_map_dominate<$a: Scalar, M: Fn(F) -> $a>(
+            fn zip_map_id(
                 self,
-                _: Self::Shape,
-                f: M,
-            ) -> Result<$garr, IncompatibleShapes<Self::Shape>> {
-                Ok(<Self as Buffer>::map(self, f))
-            }
-
-            #[inline]
-            fn zip_map_dominate_id(
-                self,
-                _: Self::Shape,
+                rshape: Self::Shape,
             ) -> Result<$arr, IncompatibleShapes<Self::Shape>> {
                 Ok(self)
             }
@@ -51,16 +42,7 @@ macro_rules! impl_map {
             }
 
             #[inline]
-            fn zip_map_dominate<$a: Scalar, M: Fn(F) -> $a>(
-                self,
-                _: S0,
-                f: M,
-            ) -> Result<$garr, IncompatibleShapes<Self::Shape, S0>> {
-                Ok(<Self as Buffer>::map(self, f))
-            }
-
-            #[inline]
-            fn zip_map_dominate_id(
+            fn zip_map_id(
                 self,
                 _: S0,
             ) -> Result<$arr, IncompatibleShapes<Self::Shape, S0>> {
@@ -81,20 +63,11 @@ macro_rules! impl_map {
             }
 
             #[inline]
-            fn zip_map_dominate<$a: Scalar, M: Fn(F) -> $a>(
+            fn zip_map_id(
                 self,
-                rhs_shape: <$arr as Shaped>::Shape,
-                f: M,
-            ) -> Result<$garr, IncompatibleShapes<S0, <$arr as Shaped>::Shape>> {
-                Ok(Arrays::full(rhs_shape, f(self)))
-            }
-
-            #[inline]
-            fn zip_map_dominate_id(
-                self,
-                rhs_shape: <$arr as Shaped>::Shape,
+                rshape: <$arr as Shaped>::Shape,
             ) -> Result<$arr, IncompatibleShapes<S0, <$arr as Shaped>::Shape>> {
-                Ok(Arrays::full(rhs_shape, self))
+                Ok(Arrays::full(rshape, self))
             }
         }
     };

@@ -40,7 +40,7 @@
 //! information, see e.g. [Class::build].
 pub mod shapes;
 
-use shapes::{Ix, Shape, IncompatibleShapes};
+use shapes::{Ix, Shape, IncompatibleShapes, Broadcast, BShape};
 
 /// Marker trait for class subscriptions of [Buffer] types.
 ///
@@ -407,25 +407,28 @@ pub trait ZipFold<RHS: Buffer = Self>: Buffer {
     ) -> Result<F, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
+// TODO - Implement symmetry in this trait.
+//
+// Implementing symmetry in this operation can be done via the following:
+//  1. Use the shapes::Zip trait as the unified source of truth for the output
+// shape.  2. Replace Self::Output with Self::ZipClass; i.e. the user
+// defines only the __Class__ of     the resulting buffer, not the field or
+// shape. Those will instead be implied by Zip and     by the closure passed
+// to the function.  3. Add a trait bound such that RHS also implements
+// ZipMap, and has identical ZipClass.
+//
+// This works as of v1.65 - yay! - but unfortunately we end up polluting where
+// clauses extensively downstream - nay! For now we will just leave it as
+// unconstrained and leave it to the user to handle that. However, once
+// RFC-2089 (implied-bounds) lands, we should be able to revisit this and
+// potentially enforce symmetry.
 /// Trait for combining a pair of buffers in an elementwise fashion.
-pub trait ZipMap<RHS: Buffer = Self>: Buffer + Sized {
-    // TODO - Implement symmetry in this operation.
-    //
-    // Implementing symmetry in this operation can be done via the following:
-    //  1. Use the shapes::Zip trait as the unified source of truth for the output
-    // shape.  2. Replace Self::Output with Self::ZipClass; i.e. the user
-    // defines only the __Class__ of     the resulting buffer, not the field or
-    // shape. Those will instead be implied by Zip and     by the closure passed
-    // to the function.  3. Add a trait bound such that RHS also implements
-    // ZipMap, and has identical ZipClass.
-    //
-    // This works as of v1.65 - yay! - but unfortunately we end up polluting where
-    // clauses extensively downstream - nay! For now we will just leave it as
-    // unconstrained and leave it to the user to handle that. However, once
-    // RFC-2089 (implied-bounds) lands, we should be able to revisit this and
-    // potentially enforce commutativity.
+pub trait ZipMap<RHS: Buffer = Self>: Buffer
+where
+    Self::Shape: Broadcast<RHS::Shape>,
+{
     /// The generic container type associated with the output.
-    type Output<F: Scalar>: Buffer<Field = F>;
+    type Output<F: Scalar>: Buffer<Field = F, Shape = BShape<Self::Shape, RHS::Shape>>;
 
     /// Combine two buffers in an elementwise fashion.
     ///
@@ -443,28 +446,24 @@ pub trait ZipMap<RHS: Buffer = Self>: Buffer + Sized {
         f: M,
     ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 
-    /// Combine two buffers where the right term makes no contribution.
-    ///
-    /// The main purpose of this method is to provide a computationally efficient
-    /// means of building an instance of [ZipMap::Output].
-    fn zip_map_dominate<F: Scalar, M: Fn(Self::Field) -> F>(
+    fn zip_map_id(
         self,
-        rhs_shape: RHS::Shape,
-        f: M,
-    ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
+        rshape: RHS::Shape,
+    ) -> Result<Self::Output<Self::Field>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
+}
 
-    /// Combine two buffers by transforming the left term into [ZipMap::Output].
-    ///
-    /// This method is functionally equivalent to calling
-    /// `buffer.zip_map_dominate(rhs_shape, |x| x)`, but can be less expensive.
-    /// In particular, this method does not need to perform a scan operation if
-    /// implemented efficiently.
-    fn zip_map_dominate_id(
-        self,
-        rhs_shape: RHS::Shape,
-    ) -> Result<Self::Output<Self::Field>, IncompatibleShapes<Self::Shape, RHS::Shape>> {
-        self.zip_map_dominate(rhs_shape, |x| x)
-    }
+pub fn zip_map<X, Y, F, M>(x: X, y: Y, f: M) -> Result<
+    <X as ZipMap<Y>>::Output<F>, IncompatibleShapes<X::Shape, Y::Shape>
+>
+where
+    X: ZipMap<Y>,
+    Y: Buffer,
+    F: Scalar,
+    M: Fn(X::Field, Y::Field) -> F,
+
+    X::Shape: Broadcast<Y::Shape>,
+{
+    x.zip_map(y, f)
 }
 
 /// Trait for performing contractions over a pair of tensor buffers.
@@ -516,6 +515,7 @@ pub trait Contract<RHS: Buffer<Field = Self::Field>, const AXES: usize = 1>: Buf
     ) -> Result<shapes::ShapeOf<Self::Output>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
+/// Return the contraction of two buffers.
 pub fn contract<const AXES: usize, X, Y>(x: X, y: Y) -> Result<X::Output, IncompatibleShapes<X::Shape, Y::Shape>>
 where
     X: Contract<Y, AXES>,
@@ -524,6 +524,7 @@ where
     x.contract(y)
 }
 
+/// Return the contraction of two buffers specifications.
 pub fn contract_spec<const AXES: usize, X, Y>(x: Spec<X>, y: Spec<Y>) -> Result<Spec<X::Output>, IncompatibleShapes<X::Shape, Y::Shape>>
 where
     X: Contract<Y, AXES>,
@@ -532,6 +533,7 @@ where
     <X as Contract<Y, AXES>>::contract_spec(x, y)
 }
 
+/// Return the shape of the contraction over two buffers.
 pub fn contract_shape<const AXES: usize, X, Y>(x: X::Shape, y: Y::Shape) -> Result<shapes::ShapeOf<X::Output>, IncompatibleShapes<X::Shape, Y::Shape>>
 where
     X: Contract<Y, AXES>,

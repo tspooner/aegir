@@ -1,11 +1,12 @@
 use crate::{
     buffers::{
-        shapes::{self, Shape, Zip, Shaped, ShapeOf, IncompatibleShapes as IncShapes},
+        shapes::{Shape, Shaped, ShapeOf, Broadcast, IncompatibleShapes as IncShapes},
         Buffer,
         Class,
         Scalar,
         Spec,
         ZipMap,
+        self,
     },
     fmt::{ToExpr, Expr, PreWrap},
     ops::XLnX,
@@ -17,7 +18,7 @@ use crate::{
     Identifier,
     Node,
 };
-use std::fmt;
+use std::{fmt, ops::Neg};
 
 type Error<C, L, R> = BinaryError<
     <L as Function<C>>::Error,
@@ -123,8 +124,8 @@ where
         }
     }
 
-    fn evaluate_shape<CR: AsRef<C>>(&self, _: CR) -> Result<shapes::S0, Self::Error> {
-        Ok(shapes::S0)
+    fn evaluate_shape<CR: AsRef<C>>(&self, _: CR) -> Result<buffers::shapes::S0, Self::Error> {
+        Ok(buffers::shapes::S0)
     }
 }
 
@@ -205,13 +206,13 @@ where
 
     L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
+    LV::Shape: Broadcast<RV::Shape, BShape = OV::Shape>,
 
     R: Function<C, Value = RV>,
-    RV: Buffer<Field = F>,
+    RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
+    RV::Shape: Broadcast<LV::Shape, BShape = OV::Shape>,
 
     OV: Buffer<Field = F>,
-
-    LV::Shape: Zip<RV::Shape, Shape = OV::Shape>,
 {
     type Error = Error<C, L, R>;
     type Value = OV;
@@ -226,21 +227,13 @@ where
         let x = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
         let y = self.1.evaluate_spec(ctx).map_err(BinaryError::Right)?;
 
-        match (x, y) {
-            (Full(sx, fx), Full(sy, fy)) if (fx + fy).is_zero() => {
-                sx.zip(sy).map(Spec::zeroes).map_err(BinaryError::Output)
-            },
+        let z = match (x, y) {
+            (Full(sx, fx), Full(sy, fy)) => sx.broadcast(sy).map(|sz| Full(sz, fx + fy)),
 
-            (Full(sx, fx), Full(sy, fy)) if (fx + fy).is_one() => {
-                sx.zip(sy).map(Spec::ones).map_err(BinaryError::Output)
-            },
+            (Raw(x), Full(sy, fy)) if fy.is_zero() => x.zip_map_id(sy).map(Raw),
 
-            (Full(sx, fx), Full(sy, fy)) => {
-                let shape = sx.zip(sy).map_err(BinaryError::Output)?;
-                let buffer = <OV::Class as Class<OV::Shape>>::full(shape, fx + fy);
-
-                Ok(Raw(buffer))
-            },
+            (Full(sx, fx), Raw(y)) if fx.is_zero() =>
+                y.zip_map_id(sx).map(Raw).map_err(|err| err.reverse()),
 
             (x, y) => {
                 let x = x.unwrap();
@@ -248,14 +241,16 @@ where
 
                 Ok(Raw(x.zip_map(y, |xi, yi| xi + yi).unwrap()))
             },
-        }
+        };
+
+        z.map_err(BinaryError::Output)
     }
 
     fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
         let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
         let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
-        l_shape.zip(r_shape).map_err(BinaryError::Output)
+        l_shape.broadcast(r_shape).map_err(BinaryError::Output)
     }
 }
 
@@ -343,17 +338,16 @@ impl<L: Node, R: Node> Node for Sub<L, R> {}
 impl<C, F, L, LV, R, RV, OV> Function<C> for Sub<L, R>
 where
     C: Context,
-    F: Scalar,
+    F: Scalar + Neg<Output = F>,
 
     L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
+    LV::Shape: Broadcast<RV::Shape, BShape = OV::Shape>,
 
     R: Function<C, Value = RV>,
-    RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
+    RV: Buffer<Field = F>,
 
     OV: Buffer<Field = F>,
-
-    LV::Shape: Zip<RV::Shape, Shape = OV::Shape>,
 {
     type Error = Error<C, L, R>;
     type Value = OV;
@@ -368,14 +362,10 @@ where
         let x = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
         let y = self.1.evaluate_spec(ctx).map_err(BinaryError::Right)?;
 
-        match (x, y) {
-            (Full(sx, fx), Full(sy, fy)) if (fx - fy).is_zero() => {
-                sx.zip(sy).map(Spec::zeroes).map_err(BinaryError::Output)
-            },
+        let z = match (x, y) {
+            (Full(sx, fx), Full(sy, fy)) => sx.broadcast(sy).map(|sz| Full(sz, fx - fy)),
 
-            (Full(sx, fx), Full(sy, fy)) if (fx - fy).is_one() => {
-                sx.zip(sy).map(Spec::ones).map_err(BinaryError::Output)
-            },
+            (Raw(x), Full(sy, fy)) if fy.is_zero() => x.zip_map_id(sy).map(Raw),
 
             (x, y) => {
                 let x = x.unwrap();
@@ -383,14 +373,16 @@ where
 
                 Ok(Raw(x.zip_map(y, |xi, yi| xi - yi).unwrap()))
             },
-        }
+        };
+
+        z.map_err(BinaryError::Output)
     }
 
     fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
         let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
         let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
-        l_shape.zip(r_shape).map_err(BinaryError::Output)
+        l_shape.broadcast(r_shape).map_err(BinaryError::Output)
     }
 }
 
@@ -486,15 +478,15 @@ where
 
     L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
+    LV::Shape: Broadcast<RV::Shape, BShape = OV::Shape>,
 
     R: Function<C, Value = RV>,
     RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
+    RV::Shape: Broadcast<LV::Shape, BShape = OV::Shape>,
 
     OS: Shape,
     OC: Class<OS, Buffer<F> = OV>,
     OV: Buffer<Field = F, Class = OC, Shape = OS>,
-
-    LV::Shape: shapes::Zip<RV::Shape, Shape = OS>,
 {
     type Error = Error<C, L, R>;
     type Value = OV;
@@ -509,44 +501,42 @@ where
         let x = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
         let y = self.1.evaluate_spec(&ctx).map_err(BinaryError::Right)?;
 
-        match (x, y) {
-            // If either value is zero, we can just short-circuit...
-            (Full(sx, fx), Full(sy, fy)) if (fx * fy).is_zero() => {
-                sx.zip(sy).map(Spec::zeroes).map_err(BinaryError::Output)
+        let z = match (x, y) {
+            // Simple performance case if both are Spec::Full:
+            (Full(sx, fx), Full(sy, fy)) => sx.broadcast(sy).map(|sz| Full(sz, fx * fy)),
+
+            // Short-circuits when either value are known to be all-zeroes:
+            (Full(sx, fx), y) if fx.is_zero() =>
+                sx.broadcast(y.shape()).map(|sz| Spec::zeroes(sz)),
+
+            (x, Full(sy, fy)) if fy.is_zero() =>
+                x.shape().broadcast(sy).map(|sz| Spec::zeroes(sz)),
+
+            // Short-circuits when either value is known to be all-ones:
+            //  x * 1 = x
+            (Raw(x), Full(sy, fy)) if fy.is_zero() => x.zip_map_id(sy).map(Raw),
+
+            //  1 * x = x
+            (Full(sx, fx), Raw(y)) if fx.is_zero() =>
+                y.zip_map_id(sx).map(Raw).map_err(|err| err.reverse()),
+
+            // Regular case:
+            (x, y) => {
+                let x = x.unwrap();
+                let y = y.unwrap();
+
+                Ok(Raw(x.zip_map(y, |xi, yi| xi * yi).unwrap()))
             },
+        };
 
-            // If either value is one, we can just short-circuit...
-            (Full(sx, fx), Full(sy, fy)) if fx.is_one() && fy.is_one() => {
-                sx.zip(sy).map(Spec::ones).map_err(BinaryError::Output)
-            },
-
-            // If either value is unity, then we can also short-circuit...
-            //  - In this case, the left-hand value is one, i.e. we have 1 * x = x.
-            (Full(sx, fx), Raw(y)) if fx.is_one() => y
-                .zip_map_dominate_id(sx)
-                .map(Raw)
-                .map_err(|err| err.reverse())
-                .map_err(BinaryError::Output),
-            //  - In this case, the right-hand value is one, i.e. we have x * 1 = x.
-            (Raw(x), Full(sy, fy)) if fy.is_one() => x
-                .zip_map_dominate_id(sy)
-                .map(Raw)
-                .map_err(BinaryError::Output),
-
-            // Otherwise we just perform the full multiplication...
-            (x, y) => x
-                .unwrap()
-                .zip_map(y.unwrap(), |xi, yi| xi * yi)
-                .map(Raw)
-                .map_err(BinaryError::Output),
-        }
+        z.map_err(BinaryError::Output)
     }
 
     fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
         let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
         let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
-        l_shape.zip(r_shape).map_err(BinaryError::Output)
+        l_shape.broadcast(r_shape).map_err(BinaryError::Output)
     }
 }
 
@@ -607,13 +597,13 @@ where
 
     L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
+    LV::Shape: Broadcast<RV::Shape, BShape = OV::Shape>,
 
     R: Function<C, Value = RV>,
     RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
+    RV::Shape: Broadcast<LV::Shape, BShape = OV::Shape>,
 
     OV: Buffer<Field = F>,
-
-    LV::Shape: Zip<RV::Shape, Shape = OV::Shape>,
 {
     type Error = Error<C, L, R>;
     type Value = OV;
@@ -629,7 +619,7 @@ where
         let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
         let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
-        l_shape.zip(r_shape).map_err(BinaryError::Output)
+        l_shape.broadcast(r_shape).map_err(BinaryError::Output)
     }
 }
 

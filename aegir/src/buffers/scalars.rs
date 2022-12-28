@@ -1,6 +1,7 @@
 use super::{
     shapes::{Shaped, S0},
     Buffer,
+    Spec,
     Class,
     IncompatibleShapes,
     ZipFold,
@@ -81,6 +82,7 @@ macro_rules! impl_scalar {
         impl ZipMap for $F {
             type Output<A: Scalar> = A;
 
+            #[inline]
             fn zip_map<A: Scalar, M: Fn($F, $F) -> A>(
                 self,
                 rhs: $F,
@@ -89,15 +91,13 @@ macro_rules! impl_scalar {
                 Ok(f(self, rhs))
             }
 
-            fn zip_map_dominate<A: Scalar, M: Fn($F) -> A>(
+            #[inline]
+            fn zip_map_id(
                 self,
                 _: S0,
-                f: M,
-            ) -> Result<A, IncompatibleShapes<S0>> {
-                Ok(f(self))
+            ) -> Result<Self, IncompatibleShapes<S0>> {
+                Ok(self)
             }
-
-            fn zip_map_dominate_id(self, _: S0) -> Result<$F, IncompatibleShapes<S0>> { Ok(self) }
         }
 
         impl Scalar for $F {}

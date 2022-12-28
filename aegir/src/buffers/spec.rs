@@ -133,6 +133,27 @@ where
         }
     }
 
+    pub fn zip_map<R, T, M: Fn(B::Field, R::Field) -> T>(
+        self,
+        other: Spec<R>,
+        f: M,
+    ) -> Result<Spec<B::Output<T>>, IncompatibleShapes<B::Shape, R::Shape>>
+    where
+        B: ZipMap<R>,
+        B::Shape: Broadcast<R::Shape>,
+
+        R: Buffer,
+        T: Scalar,
+    {
+        use Spec::*;
+
+        match (self, other) {
+            (Full(sx, fx), Full(sy, fy)) => sx.broadcast(sy).map(|sz| Full(sz, f(fx, fy))),
+
+            (lhs, rhs) => lhs.unwrap().zip_map(rhs.unwrap(), f).map(Spec::Raw),
+        }
+    }
+
     /// Construct a `Spec::Full(s, 0)` where s is a given shape.
     #[inline]
     pub fn zeroes(shape: B::Shape) -> Self { Spec::Full(shape, B::Field::zero()) }

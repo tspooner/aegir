@@ -105,16 +105,10 @@ impl<F: Scalar> ZipMap for (F, F) {
     }
 
     #[inline]
-    fn zip_map_dominate<A: Scalar, M: Fn(F) -> A>(
+    fn zip_map_id(
         self,
-        _: S1<2>,
-        f: M,
-    ) -> Result<(A, A), IncompatibleShapes<S1<2>>> {
-        Ok((f(self.0), f(self.1)))
-    }
-
-    #[inline]
-    fn zip_map_dominate_id(self, _: S1<2>) -> Result<(F, F), IncompatibleShapes<S1<2>>> {
+        rshape: S1<2>,
+    ) -> Result<(F, F), IncompatibleShapes<S1<2>>> {
         Ok(self)
     }
 }

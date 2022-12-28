@@ -140,7 +140,7 @@ where
     C: Read<I> + Read<T>,
     F: Scalar,
 
-    SI: Concat<SI> + Concat<ST, Shape = SA>,
+    SI: Concat<SI> + Concat<ST, CShape = SA>,
     ST: Shape,
     SA: Shape,
 

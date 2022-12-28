@@ -30,11 +30,11 @@ impl<const DIM: usize> Shape for SDynamic<DIM> {
     fn indices(&self) -> Self::IndexIter { multi_product::MultiProduct::new(self.0) }
 }
 
-impl<const DIM: usize> Zip for SDynamic<DIM> {
-    type Shape = SDynamic<DIM>;
+impl<const DIM: usize> Broadcast for SDynamic<DIM> {
+    type BShape = SDynamic<DIM>;
 
     #[inline]
-    fn zip(self, rhs: Self) -> Result<Self, IncompatibleShapes<Self>> {
+    fn broadcast(self, rhs: Self) -> Result<Self, IncompatibleShapes<Self>> {
         if self == rhs {
             Ok(self)
         } else {
@@ -46,18 +46,18 @@ impl<const DIM: usize> Zip for SDynamic<DIM> {
     }
 }
 
-impl<const DIM: usize> Zip<S0> for SDynamic<DIM> {
-    type Shape = SDynamic<DIM>;
+impl<const DIM: usize> Broadcast<S0> for SDynamic<DIM> {
+    type BShape = SDynamic<DIM>;
 
     #[inline]
-    fn zip(self, _: S0) -> Result<Self, IncompatibleShapes<Self, S0>> { Ok(self) }
+    fn broadcast(self, _: S0) -> Result<Self, IncompatibleShapes<Self, S0>> { Ok(self) }
 }
 
-impl<const DIM: usize> Zip<SDynamic<DIM>> for S0 {
-    type Shape = SDynamic<DIM>;
+impl<const DIM: usize> Broadcast<SDynamic<DIM>> for S0 {
+    type BShape = SDynamic<DIM>;
 
     #[inline]
-    fn zip(self, rhs: SDynamic<DIM>) -> Result<Self::Shape, IncompatibleShapes<S0, Self::Shape>> {
+    fn broadcast(self, rhs: SDynamic<DIM>) -> Result<Self::BShape, IncompatibleShapes<S0, SDynamic<DIM>>> {
         Ok(rhs)
     }
 }
@@ -71,13 +71,13 @@ impl<const DIM: usize> std::fmt::Display for SDynamic<DIM> {
 macro_rules! impl_add_dim {
     ($n:literal + $m:literal) => {
         impl Concat<SDynamic<$m>> for SDynamic<$n> {
-            type Shape = SDynamic<{$n + $m}>;
+            type CShape = SDynamic<{$n + $m}>;
 
-            fn concat(self: SDynamic<$n>, rhs: SDynamic<$m>) -> Self::Shape {
+            fn concat(self: SDynamic<$n>, rhs: SDynamic<$m>) -> Self::CShape {
                 SDynamic(concat_arrays!(self.0, rhs.0))
             }
 
-            fn concat_indices(left: [usize; $n], rhs: [usize; $m]) -> IndexOf<Self::Shape> {
+            fn concat_indices(left: [usize; $n], rhs: [usize; $m]) -> IndexOf<Self::CShape> {
                 concat_arrays!(left, rhs)
             }
         }

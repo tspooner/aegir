@@ -107,6 +107,16 @@ impl<F: Scalar> ZipMap for Vec<F> {
         rhs: Vec<F>,
         f: M,
     ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
+        let lshape = self.shape();
+        let rshape = rhs.shape();
+
+        if lshape != rshape {
+            return Err(IncompatibleShapes {
+                left: lshape,
+                right: rshape,
+            });
+        }
+
         let buf = self
             .into_iter()
             .zip(rhs.into_iter())
@@ -117,16 +127,19 @@ impl<F: Scalar> ZipMap for Vec<F> {
     }
 
     #[inline]
-    fn zip_map_dominate<A: Scalar, M: Fn(F) -> A>(
+    fn zip_map_id(
         self,
-        lim: SDynamic<1>,
-        f: M,
-    ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
-        Ok(self.into_iter().take(lim[0]).map(f).collect())
-    }
+        rshape: Self::Shape,
+    ) -> Result<Vec<F>, IncompatibleShapes<SDynamic<1>>> {
+        let lshape = self.shape();
 
-    #[inline]
-    fn zip_map_dominate_id(self, _: SDynamic<1>) -> Result<Self, IncompatibleShapes<SDynamic<1>>> {
+        if lshape != rshape {
+            return Err(IncompatibleShapes {
+                left: lshape,
+                right: rshape,
+            });
+        }
+
         Ok(self)
     }
 }
@@ -146,16 +159,10 @@ impl<F: Scalar> ZipMap<F> for Vec<F> {
     }
 
     #[inline]
-    fn zip_map_dominate<A: Scalar, M: Fn(F) -> A>(
+    fn zip_map_id(
         self,
         _: S0,
-        f: M,
-    ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>, S0>> {
-        Ok(self.into_iter().map(f).collect())
-    }
-
-    #[inline]
-    fn zip_map_dominate_id(self, _: S0) -> Result<Self, IncompatibleShapes<SDynamic<1>, S0>> {
+    ) -> Result<Vec<F>, IncompatibleShapes<SDynamic<1>, S0>> {
         Ok(self)
     }
 }
@@ -175,19 +182,10 @@ impl<F: Scalar> ZipMap<Vec<F>> for F {
     }
 
     #[inline]
-    fn zip_map_dominate<A: Scalar, M: Fn(F) -> A>(
+    fn zip_map_id(
         self,
-        lim: SDynamic<1>,
-        f: M,
-    ) -> Result<Vec<A>, IncompatibleShapes<S0, SDynamic<1>>> {
-        Ok(vec![f(self); lim[0]])
-    }
-
-    #[inline]
-    fn zip_map_dominate_id(
-        self,
-        lim: SDynamic<1>,
+        rshape: SDynamic<1>,
     ) -> Result<Vec<F>, IncompatibleShapes<S0, SDynamic<1>>> {
-        Ok(vec![self; lim[0]])
+        Ok(Vecs::full(rshape, self))
     }
 }
