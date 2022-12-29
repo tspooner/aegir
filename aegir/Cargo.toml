@@ -2,7 +2,7 @@
 name = "aegir"
 description = "Strongly-typed, reverse-mode autodiff library in Rust"
 
-version = "1.0.0"
+version = "2.0.0"
 authors = ["Tom Spooner <spooner10000@gmail.com>"]
 
 readme = "README.md"
@@ -14,7 +14,7 @@ repository = "https://github.com/tspooner/aegir"
 documentation = "https://docs.rs/aegir"
 
 edition = "2018"
-rust-version = "1.65"
+rust-version = "1.66"
 
 [badges]
 travis-ci = { repository = "tspooner/aegir", branch = "master" }
@@ -24,8 +24,8 @@ coveralls = { repository = "tspooner/aegir", branch = "master", service = "githu
 default = []
 
 [dependencies]
-aegir_derive = { path = "../aegir_derive", version = "0.2" }
-aegir_compile = { path = "../aegir_compile", version = "0.1" }
+aegir_derive = { path = "../aegir_derive", version = "0.3" }
+aegir_compile = { path = "../aegir_compile", version = "0.2" }
 
 num-traits = "0.2"
 special-fun = "0.2"

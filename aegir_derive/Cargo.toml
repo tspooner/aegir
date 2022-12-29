@@ -2,7 +2,7 @@
 name = "aegir_derive"
 description = "Macros for aegir"
 
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Tom Spooner <spooner10000@gmail.com>"]
 
 readme = "README.md"

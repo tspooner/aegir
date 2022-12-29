@@ -22,7 +22,7 @@ commonly used in linear-algebra libraries written in C++.
 
 ```toml
 [dependencies]
-aegir = "1.0"
+aegir = "2.0"
 ```
 
 ## Example
