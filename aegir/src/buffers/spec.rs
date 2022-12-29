@@ -150,7 +150,7 @@ where
         match (self, other) {
             (Full(sx, fx), Full(sy, fy)) => sx.broadcast(sy).map(|sz| Full(sz, f(fx, fy))),
 
-            (lhs, rhs) => lhs.unwrap().zip_map(rhs.unwrap(), f).map(Spec::Raw),
+            (lhs, rhs) => lhs.unwrap().zip_map(&rhs.unwrap(), f).map(Spec::Raw),
         }
     }
 

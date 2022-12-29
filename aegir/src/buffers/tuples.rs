@@ -98,14 +98,14 @@ impl<F: Scalar> ZipMap for (F, F) {
     #[inline]
     fn zip_map<A: Scalar, M: Fn(F, F) -> A>(
         self,
-        rhs: (F, F),
+        rhs: &(F, F),
         f: M,
     ) -> Result<(A, A), IncompatibleShapes<S1<2>>> {
         Ok((f(self.0, rhs.0), f(self.1, rhs.1)))
     }
 
     #[inline]
-    fn zip_map_id(
+    fn zip_shape(
         self,
         rshape: S1<2>,
     ) -> Result<(F, F), IncompatibleShapes<S1<2>>> {

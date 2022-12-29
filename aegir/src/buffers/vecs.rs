@@ -104,7 +104,7 @@ impl<F: Scalar> ZipMap for Vec<F> {
     #[inline]
     fn zip_map<A: Scalar, M: Fn(F, F) -> A>(
         self,
-        rhs: Vec<F>,
+        rhs: &Vec<F>,
         f: M,
     ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>>> {
         let lshape = self.shape();
@@ -119,7 +119,7 @@ impl<F: Scalar> ZipMap for Vec<F> {
 
         let buf = self
             .into_iter()
-            .zip(rhs.into_iter())
+            .zip(rhs.into_iter().copied())
             .map(|(x, y)| f(x, y))
             .collect();
 
@@ -127,7 +127,7 @@ impl<F: Scalar> ZipMap for Vec<F> {
     }
 
     #[inline]
-    fn zip_map_id(
+    fn zip_shape(
         self,
         rshape: Self::Shape,
     ) -> Result<Vec<F>, IncompatibleShapes<SDynamic<1>>> {
@@ -150,16 +150,16 @@ impl<F: Scalar> ZipMap<F> for Vec<F> {
     #[inline]
     fn zip_map<A: Scalar, M: Fn(F, F) -> A>(
         self,
-        rhs: F,
+        rhs: &F,
         f: M,
     ) -> Result<Vec<A>, IncompatibleShapes<SDynamic<1>, S0>> {
-        let buf = self.into_iter().map(|x| f(x, rhs)).collect();
+        let buf = self.into_iter().map(|x| f(x, *rhs)).collect();
 
         Ok(buf)
     }
 
     #[inline]
-    fn zip_map_id(
+    fn zip_shape(
         self,
         _: S0,
     ) -> Result<Vec<F>, IncompatibleShapes<SDynamic<1>, S0>> {
@@ -173,16 +173,16 @@ impl<F: Scalar> ZipMap<Vec<F>> for F {
     #[inline]
     fn zip_map<A: Scalar, M: Fn(F, F) -> A>(
         self,
-        rhs: Vec<F>,
+        rhs: &Vec<F>,
         f: M,
     ) -> Result<Vec<A>, IncompatibleShapes<S0, SDynamic<1>>> {
-        let buf = rhs.into_iter().map(|x| f(self, x)).collect();
+        let buf = rhs.into_iter().copied().map(|x| f(self, x)).collect();
 
         Ok(buf)
     }
 
     #[inline]
-    fn zip_map_id(
+    fn zip_shape(
         self,
         rshape: SDynamic<1>,
     ) -> Result<Vec<F>, IncompatibleShapes<S0, SDynamic<1>>> {

@@ -42,6 +42,9 @@ pub mod shapes;
 
 use shapes::{Ix, Shape, IncompatibleShapes, Broadcast, BShape};
 
+// ---------------------------------------------------------------------------
+// Core Trait Definitions
+// ---------------------------------------------------------------------------
 /// Marker trait for class subscriptions of [Buffer] types.
 ///
 /// This trait is used to define a semantic grouping over buffer types. For a given class,
@@ -386,6 +389,24 @@ pub type FieldOf<B> = <B as Buffer>::Field;
 /// Type alias for [Buffer::Class].
 pub type ClassOf<B> = <B as Buffer>::Class;
 
+// ---------------------------------------------------------------------------
+// Zip-based Operations
+// ---------------------------------------------------------------------------
+// TODO - Implement symmetry in these traits.
+//
+// Implementing symmetry in this operation can be done via the following:
+//  1. Use the shapes::Zip trait as the unified source of truth for the output
+// shape.  2. Replace Self::Output with Self::ZipClass; i.e. the user
+// defines only the __Class__ of     the resulting buffer, not the field or
+// shape. Those will instead be implied by Zip and     by the closure passed
+// to the function.  3. Add a trait bound such that RHS also implements
+// ZipMap, and has identical ZipClass.
+//
+// This works as of v1.65 - yay! - but unfortunately we end up polluting where
+// clauses extensively downstream - nay! For now we will just leave it as
+// unconstrained and leave it to the user to handle that. However, once
+// RFC-2089 (implied-bounds) lands, we should be able to revisit this and
+// potentially enforce symmetry.
 /// Trait for performing a zip and fold over a pair of buffers.
 pub trait ZipFold<RHS: Buffer = Self>: Buffer {
     /// Perform a zip and fold over a pair of buffers.
@@ -407,21 +428,6 @@ pub trait ZipFold<RHS: Buffer = Self>: Buffer {
     ) -> Result<F, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
-// TODO - Implement symmetry in this trait.
-//
-// Implementing symmetry in this operation can be done via the following:
-//  1. Use the shapes::Zip trait as the unified source of truth for the output
-// shape.  2. Replace Self::Output with Self::ZipClass; i.e. the user
-// defines only the __Class__ of     the resulting buffer, not the field or
-// shape. Those will instead be implied by Zip and     by the closure passed
-// to the function.  3. Add a trait bound such that RHS also implements
-// ZipMap, and has identical ZipClass.
-//
-// This works as of v1.65 - yay! - but unfortunately we end up polluting where
-// clauses extensively downstream - nay! For now we will just leave it as
-// unconstrained and leave it to the user to handle that. However, once
-// RFC-2089 (implied-bounds) lands, we should be able to revisit this and
-// potentially enforce symmetry.
 /// Trait for combining a pair of buffers in an elementwise fashion.
 pub trait ZipMap<RHS: Buffer = Self>: Buffer
 where
@@ -430,7 +436,7 @@ where
     /// The generic container type associated with the output.
     type Output<F: Scalar>: Buffer<Field = F, Shape = BShape<Self::Shape, RHS::Shape>>;
 
-    /// Combine two buffers in an elementwise fashion.
+    /// Combine two buffers elementwise, yielding a new buffer.
     ///
     /// # Examples
     /// ```
@@ -442,30 +448,41 @@ where
     /// ```
     fn zip_map<F: Scalar, M: Fn(Self::Field, RHS::Field) -> F>(
         self,
-        rhs: RHS,
+        rhs: &RHS,
         f: M,
     ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 
-    fn zip_map_id(
-        self,
-        rshape: RHS::Shape,
-    ) -> Result<Self::Output<Self::Field>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
+    fn zip_shape(self, rshape: RHS::Shape) -> Result<Self::Output<Self::Field>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
-pub fn zip_map<X, Y, F, M>(x: X, y: Y, f: M) -> Result<
-    <X as ZipMap<Y>>::Output<F>, IncompatibleShapes<X::Shape, Y::Shape>
->
+pub trait ZipMut<RHS: Buffer = Self>: Buffer {
+    /// Combine two buffers elementwise, mutating `self` in-place.
+    fn zip_mut<M: Fn(Self::Field, RHS::Field) -> Self::Field>(
+        &mut self,
+        rhs: &RHS,
+        f: M,
+    ) -> Result<(), IncompatibleShapes<Self::Shape, RHS::Shape>>;
+}
+
+pub trait ZipOps<RHS: Buffer>:
+    ZipFold<RHS>
+    + ZipMap<RHS>
+    + ZipMut<RHS>
 where
-    X: ZipMap<Y>,
-    Y: Buffer,
-    F: Scalar,
-    M: Fn(X::Field, Y::Field) -> F,
+    Self::Shape: Broadcast<RHS::Shape>,
+{}
 
-    X::Shape: Broadcast<Y::Shape>,
-{
-    x.zip_map(y, f)
-}
+impl<A, B> ZipOps<B> for A
+where
+    A: ZipFold<B> + ZipMap<B> + ZipMut<B>,
+    B: Buffer,
 
+    A::Shape: Broadcast<B::Shape>,
+{}
+
+// ---------------------------------------------------------------------------
+// Linear-Algebraic Operations
+// ---------------------------------------------------------------------------
 /// Trait for performing contractions over a pair of tensor buffers.
 pub trait Contract<RHS: Buffer<Field = Self::Field>, const AXES: usize = 1>: Buffer {
     /// The post-contraction buffer type.
