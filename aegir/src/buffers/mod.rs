@@ -452,6 +452,12 @@ where
         f: M,
     ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 
+    /// Combine two buffers elementwise, yielding a buffer with the same `Buffer::Field`.
+    ///
+    /// This method should be preferred over `ZipMap::zip_map` when the transformation
+    /// does not change the underlying field type. This is because the type signature
+    /// allows the implementor to perform in-place mutations rather instantiate new
+    /// buffers in memory.
     #[inline]
     fn zip_map_id<M: Fn(Self::Field, RHS::Field) -> Self::Field>(
         self,
@@ -461,11 +467,28 @@ where
         self.zip_map(rhs, f)
     }
 
+    /// Expand a buffer into the corresponding shape given `RHS`.
+    ///
+    /// This method is useful in `Spec` optimisations in which the transform
+    /// is simply a direct pass through. As in the example below, we often
+    /// have cases like `x * 1 = x` for which we simply want to perform a type
+    /// translation from input to output types, or a broadcast.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use aegir::buffers::{ZipMap, shapes::S1};
+    /// let buf = 1.0;
+    /// let out = <f64 as ZipMap<[f64; 3]>>::zip_shape(buf, S1).unwrap();
+    ///
+    /// assert_eq!(out, [1.0, 1.0, 1.0]);
+    /// ```
     fn zip_shape(self, rshape: RHS::Shape) -> Result<Self::Output<Self::Field>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
+/// Trait for combining two buffers elementwise and in-place.
 pub trait ZipMut<RHS: Buffer = Self>: Buffer {
-    /// Combine two buffers elementwise, mutating `self` in-place.
+    /// Combine two buffers elementwise by mutating `self` in-place.
     fn zip_mut<M: Fn(Self::Field, RHS::Field) -> Self::Field>(
         &mut self,
         rhs: &RHS,
@@ -473,6 +496,10 @@ pub trait ZipMut<RHS: Buffer = Self>: Buffer {
     ) -> Result<(), IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
+/// Union trait for types implementing `ZipFold`, `ZipMap` and `ZipMut`.
+///
+/// `ZipOps` is automatically implemented for all valid types and provides
+/// a shortcut for general type constraints.
 pub trait ZipOps<RHS: Buffer>:
     ZipFold<RHS>
     + ZipMap<RHS>

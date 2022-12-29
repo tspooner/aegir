@@ -97,14 +97,10 @@ where
         }
     }
 
-    /// Perform an element-wise transformation of the buffer.
-    ///
-    /// This method will always perform the least computation necessary.
-    /// As shown in the example below, Spec::Full is a homogeneous type,
-    /// and thus the resulting type will also be homogeneous. See [Spec::unwrap]
-    /// if you want to perform only dense computations.
+    /// Apply `Buffer::map` operation in lifted `Spec` context.
     ///
     /// # Examples
+    ///
     /// ```
     /// # use aegir::buffers::{Buffer, Spec, shapes::S1};
     /// let spec: Spec<[f64; 20]> = Spec::Full(S1, 0.0f64);
@@ -133,9 +129,22 @@ where
         }
     }
 
+    /// Apply `ZipMap::zip_map` operation in lifted `Spec` context.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use aegir::buffers::{Buffer, Spec, shapes::S1};
+    /// let a: Spec<[f64; 10]> = Spec::Full(S1, 0.0f64);
+    /// let b: Spec<[f64; 10]> = Spec::Full(S1, 1.0f64);
+    ///
+    /// let new_spec = a.zip_map(&b, |x, y| x + y).unwrap();
+    ///
+    /// assert_eq!(new_spec, Spec::Full(S1, 1.0f64));
+    /// ```
     pub fn zip_map<R, T, M: Fn(B::Field, R::Field) -> T>(
         self,
-        other: Spec<R>,
+        other: &Spec<R>,
         f: M,
     ) -> Result<Spec<B::Output<T>>, IncompatibleShapes<B::Shape, R::Shape>>
     where
@@ -148,9 +157,10 @@ where
         use Spec::*;
 
         match (self, other) {
-            (Full(sx, fx), Full(sy, fy)) => sx.broadcast(sy).map(|sz| Full(sz, f(fx, fy))),
+            (Full(sx, fx), &Full(sy, fy)) => sx.broadcast(sy).map(|sz| Full(sz, f(fx, fy))),
 
-            (lhs, rhs) => lhs.unwrap().zip_map(&rhs.unwrap(), f).map(Spec::Raw),
+            // TODO XXX - THis is painfully inefficient right now. Improve!
+            (lhs, rhs) => lhs.unwrap().zip_map(&rhs.clone().unwrap(), f).map(Spec::Raw),
         }
     }
 
