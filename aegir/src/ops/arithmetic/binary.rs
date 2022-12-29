@@ -239,7 +239,7 @@ where
                 let x = x.unwrap();
                 let y = y.unwrap();
 
-                Ok(Raw(x.zip_map(&y, |xi, yi| xi + yi).unwrap()))
+                Ok(Raw(x.zip_map_id(&y, |xi, yi| xi + yi).unwrap()))
             },
         };
 
@@ -371,7 +371,7 @@ where
                 let x = x.unwrap();
                 let y = y.unwrap();
 
-                Ok(Raw(x.zip_map(&y, |xi, yi| xi - yi).unwrap()))
+                Ok(Raw(x.zip_map_id(&y, |xi, yi| xi - yi).unwrap()))
             },
         };
 
@@ -525,7 +525,7 @@ where
                 let x = x.unwrap();
                 let y = y.unwrap();
 
-                Ok(Raw(x.zip_map(&y, |xi, yi| xi * yi).unwrap()))
+                Ok(Raw(x.zip_map_id(&y, |xi, yi| xi * yi).unwrap()))
             },
         };
 
@@ -612,7 +612,7 @@ where
         let x = self.0.evaluate(ctx.as_ref()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(ctx).map_err(BinaryError::Right)?;
 
-        x.zip_map(&y, |xi, yi| xi / yi).map_err(BinaryError::Output)
+        x.zip_map_id(&y, |xi, yi| xi / yi).map_err(BinaryError::Output)
     }
 
     fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {

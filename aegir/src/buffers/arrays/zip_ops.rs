@@ -64,12 +64,21 @@ macro_rules! impl_map {
             type Output<A: Scalar> = $garr;
 
             #[inline]
-            fn zip_map<$a: Scalar, M: Fn(F, F) -> $a>(
+            fn zip_map<$a: Scalar, M: Fn($f, $f) -> $a>(
                 $zms_self,
                 $zms_rhs: &Self,
                 $zms_func: M,
             ) -> Result<$garr, IncompatibleShapes<Self::Shape>> {
                 $zms_impl
+            }
+
+            #[inline]
+            fn zip_map_id<M: Fn($f, $f) -> $f>(
+                mut self,
+                rhs: &Self,
+                f: M,
+            ) -> Result<$arr, IncompatibleShapes<Self::Shape>> {
+                self.zip_mut(rhs, f).map(|_| self)
             }
 
             #[inline]
@@ -85,12 +94,21 @@ macro_rules! impl_map {
             type Output<A: Scalar> = $garr;
 
             #[inline]
-            fn zip_map<$a: Scalar, M: Fn(F, F) -> $a>(
+            fn zip_map<$a: Scalar, M: Fn($f, $f) -> $a>(
                 $zmfr_self,
                 $zmfr_rhs: &$f,
                 $zmfr_func: M,
             ) -> Result<$garr, IncompatibleShapes<Self::Shape, S0>> {
                 $zmfr_impl
+            }
+
+            #[inline]
+            fn zip_map_id<M: Fn($f, $f) -> $f>(
+                mut self,
+                rhs: &$f,
+                f: M,
+            ) -> Result<$arr, IncompatibleShapes<Self::Shape, S0>> {
+                self.zip_mut(rhs, f).map(|_| self)
             }
 
             #[inline]
@@ -106,7 +124,7 @@ macro_rules! impl_map {
             type Output<A: Scalar> = $garr;
 
             #[inline]
-            fn zip_map<$a: Scalar, M: Fn(F, F) -> $a>(
+            fn zip_map<$a: Scalar, M: Fn($f, $f) -> $a>(
                 $zmfl_self,
                 $zmfl_rhs: &$arr,
                 $zmfl_func: M,
@@ -150,7 +168,7 @@ macro_rules! impl_fold {
     (<$f:ident, $a:ident, $($d:ident),+> $arr:ty) => {
         impl<$f: Scalar, $(const $d: usize),+> ZipFold for $arr {
             #[inline]
-            fn zip_fold<$a: Scalar, M: Fn($a, (F, F)) -> $a>(
+            fn zip_fold<$a: Scalar, M: Fn($a, ($f, $f)) -> $a>(
                 &self,
                 rhs: &Self,
                 mut acc: $a,
@@ -166,7 +184,7 @@ macro_rules! impl_fold {
 
         impl<$f: Scalar, $(const $d: usize),+> ZipFold<$f> for $arr {
             #[inline]
-            fn zip_fold<$a: Scalar, M: Fn($a, (F, F)) -> $a>(
+            fn zip_fold<$a: Scalar, M: Fn($a, ($f, $f)) -> $a>(
                 &self,
                 rhs: &$f,
                 mut acc: $a,

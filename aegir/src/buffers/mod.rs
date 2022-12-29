@@ -452,6 +452,15 @@ where
         f: M,
     ) -> Result<Self::Output<F>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 
+    #[inline]
+    fn zip_map_id<M: Fn(Self::Field, RHS::Field) -> Self::Field>(
+        self,
+        rhs: &RHS,
+        f: M,
+    ) -> Result<Self::Output<Self::Field>, IncompatibleShapes<Self::Shape, RHS::Shape>> {
+        self.zip_map(rhs, f)
+    }
+
     fn zip_shape(self, rshape: RHS::Shape) -> Result<Self::Output<Self::Field>, IncompatibleShapes<Self::Shape, RHS::Shape>>;
 }
 
