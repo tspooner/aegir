@@ -10,9 +10,14 @@ struct DataIdentifier {
 impl DataIdentifier {
     pub fn to_struct(&self) -> syn::ItemStruct {
         let type_id = &self.type_id;
+        let docstring = if let Some(s) = self.symbol.as_ref() {
+            format!("Identifier type with symbol `{}`.", s.value())
+        } else {
+            format!("Identifier type with symbol `{}`.", type_id)
+        };
 
         syn::parse2(quote! {
-            /// Identifier type with symbol #type_id.
+            #[doc = #docstring]
             #[derive(Clone, Copy, Debug, PartialEq, Eq)]
             pub struct #type_id;
         })
