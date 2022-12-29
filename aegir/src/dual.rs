@@ -28,11 +28,15 @@ macro_rules! dual {
 /// handy for some applications.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Dual<V, A = V> {
+    /// The value associated with the dual number.
     pub value: V,
+
+    /// The gradient/adjoint associated with the dual number.
     pub adjoint: A,
 }
 
 impl<F: Scalar, B: Buffer<Field = F>> Dual<B> {
+    /// Returns a dual number with `adjoint` initialised as ones.
     pub fn variable(buffer: B) -> Dual<B> {
         let adjoint = <B::Class as Class<B::Shape>>::full(buffer.shape(), F::one());
 
@@ -42,6 +46,7 @@ impl<F: Scalar, B: Buffer<Field = F>> Dual<B> {
         }
     }
 
+    /// Returns a dual number with `adjoint` initialised as zeroes.
     pub fn constant(buffer: B) -> Dual<B> {
         let adjoint = <B::Class as Class<B::Shape>>::full(buffer.shape(), F::zero());
 
@@ -68,6 +73,7 @@ impl<V, A: Buffer> Dual<V, A>
 where
     FieldOf<A>: std::ops::Neg<Output = FieldOf<A>>,
 {
+    /// Returns the dual conjugate of `self`.
     pub fn conj(self) -> Dual<V, A> {
         Dual {
             value: self.value,

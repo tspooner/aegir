@@ -102,10 +102,13 @@ pub trait Shape: Copy + Debug + Display {
     /// Corresponding index type.
     type Index: Ix;
 
+    /// Iterator type that iterates over all indices sequentially.
     type IndexIter: Iterator<Item = Self::Index>;
 
+    /// Returns true if the index `ix` is valid.
     fn contains(&self, ix: Self::Index) -> bool;
 
+    /// Returns the number of distinct entries in the buffer.
     fn cardinality(&self) -> usize;
 
     /// Return an iterator over the indices of the shape.
@@ -129,11 +132,9 @@ pub trait Shape: Copy + Debug + Display {
     /// Returns true if the shape corresponds to a matrix (DIM = 2).
     fn is_matrix(&self) -> bool { Self::DIM == 2 }
 
+    /// Returns true if the two shapes have the same cardinality.
     fn is_equivalent<S: Shape>(&self, other: &S) -> bool {
-        let dim_eq = Self::DIM == S::DIM;
-        let card_eq = self.cardinality() == other.cardinality();
-
-        dim_eq && card_eq
+        self.cardinality() == other.cardinality()
     }
 }
 
@@ -146,7 +147,7 @@ pub type IndexOf<S> = <S as Shape>::Index;
 /// operation.
 pub trait Split: Shape + Sized {
     /// The left side of the split.
-    type Left: Concat<Self::Right, CShape = Self>;
+    type Left: Concat<Self::Right, Shape = Self>;
 
     /// The right side of the split.
     type Right: Shape;
@@ -174,7 +175,8 @@ pub trait Split: Shape + Sized {
 /// __Note__: this is dualistic to [Split], which performs the reverse
 /// operation.
 pub trait Concat<RHS: Shape = Self>: Shape {
-    type CShape: Shape;
+    /// Concatenated shape type.
+    type Shape: Shape;
 
     /// Concatenate two shapes into one.
     ///
@@ -188,21 +190,26 @@ pub trait Concat<RHS: Shape = Self>: Shape {
     ///
     /// assert_eq!(left.concat(right), shape);
     /// ```
-    fn concat(self, rhs: RHS) -> Self::CShape;
+    fn concat(self, rhs: RHS) -> Self::Shape;
 
     /// Concatenate two indices for the shape one.
-    fn concat_indices(left: Self::Index, rhs: RHS::Index) -> IndexOf<Self::CShape>;
+    fn concat_indices(left: Self::Index, rhs: RHS::Index) -> IndexOf<Self::Shape>;
 }
 
-pub type CShape<X, Y> = <X as Concat<Y>>::CShape;
+/// Type alias for [Broadcast::Shape].
+pub type CShape<X, Y> = <X as Concat<Y>>::Shape;
 
+/// Trait for broadcasting pairs of shapes.
 pub trait Broadcast<RHS: Shape = Self>: Shape {
-    type BShape: Shape;
+    /// Broadcasted shape type.
+    type Shape: Shape;
 
-    fn broadcast(self, rhs: RHS) -> Result<Self::BShape, IncompatibleShapes<Self, RHS>>;
+    /// Broadcast `self` with `rhs` and return the new shape, if compatible.
+    fn broadcast(self, rhs: RHS) -> Result<Self::Shape, IncompatibleShapes<Self, RHS>>;
 }
 
-pub type BShape<X, Y> = <X as Broadcast<Y>>::BShape;
+/// Type alias for [Broadcast::Shape].
+pub type BShape<X, Y> = <X as Broadcast<Y>>::Shape;
 
 mod multi_product;
 

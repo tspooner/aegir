@@ -84,7 +84,7 @@ macro_rules! impl_map {
             #[inline]
             fn zip_shape(
                 self,
-                rshape: Self::Shape,
+                _: Self::Shape,
             ) -> Result<$arr, IncompatibleShapes<Self::Shape>> {
                 Ok(self)
             }

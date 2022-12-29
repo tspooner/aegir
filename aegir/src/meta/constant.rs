@@ -139,7 +139,7 @@ impl<N, T, C, F, SN, CN, ST, CT, SA, CA> Function<C> for ConstantAdjoint<N, T>
 where
     F: Scalar,
 
-    SN: Concat<ST, CShape = SA>,
+    SN: Concat<ST, Shape = SA>,
     ST: Shape,
     SA: Shape,
 

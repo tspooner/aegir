@@ -206,11 +206,11 @@ where
 
     L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
-    LV::Shape: Broadcast<RV::Shape, BShape = OV::Shape>,
+    LV::Shape: Broadcast<RV::Shape, Shape = OV::Shape>,
 
     R: Function<C, Value = RV>,
     RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
-    RV::Shape: Broadcast<LV::Shape, BShape = OV::Shape>,
+    RV::Shape: Broadcast<LV::Shape, Shape = OV::Shape>,
 
     OV: Buffer<Field = F>,
 {
@@ -342,7 +342,7 @@ where
 
     L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
-    LV::Shape: Broadcast<RV::Shape, BShape = OV::Shape>,
+    LV::Shape: Broadcast<RV::Shape, Shape = OV::Shape>,
 
     R: Function<C, Value = RV>,
     RV: Buffer<Field = F>,
@@ -478,11 +478,11 @@ where
 
     L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
-    LV::Shape: Broadcast<RV::Shape, BShape = OV::Shape>,
+    LV::Shape: Broadcast<RV::Shape, Shape = OV::Shape>,
 
     R: Function<C, Value = RV>,
     RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
-    RV::Shape: Broadcast<LV::Shape, BShape = OV::Shape>,
+    RV::Shape: Broadcast<LV::Shape, Shape = OV::Shape>,
 
     OS: Shape,
     OC: Class<OS, Buffer<F> = OV>,
@@ -597,11 +597,11 @@ where
 
     L: Function<C, Value = LV>,
     LV: Buffer<Field = F> + ZipMap<RV, Output<F> = OV>,
-    LV::Shape: Broadcast<RV::Shape, BShape = OV::Shape>,
+    LV::Shape: Broadcast<RV::Shape, Shape = OV::Shape>,
 
     R: Function<C, Value = RV>,
     RV: Buffer<Field = F> + ZipMap<LV, Output<F> = OV>,
-    RV::Shape: Broadcast<LV::Shape, BShape = OV::Shape>,
+    RV::Shape: Broadcast<LV::Shape, Shape = OV::Shape>,
 
     OV: Buffer<Field = F>,
 {

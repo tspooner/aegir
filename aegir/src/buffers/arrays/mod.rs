@@ -5,7 +5,6 @@ use super::{
     IncompatibleShapes,
     Scalar,
     ZipFold,
-    ZipMap,
 };
 
 /// Array buffer class.

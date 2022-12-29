@@ -12,6 +12,7 @@ impl DataIdentifier {
         let type_id = &self.type_id;
 
         syn::parse2(quote! {
+            /// Identifier type with symbol #type_id.
             #[derive(Clone, Copy, Debug, PartialEq, Eq)]
             pub struct #type_id;
         })

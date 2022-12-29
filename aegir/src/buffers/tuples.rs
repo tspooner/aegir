@@ -107,7 +107,7 @@ impl<F: Scalar> ZipMap for (F, F) {
     #[inline]
     fn zip_shape(
         self,
-        rshape: S1<2>,
+        _: S1<2>,
     ) -> Result<(F, F), IncompatibleShapes<S1<2>>> {
         Ok(self)
     }

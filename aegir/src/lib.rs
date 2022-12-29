@@ -104,7 +104,7 @@ pub trait Read<I: Identifier>: Context {
     }
 }
 
-/// Helper macro for simple, auto-magical [Context] types.
+/// Helper macro for defining simple, auto-magical [Context] types.
 #[macro_export]
 macro_rules! ctx_type {
     ($name:ident { $($buf_name:ident: $buf_ident:ident),+ }) => {
@@ -117,6 +117,7 @@ macro_rules! ctx_type {
     }
 }
 
+/// Helper macro for creating anonymous [Context] types.
 #[macro_export]
 macro_rules! ctx {
     ($($key:ident = $value:expr),+) => {{
@@ -231,17 +232,31 @@ pub trait Function<C: Context>: Node {
     /// The error type of the function.
     type Error: std::error::Error;
 
-    /// Evaluate the function and return the corresponding
-    /// [Value](Function::Value).
+    /// Evaluate the function and return its [Value](Function::Value).
     ///
     /// # Examples
+    ///
     /// ```
     /// # #[macro_use] extern crate aegir;
     /// # use aegir::{Identifier, Function, ids::X};
-    /// assert_eq!(X.into_var().evaluate(ctx!{X = 1.0}).unwrap(), 1.0);
+    /// let x = X.into_var();
+    ///
+    /// assert_eq!(x.evaluate(ctx!{X = 1.0}).unwrap(), 1.0);
     /// ```
     fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> AegirResult<Self, C>;
 
+    /// Evaluate the function and return its lifted [Value](Function::Value).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate aegir;
+    /// # use aegir::{Identifier, Function, Differentiable, buffers::{Spec, shapes::S2}, ids::X};
+    /// let x = X.into_var().adjoint(X);
+    /// let jx = X.into_var().adjoint(X);
+    ///
+    /// assert_eq!(jx.evaluate_spec(ctx!{X = [1.0, 2.0]}).unwrap(), Spec::Diagonal(S2, 1.0));
+    /// ```
     fn evaluate_spec<CR: AsRef<C>>(
         &self,
         ctx: CR,

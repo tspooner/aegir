@@ -1,7 +1,6 @@
 use super::{
     shapes::{Shaped, S0},
     Buffer,
-    Spec,
     Class,
     IncompatibleShapes,
     ZipFold,

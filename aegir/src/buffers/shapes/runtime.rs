@@ -31,7 +31,7 @@ impl<const DIM: usize> Shape for SDynamic<DIM> {
 }
 
 impl<const DIM: usize> Broadcast for SDynamic<DIM> {
-    type BShape = SDynamic<DIM>;
+    type Shape = SDynamic<DIM>;
 
     #[inline]
     fn broadcast(self, rhs: Self) -> Result<Self, IncompatibleShapes<Self>> {
@@ -47,17 +47,17 @@ impl<const DIM: usize> Broadcast for SDynamic<DIM> {
 }
 
 impl<const DIM: usize> Broadcast<S0> for SDynamic<DIM> {
-    type BShape = SDynamic<DIM>;
+    type Shape = SDynamic<DIM>;
 
     #[inline]
     fn broadcast(self, _: S0) -> Result<Self, IncompatibleShapes<Self, S0>> { Ok(self) }
 }
 
 impl<const DIM: usize> Broadcast<SDynamic<DIM>> for S0 {
-    type BShape = SDynamic<DIM>;
+    type Shape = SDynamic<DIM>;
 
     #[inline]
-    fn broadcast(self, rhs: SDynamic<DIM>) -> Result<Self::BShape, IncompatibleShapes<S0, SDynamic<DIM>>> {
+    fn broadcast(self, rhs: SDynamic<DIM>) -> Result<Self::Shape, IncompatibleShapes<S0, SDynamic<DIM>>> {
         Ok(rhs)
     }
 }
@@ -71,13 +71,13 @@ impl<const DIM: usize> std::fmt::Display for SDynamic<DIM> {
 macro_rules! impl_add_dim {
     ($n:literal + $m:literal) => {
         impl Concat<SDynamic<$m>> for SDynamic<$n> {
-            type CShape = SDynamic<{$n + $m}>;
+            type Shape = SDynamic<{$n + $m}>;
 
-            fn concat(self: SDynamic<$n>, rhs: SDynamic<$m>) -> Self::CShape {
+            fn concat(self: SDynamic<$n>, rhs: SDynamic<$m>) -> Self::Shape {
                 SDynamic(concat_arrays!(self.0, rhs.0))
             }
 
-            fn concat_indices(left: [usize; $n], rhs: [usize; $m]) -> IndexOf<Self::CShape> {
+            fn concat_indices(left: [usize; $n], rhs: [usize; $m]) -> IndexOf<Self::Shape> {
                 concat_arrays!(left, rhs)
             }
         }
