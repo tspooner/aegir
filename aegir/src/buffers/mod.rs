@@ -444,7 +444,7 @@ where
     /// let b1 = [1.0, 2.0, 3.0];
     /// let b2 = [-1.0, 0.0, 1.0];
     ///
-    /// assert_eq!(b1.zip_map(b2, |l, r| l * r).unwrap(), [-1.0, 0.0, 3.0]);
+    /// assert_eq!(b1.zip_map(&b2, |l, r| l * r).unwrap(), [-1.0, 0.0, 3.0]);
     /// ```
     fn zip_map<F: Scalar, M: Fn(Self::Field, RHS::Field) -> F>(
         self,
