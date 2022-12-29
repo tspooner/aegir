@@ -230,16 +230,16 @@ where
         let z = match (x, y) {
             (Full(sx, fx), Full(sy, fy)) => sx.broadcast(sy).map(|sz| Full(sz, fx + fy)),
 
-            (Raw(x), Full(sy, fy)) if fy.is_zero() => x.zip_map_id(sy).map(Raw),
+            (Raw(x), Full(sy, fy)) if fy.is_zero() => x.zip_shape(sy).map(Raw),
 
             (Full(sx, fx), Raw(y)) if fx.is_zero() =>
-                y.zip_map_id(sx).map(Raw).map_err(|err| err.reverse()),
+                y.zip_shape(sx).map(Raw).map_err(|err| err.reverse()),
 
             (x, y) => {
                 let x = x.unwrap();
                 let y = y.unwrap();
 
-                Ok(Raw(x.zip_map(y, |xi, yi| xi + yi).unwrap()))
+                Ok(Raw(x.zip_map_id(&y, |xi, yi| xi + yi).unwrap()))
             },
         };
 
@@ -365,13 +365,13 @@ where
         let z = match (x, y) {
             (Full(sx, fx), Full(sy, fy)) => sx.broadcast(sy).map(|sz| Full(sz, fx - fy)),
 
-            (Raw(x), Full(sy, fy)) if fy.is_zero() => x.zip_map_id(sy).map(Raw),
+            (Raw(x), Full(sy, fy)) if fy.is_zero() => x.zip_shape(sy).map(Raw),
 
             (x, y) => {
                 let x = x.unwrap();
                 let y = y.unwrap();
 
-                Ok(Raw(x.zip_map(y, |xi, yi| xi - yi).unwrap()))
+                Ok(Raw(x.zip_map_id(&y, |xi, yi| xi - yi).unwrap()))
             },
         };
 
@@ -514,18 +514,18 @@ where
 
             // Short-circuits when either value is known to be all-ones:
             //  x * 1 = x
-            (Raw(x), Full(sy, fy)) if fy.is_zero() => x.zip_map_id(sy).map(Raw),
+            (Raw(x), Full(sy, fy)) if fy.is_zero() => x.zip_shape(sy).map(Raw),
 
             //  1 * x = x
             (Full(sx, fx), Raw(y)) if fx.is_zero() =>
-                y.zip_map_id(sx).map(Raw).map_err(|err| err.reverse()),
+                y.zip_shape(sx).map(Raw).map_err(|err| err.reverse()),
 
             // Regular case:
             (x, y) => {
                 let x = x.unwrap();
                 let y = y.unwrap();
 
-                Ok(Raw(x.zip_map(y, |xi, yi| xi * yi).unwrap()))
+                Ok(Raw(x.zip_map_id(&y, |xi, yi| xi * yi).unwrap()))
             },
         };
 
@@ -612,7 +612,7 @@ where
         let x = self.0.evaluate(ctx.as_ref()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(ctx).map_err(BinaryError::Right)?;
 
-        x.zip_map(y, |xi, yi| xi / yi).map_err(BinaryError::Output)
+        x.zip_map_id(&y, |xi, yi| xi / yi).map_err(BinaryError::Output)
     }
 
     fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {

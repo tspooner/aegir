@@ -85,14 +85,14 @@ macro_rules! impl_scalar {
             #[inline]
             fn zip_map<A: Scalar, M: Fn($F, $F) -> A>(
                 self,
-                rhs: $F,
+                rhs: &$F,
                 f: M,
             ) -> Result<A, IncompatibleShapes<S0>> {
-                Ok(f(self, rhs))
+                Ok(f(self, *rhs))
             }
 
             #[inline]
-            fn zip_map_id(
+            fn zip_shape(
                 self,
                 _: S0,
             ) -> Result<Self, IncompatibleShapes<S0>> {

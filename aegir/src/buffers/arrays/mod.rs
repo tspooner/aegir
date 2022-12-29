@@ -24,21 +24,6 @@ mod tests {
 
         const V: [f64; 2] = [1.0, 2.0];
 
-        // #[test]
-        // fn test_replace() {
-        // assert_eq!(V.to_zeroes(), [0.0; 2]);
-        // assert_eq!(V.into_zeroes(), [0.0; 2]);
-
-        // assert_eq!(V.to_ones(), [1.0; 2]);
-        // assert_eq!(V.into_ones(), [1.0; 2]);
-
-        // assert_eq!(V.to_filled(5.0), [5.0; 2]);
-        // assert_eq!(V.to_filled(-1.0), [-1.0; 2]);
-
-        // assert_eq!(V.into_filled(5.0), [5.0; 2]);
-        // assert_eq!(V.into_filled(-1.0), [-1.0; 2]);
-        // }
-
         #[test]
         fn test_transforms() {
             assert_eq!(V.map(|x| x * 2.0), [2.0, 4.0]);
