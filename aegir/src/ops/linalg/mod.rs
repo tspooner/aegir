@@ -50,19 +50,19 @@ where
         BinaryError<L::Error, R::Error, IncShapes<ShapeOf<L::Value>, ShapeOf<R::Value>>>;
     type Value = <L::Value as CTrait<R::Value, AXES>>::Output;
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+    fn evaluate<CR: AsMut<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
         self.evaluate_spec(ctx).map(|state| state.unwrap())
     }
 
-    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
-        let x = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
+    fn evaluate_spec<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+        let x = self.0.evaluate_spec(&mut ctx).map_err(BinaryError::Left)?;
         let y = self.1.evaluate_spec(ctx).map_err(BinaryError::Right)?;
 
         <L::Value as CTrait<R::Value, AXES>>::contract_spec(x, y).map_err(BinaryError::Output)
     }
 
-    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        let x = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
+    fn evaluate_shape<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let x = self.0.evaluate_shape(&mut ctx).map_err(BinaryError::Left)?;
         let y = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
         <L::Value as CTrait<R::Value, AXES>>::contract_shape(x, y).map_err(BinaryError::Output)
@@ -138,8 +138,8 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorProduct<L, R> {
 ///     Y = [-1.0, 0.0, 2.0]
 /// };
 ///
-/// assert_eq!(f.evaluate_dual(X, &ctx).unwrap(), dual!(5.0, [-1.0, 0.0, 2.0]));
-/// assert_eq!(f.evaluate_dual(Y, &ctx).unwrap(), dual!(5.0, [1.0, 2.0, 3.0]));
+/// assert_eq!(f.evaluate_dual(X, &mut ctx).unwrap(), dual!(5.0, [-1.0, 0.0, 2.0]));
+/// assert_eq!(f.evaluate_dual(Y, &mut ctx).unwrap(), dual!(5.0, [1.0, 2.0, 3.0]));
 /// ```
 pub type TensorDot<L, R> = Contract<1, L, R>;
 

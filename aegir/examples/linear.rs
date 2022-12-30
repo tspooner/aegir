@@ -41,7 +41,7 @@ fn main() {
         ctx.y = ctx.x.iter().zip(true_weights.iter()).map(|(x, tw)| x * tw).sum();
 
         // Evaluate gradient:
-        let g: [f64; N] = adj.evaluate(&ctx).unwrap();
+        let g: [f64; N] = adj.evaluate(&mut ctx).unwrap();
 
         for i in 0..N {
             ctx.w[i] -= 0.01 * g[i];

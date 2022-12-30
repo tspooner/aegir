@@ -60,15 +60,15 @@ where
     type Error = SourceError<()>;
     type Value = S::Buffer;
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<S::Buffer, Self::Error> {
+    fn evaluate<CR: AsMut<C>>(&self, ctx: CR) -> Result<S::Buffer, Self::Error> {
         self.evaluate_spec(ctx).map(|spec| spec.unwrap())
     }
 
-    fn evaluate_spec<CR: AsRef<C>>(&self, _: CR) -> Result<Spec<S::Buffer>, Self::Error> {
+    fn evaluate_spec<CR: AsMut<C>>(&self, _: CR) -> Result<Spec<S::Buffer>, Self::Error> {
         Ok(self.0.clone().into_spec())
     }
 
-    fn evaluate_shape<CR: AsRef<C>>(&self, _: CR) -> Result<S::Shape, Self::Error> {
+    fn evaluate_shape<CR: AsMut<C>>(&self, _: CR) -> Result<S::Shape, Self::Error> {
         Ok(self.0.shape())
     }
 }
@@ -162,21 +162,21 @@ where
     type Error = crate::BinaryError<N::Error, SourceError<T>, crate::NoError>;
     type Value = <CA as Class<SA>>::Buffer<F>;
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+    fn evaluate<CR: AsMut<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
         self.evaluate_spec(ctx).map(|lifted| lifted.unwrap())
     }
 
-    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsMut<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         self.evaluate_shape(ctx)
             .map(|shape| Spec::Full(shape, F::zero()))
     }
 
-    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<SA, Self::Error> {
+    fn evaluate_shape<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<SA, Self::Error> {
         let shape_value = self
             .node
-            .evaluate_shape(ctx.as_ref())
+            .evaluate_shape(&mut ctx)
             .map_err(crate::BinaryError::Left)?;
-        let shape_target = ctx.as_ref().read(self.target).map(|buf| buf.shape()).ok_or(
+        let shape_target = ctx.as_mut().read(self.target).map(|buf| buf.shape()).ok_or(
             crate::BinaryError::Right(SourceError::Undefined(self.target)),
         )?;
 

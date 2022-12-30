@@ -240,11 +240,11 @@ where
     type Error = N::Error;
     type Value = F;
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+    fn evaluate<CR: AsMut<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
         self.0.evaluate(ctx).map(|buf| buf.sum())
     }
 
-    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsMut<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         use Spec::*;
 
         Ok(match self.0.evaluate_spec(ctx)? {
@@ -255,7 +255,7 @@ where
     }
 
     #[inline]
-    fn evaluate_shape<CR: AsRef<C>>(&self, _: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+    fn evaluate_shape<CR: AsMut<C>>(&self, _: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
         Ok(S0)
     }
 }

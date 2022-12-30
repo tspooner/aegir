@@ -44,7 +44,7 @@ fn main() {
         ctx.y = rng.gen_bool(ops::sigmoid(yy)) as u8 as f64;
 
         // Evaluate gradient:
-        let g: [f64; N] = adj.evaluate(&ctx).unwrap();
+        let g: [f64; N] = adj.evaluate(&mut ctx).unwrap();
 
         for i in 0..N {
             ctx.w[i] += 0.0005 * g[i];

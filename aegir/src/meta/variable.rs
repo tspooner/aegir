@@ -58,20 +58,20 @@ where
     type Error = SourceError<I>;
     type Value = C::Buffer;
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
-        ctx.as_ref()
+    fn evaluate<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<Self::Value, Self::Error> {
+        ctx.as_mut()
             .read(self.0)
             .ok_or_else(|| SourceError::Undefined(self.0))
     }
 
-    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
-        ctx.as_ref()
+    fn evaluate_spec<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+        ctx.as_mut()
             .read_spec(self.0)
             .ok_or_else(|| SourceError::Undefined(self.0))
     }
 
-    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        ctx.as_ref()
+    fn evaluate_shape<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        ctx.as_mut()
             .read_shape(self.0)
             .ok_or_else(|| SourceError::Undefined(self.0))
     }
@@ -158,21 +158,21 @@ where
     type Error = crate::BinaryError<SourceError<I>, SourceError<T>, crate::NoError>;
     type Value = <CA as Class<SA>>::Buffer<F>;
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+    fn evaluate<CR: AsMut<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
         self.evaluate_spec(ctx).map(|spec| spec.unwrap())
     }
 
-    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         let shape_value = ctx
-            .as_ref()
+            .as_mut()
             .read_shape(self.value)
             .ok_or(crate::BinaryError::Left(SourceError::Undefined(self.value)))?;
-        let shape_target =
-            ctx.as_ref()
-                .read_shape(self.target)
-                .ok_or(crate::BinaryError::Right(SourceError::Undefined(
-                    self.target,
-                )))?;
+        let shape_target = ctx
+            .as_mut()
+            .read_shape(self.target)
+            .ok_or(crate::BinaryError::Right(SourceError::Undefined(
+                self.target,
+            )))?;
         let shape_adjoint = shape_value.concat(shape_target);
 
         Ok(if self.value == self.target {
@@ -200,17 +200,17 @@ where
         })
     }
 
-    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<SA, Self::Error> {
+    fn evaluate_shape<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<SA, Self::Error> {
         let shape_value = ctx
-            .as_ref()
+            .as_mut()
             .read_shape(self.value)
             .ok_or(crate::BinaryError::Left(SourceError::Undefined(self.value)))?;
-        let shape_target =
-            ctx.as_ref()
-                .read_shape(self.target)
-                .ok_or(crate::BinaryError::Right(SourceError::Undefined(
-                    self.target,
-                )))?;
+        let shape_target = ctx
+            .as_mut()
+            .read_shape(self.target)
+            .ok_or(crate::BinaryError::Right(SourceError::Undefined(
+                self.target,
+            )))?;
 
         Ok(shape_value.concat(shape_target))
     }

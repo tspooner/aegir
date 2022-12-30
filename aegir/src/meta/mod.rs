@@ -62,3 +62,6 @@ pub use self::constant::{Constant, ConstantAdjoint};
 
 mod variable;
 pub use self::variable::{Variable, VariableAdjoint};
+
+mod cached;
+pub use self::cached::Cached;

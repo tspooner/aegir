@@ -94,17 +94,17 @@ where
     type Error = BinaryError<N::Error, E::Error, crate::NoError>;
     type Value = N::Value;
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+    fn evaluate<CR: AsMut<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
         self.evaluate_spec(ctx).map(|state| state.unwrap())
     }
 
-    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         use Spec::*;
 
         let zero = F::zero();
         let one = F::one();
 
-        let base = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
+        let base = self.0.evaluate_spec(&mut ctx).map_err(BinaryError::Left)?;
         let exponent = self.1.evaluate_spec(ctx).map_err(BinaryError::Right)?;
 
         match (base, exponent) {
@@ -124,7 +124,7 @@ where
         }
     }
 
-    fn evaluate_shape<CR: AsRef<C>>(&self, _: CR) -> Result<buffers::shapes::S0, Self::Error> {
+    fn evaluate_shape<CR: AsMut<C>>(&self, _: CR) -> Result<buffers::shapes::S0, Self::Error> {
         Ok(buffers::shapes::S0)
     }
 }
@@ -217,14 +217,14 @@ where
     type Error = Error<C, L, R>;
     type Value = OV;
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+    fn evaluate<CR: AsMut<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
         self.evaluate_spec(ctx).map(|state| state.unwrap())
     }
 
-    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         use Spec::*;
 
-        let x = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
+        let x = self.0.evaluate_spec(&mut ctx).map_err(BinaryError::Left)?;
         let y = self.1.evaluate_spec(ctx).map_err(BinaryError::Right)?;
 
         let z = match (x, y) {
@@ -246,8 +246,8 @@ where
         z.map_err(BinaryError::Output)
     }
 
-    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
+    fn evaluate_shape<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&mut ctx).map_err(BinaryError::Left)?;
         let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
         l_shape.broadcast(r_shape).map_err(BinaryError::Output)
@@ -352,14 +352,14 @@ where
     type Error = Error<C, L, R>;
     type Value = OV;
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+    fn evaluate<CR: AsMut<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
         self.evaluate_spec(ctx).map(|state| state.unwrap())
     }
 
-    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         use Spec::*;
 
-        let x = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
+        let x = self.0.evaluate_spec(&mut ctx).map_err(BinaryError::Left)?;
         let y = self.1.evaluate_spec(ctx).map_err(BinaryError::Right)?;
 
         let z = match (x, y) {
@@ -378,8 +378,8 @@ where
         z.map_err(BinaryError::Output)
     }
 
-    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
+    fn evaluate_shape<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&mut ctx).map_err(BinaryError::Left)?;
         let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
         l_shape.broadcast(r_shape).map_err(BinaryError::Output)
@@ -491,15 +491,15 @@ where
     type Error = Error<C, L, R>;
     type Value = OV;
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
+    fn evaluate<CR: AsMut<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
         self.evaluate_spec(ctx).map(|state| state.unwrap())
     }
 
-    fn evaluate_spec<CR: AsRef<C>>(&self, ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
+    fn evaluate_spec<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<Spec<Self::Value>, Self::Error> {
         use Spec::*;
 
-        let x = self.0.evaluate_spec(&ctx).map_err(BinaryError::Left)?;
-        let y = self.1.evaluate_spec(&ctx).map_err(BinaryError::Right)?;
+        let x = self.0.evaluate_spec(&mut ctx).map_err(BinaryError::Left)?;
+        let y = self.1.evaluate_spec(ctx).map_err(BinaryError::Right)?;
 
         let z = match (x, y) {
             // Simple performance case if both are Spec::Full:
@@ -532,8 +532,8 @@ where
         z.map_err(BinaryError::Output)
     }
 
-    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
+    fn evaluate_shape<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&mut ctx).map_err(BinaryError::Left)?;
         let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
         l_shape.broadcast(r_shape).map_err(BinaryError::Output)
@@ -608,15 +608,15 @@ where
     type Error = Error<C, L, R>;
     type Value = OV;
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
-        let x = self.0.evaluate(ctx.as_ref()).map_err(BinaryError::Left)?;
+    fn evaluate<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<Self::Value, Self::Error> {
+        let x = self.0.evaluate(ctx.as_mut()).map_err(BinaryError::Left)?;
         let y = self.1.evaluate(ctx).map_err(BinaryError::Right)?;
 
         x.zip_map_id(&y, |xi, yi| xi / yi).map_err(BinaryError::Output)
     }
 
-    fn evaluate_shape<CR: AsRef<C>>(&self, ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
-        let l_shape = self.0.evaluate_shape(&ctx).map_err(BinaryError::Left)?;
+    fn evaluate_shape<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<ShapeOf<Self::Value>, Self::Error> {
+        let l_shape = self.0.evaluate_shape(&mut ctx).map_err(BinaryError::Left)?;
         let r_shape = self.1.evaluate_shape(ctx).map_err(BinaryError::Right)?;
 
         l_shape.broadcast(r_shape).map_err(BinaryError::Output)

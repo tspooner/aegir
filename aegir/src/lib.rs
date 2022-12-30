@@ -81,7 +81,9 @@ pub mod ids {
 }
 
 /// Trait for types that store data [buffers](buffers::Buffer).
-pub trait Context: AsRef<Self> {}
+pub trait Context: AsMut<Self> {
+
+}
 
 /// Trait for reading entries out of a [Context].
 pub trait Read<I: Identifier>: Context {
@@ -101,6 +103,14 @@ pub trait Read<I: Identifier>: Context {
         use buffers::shapes::Shaped;
 
         self.read(ident).map(|buf| buf.shape())
+    }
+}
+
+pub trait Write<I: Identifier>: Read<I> {
+    fn write(&mut self, ident: I, val: Self::Buffer);
+
+    fn write_spec(&mut self, ident: I, spec: buffers::Spec<Self::Buffer>) {
+        self.write(ident, spec.unwrap());
     }
 }
 
@@ -133,6 +143,16 @@ macro_rules! ctx {
 
 /// Base trait for operator nodes.
 pub trait Node {
+    fn cached<I: Identifier>(self, ident: I) -> meta::Cached<Self, I>
+    where
+        Self: Sized,
+    {
+        meta::Cached {
+            node: self,
+            ident,
+        }
+    }
+
     fn add<N: Node>(self, other: N) -> ops::Add<Self, N>
     where
         Self: Sized,
@@ -243,7 +263,7 @@ pub trait Function<C: Context>: Node {
     ///
     /// assert_eq!(x.evaluate(ctx!{X = 1.0}).unwrap(), 1.0);
     /// ```
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> AegirResult<Self, C>;
+    fn evaluate<CR: AsMut<C>>(&self, ctx: CR) -> AegirResult<Self, C>;
 
     /// Evaluate the function and return its lifted [Value](Function::Value).
     ///
@@ -257,7 +277,7 @@ pub trait Function<C: Context>: Node {
     ///
     /// assert_eq!(jx.evaluate_spec(ctx!{X = [1.0, 2.0]}).unwrap(), Spec::Diagonal(S2, 1.0));
     /// ```
-    fn evaluate_spec<CR: AsRef<C>>(
+    fn evaluate_spec<CR: AsMut<C>>(
         &self,
         ctx: CR,
     ) -> Result<buffers::Spec<Self::Value>, Self::Error> {
@@ -270,7 +290,7 @@ pub trait Function<C: Context>: Node {
     /// __Note:__ by default, this method performs a full evaluation and calls
     /// the shape method on the buffer. This should be overridden in your
     /// implementation for better efficiency.
-    fn evaluate_shape<CR: AsRef<C>>(
+    fn evaluate_shape<CR: AsMut<C>>(
         &self,
         ctx: CR,
     ) -> Result<buffers::shapes::ShapeOf<Self::Value>, Self::Error> {
@@ -308,7 +328,7 @@ pub trait Differentiable<T: Identifier>: Node {
     /// __Note:__ this method can be more efficient than explicitly solving for
     /// the adjoint tree. In particular, this method can be implemented
     /// using direct numerical calculations.
-    fn evaluate_adjoint<C: Context, CR: AsRef<C>>(
+    fn evaluate_adjoint<C: Context, CR: AsMut<C>>(
         &self,
         target: T,
         ctx: CR,
@@ -322,10 +342,10 @@ pub trait Differentiable<T: Identifier>: Node {
 
     /// Helper method that evaluates the function and its adjoint, wrapping up
     /// in a [Dual].
-    fn evaluate_dual<C: Context, CR: AsRef<C>>(
+    fn evaluate_dual<C: Context, CR: AsMut<C>>(
         &self,
         target: T,
-        ctx: CR,
+        mut ctx: CR,
     ) -> Result<
         DualOf<Self, C, T>,
         BinaryError<Self::Error, <AdjointOf<Self, T> as Function<C>>::Error, NoError>,
@@ -334,7 +354,7 @@ pub trait Differentiable<T: Identifier>: Node {
         Self: Function<C>,
         Self::Adjoint: Function<C>,
     {
-        let value = self.evaluate(&ctx).map_err(BinaryError::Left)?;
+        let value = self.evaluate(&mut ctx).map_err(BinaryError::Left)?;
         let adjoint = self.evaluate_adjoint(target, ctx).map_err(BinaryError::Right)?;
 
         Ok(dual!(value, adjoint))

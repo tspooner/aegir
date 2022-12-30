@@ -42,6 +42,10 @@ fn ctx_struct_impl(ast: &syn::DeriveInput, ds: &syn::DataStruct) -> TokenStream 
             fn as_ref(&self) -> &Self { self }
         }
 
+        impl #impl_generics ::std::convert::AsMut<Self> for #name #ty_generics #where_clause {
+            fn as_mut(&mut self) -> &mut Self { self }
+        }
+
         impl #impl_generics ::aegir::Context for #name #ty_generics #where_clause {}
     };
 
