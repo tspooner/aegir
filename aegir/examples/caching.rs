@@ -15,37 +15,16 @@ use aegir::{
 };
 use std::time;
 
+#[derive(Context)]
 pub struct Ctx {
-    pub x: Vec<f64>,
-    cache: Option<f64>
+    #[id(X)] pub x: Vec<f64>,
+    #[id(C)] #[cache] cache: Option<f64>,
 }
 
 impl Ctx {
     pub fn new(x: Vec<f64>) -> Ctx {
         Ctx { x, cache: None, }
     }
-}
-
-impl AsMut<Self> for Ctx {
-    fn as_mut(&mut self) -> &mut Self { self }
-}
-
-impl Context for Ctx {}
-
-impl Read<X> for Ctx {
-    type Buffer = Vec<f64>;
-
-    fn read(&self, _: X) -> Option<Vec<f64>> { Some(self.x.clone()) }
-}
-
-impl Read<C> for Ctx {
-    type Buffer = f64;
-
-    fn read(&self, _: C) -> Option<f64> { self.cache.clone() }
-}
-
-impl Write<C> for Ctx {
-    fn write(&mut self, _: C, value: f64) { self.cache.replace(value); }
 }
 
 macro_rules! time_op {

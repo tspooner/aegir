@@ -14,11 +14,11 @@ mod ops;
 #[proc_macro]
 pub fn ids(tokens: TokenStream) -> TokenStream { ids::expand(tokens).into() }
 
-#[proc_macro_derive(Context, attributes(id))]
+#[proc_macro_derive(Context, attributes(id, cache))]
 pub fn derive_ctx(tokens: TokenStream) -> TokenStream {
-    let ast = syn::parse2(tokens.into()).unwrap();
+    let ds = syn::parse2(tokens.into()).unwrap();
 
-    ctx::expand(&ast).into()
+    ctx::expand(ds).into()
 }
 
 #[proc_macro_derive(Contains, attributes(op))]
