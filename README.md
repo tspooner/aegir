@@ -34,7 +34,7 @@ extern crate rand;
 
 use aegir::{Differentiable, Function, Identifier, Node, ids::{X, Y, W}};
 
-ctx!(Ctx { x: X, y: Y, w: W });
+ctx_type!(Ctx { x: X, y: Y, w: W });
 
 fn main() {
     let mut rng = rand::thread_rng();
