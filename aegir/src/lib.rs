@@ -23,8 +23,6 @@
 //! - Decoupled/generic tensor type.
 //! - Monadic runtime optimisation.
 //! - Custom DSL for operator expansion.
-#![warn(missing_docs)]
-
 #[allow(unused_imports)]
 #[macro_use]
 extern crate aegir_derive;
