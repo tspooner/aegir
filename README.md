@@ -39,9 +39,9 @@ ctx_type!(Ctx { x: X, y: Y, w: W });
 fn main() {
     let mut rng = rand::thread_rng();
     let mut ctx = Ctx {
-        x: [0.0; N],
+        x: [0.0; 2],
         y: 0.0,
-        w: [0.0; N],
+        w: [0.0; 2],
     };
 
     let x = X.into_var();
@@ -66,7 +66,7 @@ fn main() {
         ctx.y = ctx.x[0] * 2.0 - ctx.x[1] * 4.0;
 
         // Evaluate gradient:
-        let g: [f64; N] = adj.evaluate(&ctx).unwrap();
+        let g: [f64; 2] = adj.evaluate(&ctx).unwrap();
 
         // Update weights:
         ctx.w[0] -= 0.01 * g[0];
