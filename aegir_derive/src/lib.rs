@@ -7,18 +7,22 @@ extern crate syn;
 use proc_macro::TokenStream;
 
 mod ids;
-
 mod ctx;
 mod ops;
 
 #[proc_macro]
 pub fn ids(tokens: TokenStream) -> TokenStream { ids::expand(tokens).into() }
 
+#[proc_macro]
+pub fn ctx_type(tokens: TokenStream) -> TokenStream {
+    ctx::ctx_type::expand(tokens).into()
+}
+
 #[proc_macro_derive(Context, attributes(id, cache))]
 pub fn derive_ctx(tokens: TokenStream) -> TokenStream {
     let ds = syn::parse2(tokens.into()).unwrap();
 
-    ctx::expand(ds).into()
+    ctx::derive::expand(ds).into()
 }
 
 #[proc_macro_derive(Contains, attributes(op))]

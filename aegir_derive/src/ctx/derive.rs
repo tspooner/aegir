@@ -1,3 +1,4 @@
+use super::CtxField;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::{self, visit::Visit};
@@ -126,146 +127,136 @@ impl std::fmt::Debug for CtxFieldError {
     }
 }
 
-#[derive(Debug)]
-struct CtxField {
-    pub name: syn::Ident,
-    pub buffer_ty: syn::Type,
+fn parse_ty_cache(ty: &syn::Type) -> Result<syn::Type, CtxFieldError> {
+    if let syn::Type::Path(tp) = ty {
+        tp.path.segments
+            .first()
+            .filter(|outer_ty| outer_ty.ident == "Option")
+            .and_then(|outer_ty| {
+                use syn::PathArguments::AngleBracketed;
 
-    pub ident: Option<syn::Ident>,
-    pub is_cache: bool,
-}
+                if let AngleBracketed(ab) = &outer_ty.arguments {
+                    let ab_args = &ab.args;
 
-impl CtxField {
-    fn parse_ty_cache(ty: &syn::Type) -> Result<syn::Type, CtxFieldError> {
-        if let syn::Type::Path(tp) = ty {
-            tp.path.segments
-                .first()
-                .filter(|outer_ty| outer_ty.ident == "Option")
-                .and_then(|outer_ty| {
-                    use syn::PathArguments::AngleBracketed;
-
-                    if let AngleBracketed(ab) = &outer_ty.arguments {
-                        Some(ab.args.clone())
-                    } else {
-                        None
-                    }
-                })
-                .map(|inner_ty| {
-                    syn::TypePath {
+                    Some(syn::Type::Path(syn::TypePath {
                         qself: tp.qself.clone(),
                         path: syn::Path {
                             leading_colon: tp.path.leading_colon.clone(),
-                            segments: parse_quote! { #inner_ty },
+                            segments: parse_quote! { #ab_args },
                         },
-                    }
-                })
-                .map(syn::Type::Path)
-                .ok_or(CtxFieldError::ImproperCacheType)
-        } else {
-            Err(CtxFieldError::ImproperCacheType)
-        }
-    }
-
-    fn parse_field(field: &syn::Field) -> Result<CtxField, CtxFieldError> {
-        let name = field.ident.to_owned().ok_or(CtxFieldError::NoFieldId)?;
-
-        let mut is_cache = false;
-        let mut field_ident = None;
-
-        let valid_attrs = field.attrs
-            .iter()
-            .map(|attr| CtxAttr::parse_attr(attr))
-            .collect::<Result<Vec<CtxAttr>, _>>()
-            .map_err(CtxFieldError::ParseError)?;
-
-        for ctx_attr in valid_attrs {
-            match ctx_attr {
-                CtxAttr::Unknown => {},
-                CtxAttr::CacheAttr => { is_cache = true; }
-                CtxAttr::IdAttr(ident) => if field_ident.is_some() {
-                    return Err(CtxFieldError::TooManyIds);
+                    }))
                 } else {
-                    field_ident = Some(ident);
-                },
-            }
-        }
-
-        if is_cache && field_ident.is_none() {
-            Err(CtxFieldError::NoFieldId)
-        } else {
-            let buffer_ty = if is_cache {
-                CtxField::parse_ty_cache(&field.ty)?
-            } else {
-                field.ty.to_owned()
-            };
-
-            Ok(CtxField {
-                name,
-                buffer_ty,
-
-                ident: field_ident,
-                is_cache,
+                    None
+                }
             })
+            .ok_or(CtxFieldError::ImproperCacheType)
+    } else {
+        Err(CtxFieldError::ImproperCacheType)
+    }
+}
+
+fn parse_field(field: &syn::Field) -> Result<CtxField, CtxFieldError> {
+    let name = field.ident.to_owned().ok_or(CtxFieldError::NoFieldId)?;
+
+    let mut is_cache = false;
+    let mut field_ident = None;
+
+    let valid_attrs = field.attrs
+        .iter()
+        .map(|attr| CtxAttr::parse_attr(attr))
+        .collect::<Result<Vec<CtxAttr>, _>>()
+        .map_err(CtxFieldError::ParseError)?;
+
+    for ctx_attr in valid_attrs {
+        match ctx_attr {
+            CtxAttr::Unknown => {},
+            CtxAttr::CacheAttr => { is_cache = true; }
+            CtxAttr::IdAttr(ident) => if field_ident.is_some() {
+                return Err(CtxFieldError::TooManyIds);
+            } else {
+                field_ident = Some(ident);
+            },
         }
     }
 
-    fn emit_read_fns(&self) -> Option<TokenStream> {
-        let field_name = &self.name;
-
-        self.ident.as_ref().map(|field_id| if self.is_cache {
-            quote! {
-                #[inline]
-                fn read_spec(&self, _: #field_id) -> Option<::aegir::buffers::Spec<Self::Buffer>> {
-                    use ::aegir::buffers::IntoSpec;
-
-                    self.#field_name.clone().map(|buf| buf.into_spec())
-                }
-
-                #[inline]
-                fn read_shape(&self, _: #field_id) -> Option<::aegir::buffers::shapes::ShapeOf<Self::Buffer>> {
-                    use ::aegir::buffers::shapes::Shaped;
-
-                    self.#field_name.as_ref().map(|buf| buf.shape())
-                }
-            }
+    if is_cache && field_ident.is_none() {
+        Err(CtxFieldError::NoFieldId)
+    } else {
+        let buffer_ty = if is_cache {
+            parse_ty_cache(&field.ty)?
         } else {
-            quote! {
-                #[inline]
-                fn read_spec(&self, _: #field_id) -> Option<::aegir::buffers::Spec<Self::Buffer>> {
-                    use ::aegir::buffers::IntoSpec;
+            field.ty.to_owned()
+        };
 
-                    Some(self.#field_name.clone().into_spec())
-                }
+        Ok(CtxField {
+            name,
 
-                #[inline]
-                fn read_shape(&self, _: #field_id) -> Option<::aegir::buffers::shapes::ShapeOf<Self::Buffer>> {
-                    use ::aegir::buffers::shapes::Shaped;
+            ty: field.ty.to_owned(),
+            buffer_ty,
 
-                    Some(self.#field_name.shape())
-                }
-            }
+            ident: field_ident,
+            is_cache,
         })
     }
+}
 
-    fn emit_write_fns(&self) -> Option<TokenStream> {
-        let field_name = &self.name;
+fn emit_read_fns(ctx_field: &CtxField) -> Option<TokenStream> {
+    let field_name = &ctx_field.name;
+    let field_bty = &ctx_field.buffer_ty;
 
-        self.ident.as_ref().map(|field_id| if self.is_cache {
-            quote! {
-                #[inline]
-                fn write(&mut self, fid: #field_id, value: Self::Buffer) {
-                    self.#field_name.replace(value);
-                }
+    ctx_field.ident.as_ref().map(|field_id| if ctx_field.is_cache {
+        quote! {
+            #[inline]
+            fn read_spec(&self, _: #field_id) -> Option<::aegir::buffers::Spec<#field_bty>> {
+                use ::aegir::buffers::IntoSpec;
+
+                self.#field_name.clone().map(|buf| buf.into_spec())
             }
-        } else {
-            quote! {
-                #[inline]
-                fn write(&mut self, fid: #field_id, value: Self::Buffer) {
-                    self.#field_name = value;
-                }
+
+            #[inline]
+            fn read_shape(&self, _: #field_id) -> Option<::aegir::buffers::shapes::ShapeOf<#field_bty>> {
+                use ::aegir::buffers::shapes::Shaped;
+
+                self.#field_name.as_ref().map(|buf| buf.shape())
             }
-        })
-    }
+        }
+    } else {
+        quote! {
+            #[inline]
+            fn read_spec(&self, _: #field_id) -> Option<::aegir::buffers::Spec<#field_bty>> {
+                use ::aegir::buffers::IntoSpec;
+
+                Some(self.#field_name.clone().into_spec())
+            }
+
+            #[inline]
+            fn read_shape(&self, _: #field_id) -> Option<::aegir::buffers::shapes::ShapeOf<#field_bty>> {
+                use ::aegir::buffers::shapes::Shaped;
+
+                Some(self.#field_name.shape())
+            }
+        }
+    })
+}
+
+fn emit_write_fns(ctx_field: &CtxField) -> Option<TokenStream> {
+    let field_name = &ctx_field.name;
+
+    ctx_field.ident.as_ref().map(|field_id| if ctx_field.is_cache {
+        quote! {
+            #[inline]
+            fn write(&mut self, fid: #field_id, value: Self::Buffer) {
+                self.#field_name.replace(value);
+            }
+        }
+    } else {
+        quote! {
+            #[inline]
+            fn write(&mut self, fid: #field_id, value: Self::Buffer) {
+                self.#field_name = value;
+            }
+        }
+    })
 }
 
 struct FieldExtractor(Vec<CtxField>);
@@ -284,7 +275,7 @@ impl FieldExtractor {
 
 impl<'a> Visit<'a> for FieldExtractor {
     fn visit_field(&mut self, field: &syn::Field) {
-        self.0.push(CtxField::parse_field(&field).unwrap());
+        self.0.push(parse_field(&field).unwrap());
     }
 }
 
@@ -316,12 +307,10 @@ fn ctx_struct_impl(name: syn::Ident, generics: syn::Generics, ds: syn::DataStruc
             predicates: syn::punctuated::Punctuated::new(),
         });
 
-        wc_ref.predicates.push(parse_quote! {
-            #buffer_ty: Clone + ::aegir::buffers::IntoSpec + ::aegir::buffers::shapes::Shaped
-        });
+        wc_ref.predicates.push(parse_quote! { #buffer_ty: Clone + ::aegir::buffers::Buffer });
 
-        let read_fns = field.emit_read_fns().unwrap();
-        let write_fns = field.emit_write_fns().unwrap();
+        let read_fns = emit_read_fns(&field).unwrap();
+        let write_fns = emit_write_fns(&field).unwrap();
 
         let impls = quote! {
             impl #impl_generics ::aegir::Read<#field_id> for #name #ty_generics #wc {

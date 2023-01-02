@@ -202,43 +202,13 @@ mod tests {
         Identifier,
     };
 
-    #[derive(Context)]
-    struct Ctx<A, B> {
-        #[id(X)]
-        pub x: A,
-
-        #[id(Y)]
-        pub y: B,
-    }
-
     #[test]
     fn test_constant() {
         let c = 2.0f64.into_constant();
 
-        assert_eq!(c.evaluate(&Ctx { x: 1.0, y: 0.0 }).unwrap(), 2.0);
-        assert_eq!(
-            c.evaluate(&Ctx {
-                x: [-10.0, 5.0],
-                y: 0.0
-            })
-            .unwrap(),
-            2.0
-        );
-        assert_eq!(
-            c.evaluate(&Ctx {
-                x: (-1.0, 50.0),
-                y: 0.0
-            })
-            .unwrap(),
-            2.0
-        );
-        assert_eq!(
-            c.evaluate(&Ctx {
-                x: vec![1.0, 2.0],
-                y: 0.0
-            })
-            .unwrap(),
-            2.0
-        );
+        assert_eq!(c.evaluate(ctx!{X = 1.0, Y = 0.0}).unwrap(), 2.0);
+        assert_eq!(c.evaluate(ctx!{X = [-10.0, 5.0], Y = 0.0}).unwrap(), 2.0);
+        assert_eq!(c.evaluate(ctx!{X = (-1.0, 50.0), Y = 0.0}).unwrap(), 2.0);
+        assert_eq!(c.evaluate(ctx!{X = vec![1.0, 2.0], Y = 0.0}).unwrap(), 2.0);
     }
 }

@@ -15,15 +15,14 @@ use aegir::{
 };
 use std::time;
 
-#[derive(Context)]
-pub struct Ctx {
-    #[id(X)] pub x: Vec<f64>,
-    #[id(C)] #[cache] cache: Option<f64>,
-}
+ctx_type!(Ctx {
+    x: X,
+    cache cc: C,
+});
 
-impl Ctx {
-    pub fn new(x: Vec<f64>) -> Ctx {
-        Ctx { x, cache: None, }
+impl Ctx<Vec<f64>, f64> {
+    pub fn new(x: Vec<f64>) -> Self {
+        Ctx { x, cc: None, }
     }
 }
 

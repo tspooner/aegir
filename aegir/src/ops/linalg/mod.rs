@@ -133,7 +133,7 @@ impl<L: ToExpr, R: ToExpr> std::fmt::Display for TensorProduct<L, R> {
 /// # #[macro_use] extern crate aegir;
 /// # use aegir::{Identifier, Differentiable, Dual, ops::TensorDot, ids::{X, Y}};
 /// let f = TensorDot::new(X.into_var(), Y.into_var());
-/// let ctx = ctx!{
+/// let mut ctx = ctx!{
 ///     X = [1.0, 2.0, 3.0],
 ///     Y = [-1.0, 0.0, 2.0]
 /// };

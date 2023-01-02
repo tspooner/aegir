@@ -267,51 +267,21 @@ mod tests {
         Identifier,
     };
 
-    #[derive(Context)]
-    struct Ctx<A, B> {
-        #[id(X)]
-        pub x: A,
-
-        #[id(Y)]
-        pub y: B,
-    }
-
     #[test]
     fn test_variable() {
         let var = X.into_var();
 
-        assert_eq!(var.evaluate(&Ctx { x: 1.0, y: 0.0 }).unwrap(), 1.0);
-        assert_eq!(
-            var.evaluate(&Ctx {
-                x: [-10.0, 5.0],
-                y: 0.0
-            })
-            .unwrap(),
-            [-10.0, 5.0]
-        );
-        assert_eq!(
-            var.evaluate(&Ctx {
-                x: (-1.0, 50.0),
-                y: 0.0
-            })
-            .unwrap(),
-            (-1.0, 50.0)
-        );
-        assert_eq!(
-            var.evaluate(&Ctx {
-                x: vec![1.0, 2.0],
-                y: 0.0
-            })
-            .unwrap(),
-            vec![1.0, 2.0]
-        );
+        assert_eq!(var.evaluate(ctx!{X = 1.0, Y = 0.0}).unwrap(), 1.0);
+        assert_eq!(var.evaluate(ctx!{X = [-10.0, 5.0], Y = 0.0}).unwrap(), [-10.0, 5.0]);
+        assert_eq!(var.evaluate(ctx!{X = (-1.0, 50.0), Y = 0.0}).unwrap(), (-1.0, 50.0));
+        assert_eq!(var.evaluate(ctx!{X = vec![1.0, 2.0], Y = 0.0}).unwrap(), vec![1.0, 2.0]);
     }
 
     #[test]
     fn test_adjoint_zero() {
         let g = X.into_var().adjoint(Y);
 
-        assert_eq!(g.evaluate(&Ctx { x: 1.0, y: 0.0 }).unwrap(), 0.0);
+        assert_eq!(g.evaluate(ctx!{X = 1.0, Y = 0.0}).unwrap(), 0.0);
         // assert_eq!(g.evaluate(&Ctx { x: [-10.0, 5.0], y: 0.0 }).unwrap(),
         // [0.0; 2]); assert_eq!(g.evaluate(&Ctx { x: (-1.0, 50.0), y:
         // 0.0 }).unwrap(), (0.0, 0.0)); assert_eq!(g.evaluate(&Ctx { x:
@@ -322,7 +292,7 @@ mod tests {
     fn test_adjoint_one() {
         let g = X.into_var().adjoint(X);
 
-        assert_eq!(g.evaluate(&Ctx { x: 1.0, y: 0.0 }).unwrap(), 1.0);
+        assert_eq!(g.evaluate(ctx!{X = 1.0, Y = 0.0}).unwrap(), 1.0);
         // assert_eq!(g.evaluate(&Ctx { x: [-10.0, 5.0] }).unwrap(), [1.0; 2]);
         // assert_eq!(g.evaluate(&Ctx { x: (-1.0, 50.0) }).unwrap(), (1.0, 1.0));
         // assert_eq!(g.evaluate(&Ctx { x: vec![1.0, 2.0] }).unwrap(), vec![1.0;

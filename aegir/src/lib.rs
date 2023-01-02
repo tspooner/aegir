@@ -114,24 +114,11 @@ pub trait Write<I: Identifier>: Read<I> {
     }
 }
 
-/// Helper macro for defining simple, auto-magical [Context] types.
-#[macro_export]
-macro_rules! ctx_type {
-    ($name:ident { $($buf_name:ident: $buf_ident:ident),+ }) => {
-        paste! {
-            #[derive(Context)]
-            pub struct $name<$([<__ $buf_ident>]),+> {
-                $(#[id($buf_ident)] pub $buf_name: [<__ $buf_ident>]),+
-            }
-        }
-    }
-}
-
 /// Helper macro for creating anonymous [Context] types.
 #[macro_export]
 macro_rules! ctx {
     ($($key:ident = $value:expr),+) => {{
-        paste! {
+        ::paste::paste! {
             ctx_type!(Ctx { $([<_ $key:lower>]: $key),+ });
 
             Ctx {
