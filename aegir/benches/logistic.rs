@@ -79,7 +79,7 @@ macro_rules! solve_auto {
 
                 ctx.y = rng.gen_bool(ops::sigmoid(yy)) as u8 as f64;
 
-                adj.evaluate(&ctx).unwrap()
+                adj.evaluate(&mut ctx).unwrap()
             }
         );
     }}
@@ -104,7 +104,7 @@ macro_rules! solve_manual {
 
                 ctx.y = rng.gen_bool(ops::sigmoid(yy)) as u8 as f64;
 
-                adj.evaluate(&ctx).unwrap()
+                adj.evaluate(&mut ctx).unwrap()
             }
         );
     }}

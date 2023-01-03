@@ -76,7 +76,7 @@ macro_rules! solve_auto {
                 ctx.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
                 ctx.x = xs;
 
-                adj.evaluate(&ctx).unwrap()
+                adj.evaluate(&mut ctx).unwrap()
             }
         );
     }}
@@ -95,7 +95,7 @@ macro_rules! solve_manual {
                 ctx.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
                 ctx.x = xs;
 
-                adj.evaluate(&ctx).unwrap()
+                adj.evaluate(&mut ctx).unwrap()
             }
         );
     }}
@@ -112,8 +112,8 @@ where
     type Error = aegir::errors::NoError;
     type Value = [f64; N];
 
-    fn evaluate<CR: AsRef<C>>(&self, ctx: CR) -> Result<Self::Value, Self::Error> {
-        let ctxr = ctx.as_ref();
+    fn evaluate<CR: AsMut<C>>(&self, mut ctx: CR) -> Result<Self::Value, Self::Error> {
+        let ctxr = ctx.as_mut();
 
         let xs = ctxr.read(X).unwrap();
         let ws = ctxr.read(W).unwrap();
@@ -140,7 +140,7 @@ macro_rules! solve_raw {
                 ctx.y = xs.iter().zip(TW.iter().take($n)).fold(0.0, |acc, (x, y)| acc + x * y);
                 ctx.x = xs;
 
-                adj.evaluate(&ctx).unwrap()
+                adj.evaluate(&mut ctx).unwrap()
             }
         );
     }}
